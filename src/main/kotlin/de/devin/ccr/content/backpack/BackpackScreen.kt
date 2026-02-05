@@ -1,9 +1,7 @@
 package de.devin.ccr.content.backpack
 
-import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen
-import de.devin.ccr.content.backpack.client.TaskProgressTracker
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
@@ -81,87 +79,6 @@ class BackpackScreen(
 
     override fun renderForeground(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
         // Labels are handled in renderBg to match Create's style
-        
-        // Render task progress toast in bottom left corner
-        renderTaskProgressToast(guiGraphics)
-    }
-    
-    /**
-     * Renders a status toast in the bottom left corner showing current task progress.
-     * Uses the same style as the deconstructor menu HUD.
-     * Shows max 3 active tasks at a time.
-     */
-    private fun renderTaskProgressToast(guiGraphics: GuiGraphics) {
-        // Only show if there are active tasks and data is recent
-        if (!TaskProgressTracker.hasActiveTasks() || !TaskProgressTracker.isDataRecent()) {
-            return
-        }
-        
-        val toastWidth = 160
-        val lineHeight = 12
-        val padding = 6
-        val taskDescriptions = TaskProgressTracker.taskDescriptions
-        
-        // Calculate toast height based on content
-        // Header (progress) + task descriptions (max 3)
-        val contentLines = 1 + taskDescriptions.size.coerceAtMost(3)
-        val toastHeight = (contentLines * lineHeight) + (padding * 2)
-        
-        // Position in bottom left corner of the GUI window
-        val toastX = leftPos + 4
-        val toastY = topPos + imageHeight - toastHeight - 4
-        
-        // Draw semi-transparent background using HUD_BACKGROUND style
-        val gray = AllGuiTextures.HUD_BACKGROUND
-        
-        RenderSystem.enableBlend()
-        RenderSystem.setShaderColor(1f, 1f, 1f, 0.85f)
-        
-        guiGraphics.blit(
-            gray.location, 
-            toastX, toastY, 
-            gray.startX.toFloat(), gray.startY.toFloat(),
-            toastWidth, toastHeight, 
-            gray.width, gray.height
-        )
-        
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-        RenderSystem.disableBlend()
-        
-        // Draw progress header
-        val progress = TaskProgressTracker.getProgress()
-        val progressPercent = (progress * 100).toInt()
-        val progressText = "Progress: ${TaskProgressTracker.completedTasks}/${TaskProgressTracker.totalTasks} ($progressPercent%)"
-        guiGraphics.drawString(
-            font, 
-            progressText, 
-            toastX + padding, 
-            toastY + padding, 
-            0xAAFFAA,  // Light green for progress
-            false
-        )
-        
-        // Draw active task descriptions (max 3)
-        taskDescriptions.take(3).forEachIndexed { index, description ->
-            // Truncate long descriptions
-            val displayText = if (font.width(description) > toastWidth - padding * 2) {
-                var truncated = description
-                while (font.width("$truncated...") > toastWidth - padding * 2 && truncated.isNotEmpty()) {
-                    truncated = truncated.dropLast(1)
-                }
-                "$truncated..."
-            } else {
-                description
-            }
-            
-            guiGraphics.drawString(
-                font,
-                displayText,
-                toastX + padding,
-                toastY + padding + ((index + 1) * lineHeight),
-                0xCCCCCC,  // Light gray for task descriptions
-                false
-            )
-        }
+        // Task progress is now shown in the HUD overlay (TaskProgressHUD)
     }
 }

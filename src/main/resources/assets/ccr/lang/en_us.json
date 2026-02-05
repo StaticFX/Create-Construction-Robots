@@ -22,9 +22,9 @@
   "gui.ccr.backpack.start": "Start",
   
   "gui.ccr.schematic.start_construction": "Start Construction with Robots",
-  "gui.ccr.schematic.start_construction_key": "[R] Start Construction",
+  "gui.ccr.schematic.start_construction_key": "[%s] Start Construction",
   "gui.ccr.schematic.construction_started": "Construction started!",
-  "gui.ccr.schematic.start_deconstruction": "[R] Start Deconstruction",
+  "gui.ccr.schematic.start_deconstruction": "[%s] Start Deconstruction",
   
   "tooltip.ccr.backpack.robots": "Robots: %d/%d",
   "tooltip.ccr.backpack.upgrades_header": "Installed Upgrades:",
@@ -69,10 +69,15 @@
   "ccr.deconstruction.position_info": "Starting at: %d, %d, %d",
   "ccr.deconstruction.dimensions": "Selection: %dx%dx%d",
   "ccr.deconstruction.first_pos": "First corner set",
-  "ccr.deconstruction.second_pos": "Second corner set - Press [R] to start deconstruction",
+  "ccr.deconstruction.second_pos": "[%s] to start deconstruction",
   "ccr.deconstruction.no_target": "No block targeted",
   "ccr.deconstruction.abort": "Selection cancelled",
   "ccr.deconstruction.already_active": "This area is already being deconstructed!",
   "ccr.deconstruction.started": "Deconstruction started with %d blocks!",
-  "ccr.deconstruction.no_blocks": "No blocks to remove in selected area!"
+  "ccr.deconstruction.no_blocks": "No blocks to remove in selected area!",
+  
+  "key.categories.ccr": "Create Constructors",
+  "key.ccr.toggle_task_hud": "Toggle Task Progress HUD",
+  "key.ccr.start_action": "Start Construction/Deconstruction",
+  "key.ccr.stop_action": "Stop All Robot Tasks"
 }

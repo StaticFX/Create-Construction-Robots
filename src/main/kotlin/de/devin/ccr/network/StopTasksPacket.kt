@@ -15,6 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 class StopTasksPacket private constructor() : CustomPacketPayload {
     companion object {
         val TYPE = CustomPacketPayload.Type<StopTasksPacket>(CreateCCR.asResource("stop_tasks"))
+        @JvmStatic
         val INSTANCE = StopTasksPacket()
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, StopTasksPacket> = StreamCodec.unit(INSTANCE)
 

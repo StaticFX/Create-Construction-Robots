@@ -68,8 +68,8 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
         )
         
         // Render area info
-        val first = DeconstructionHandler.firstPos
-        val second = DeconstructionHandler.secondPos
+        val first = DeconstructionSelection.firstPos
+        val second = DeconstructionSelection.secondPos
         
         if (first != null && second != null) {
             val minX = minOf(first.x, second.x)
@@ -118,7 +118,7 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
         // Check if cancel button was clicked
         cancelButton?.let { btn ->
             if (btn.isMouseOver(mouseX, mouseY)) {
-                DeconstructionHandler.discard()
+                DeconstructionSelection.discard()
                 onClose()
                 return true
             }
@@ -155,15 +155,15 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
      * Starts the deconstruction process by sending a packet to the server.
      */
     private fun startDeconstruction() {
-        val first = DeconstructionHandler.firstPos
-        val second = DeconstructionHandler.secondPos
+        val first = DeconstructionSelection.firstPos
+        val second = DeconstructionSelection.secondPos
         
         if (first != null && second != null) {
             // Send packet to server to start deconstruction
             CatnipServices.NETWORK.sendToServer(StartDeconstructionPacket(first, second))
             
             // Clear the selection
-            DeconstructionHandler.discard()
+            DeconstructionSelection.discard()
         }
         
         onClose()

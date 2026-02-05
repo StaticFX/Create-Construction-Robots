@@ -65,7 +65,10 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
         private const val CARRY_PER_SPEED_COIL = 1
         
         /** Base ticks to break a block (faster than placement was before) */
-        private const val BASE_BREAK_TICKS = 5
+        const val BASE_BREAK_TICKS = 5
+
+        /** Maximum ticks before teleporting to target */
+        const val MAX_STUCK_TICKS = 60  // 3 seconds
 
         fun createAttributes(): AttributeSupplier.Builder {
             return Mob.createMobAttributes()
@@ -75,18 +78,10 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
         }
     }
 
-    enum class RobotState {
-        IDLE,
-        FETCHING_ITEMS,
-        TRAVELING_TO_WORK,
-        WORKING,
-        RETURNING_TO_PLAYER
-    }
-
-    private var currentState: RobotState = RobotState.IDLE
-    private var currentTask: RobotTask? = null
+    var currentState: RobotState = RobotState.IDLE
+    var currentTask: RobotTask? = null
     private var owner: UUID? = null
-    private var taskManager: RobotTaskManager? = null
+    var taskManager: RobotTaskManager? = null
 
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
@@ -94,31 +89,25 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
     private var robotContext: de.devin.ccr.content.upgrades.RobotContext? = null
     
     /** Items the robot is currently carrying for the task */
-    private var carriedItems: MutableList<ItemStack> = mutableListOf()
+    val carriedItems: MutableList<ItemStack> = mutableListOf()
+
+    val inventoryManager = RobotInventoryManager(this)
     
     /** Whether this robot has already been returned to backpack (prevents double-return) */
     private var hasBeenReturned = false
     
     /** Last position for stuck detection */
-    private var lastPosition: Vec3 = Vec3.ZERO
+    var lastPosition: Vec3 = Vec3.ZERO
     
     /** Ticks spent stuck (not making progress) */
-    private var stuckTicks = 0
-    
-    /** Maximum ticks before teleporting to target */
-    private val MAX_STUCK_TICKS = 60  // 3 seconds
-
-    /** Cache for wireless storage inventory locations */
-    private var cachedWirelessStorages: MutableList<BlockPos> = mutableListOf()
-    private var wirelessScanCooldown = 0
-    private val WIRELESS_SCAN_INTERVAL = 100 // 5 seconds
+    var stuckTicks = 0
 
     init {
         this.moveControl = FlyingMoveControl(this, 20, true)
     }
 
     override fun registerGoals() {
-        this.goalSelector.addGoal(1, RobotExecuteTaskGoal())
+        this.goalSelector.addGoal(1, de.devin.ccr.content.robots.goals.RobotExecuteTaskGoal(this))
     }
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
@@ -200,13 +189,6 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
     }
 
     /**
-     * Gets the owner player entity.
-     */
-    private fun getOwnerPlayer(): ServerPlayer? {
-        return owner?.let { level().getPlayerByUUID(it) } as? ServerPlayer
-    }
-
-    /**
      * Gets the backpack item stack from the owner.
      */
     private fun getBackpackStack(): ItemStack {
@@ -226,80 +208,52 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
         
         return ItemStack.EMPTY
     }
-    
+
+    /**
+     * Gets the owner player entity.
+     */
+    internal fun getOwnerPlayer(): ServerPlayer? {
+        return owner?.let { level().getPlayerByUUID(it) } as? ServerPlayer
+    }
+
+    fun getRobotContext(): de.devin.ccr.content.upgrades.RobotContext = robotContext ?: de.devin.ccr.content.upgrades.RobotContext()
+
+    fun setTaskPos(pos: BlockPos?) {
+        entityData.set(TASK_POS, Optional.ofNullable(pos))
+    }
+
+    fun setWorking(working: Boolean) {
+        entityData.set(IS_WORKING, working)
+    }
+
+    fun resetStuckTicks() {
+        stuckTicks = 0
+    }
+
+    fun incrementStuckTicks() {
+        stuckTicks++
+    }
+
     /**
      * Gets the maximum number of items this robot can carry per trip.
      */
-    private fun getCarryCapacity(): Int = robotContext?.carryCapacity ?: BASE_CARRY_CAPACITY
+    fun getCarryCapacity(): Int = robotContext?.carryCapacity ?: BASE_CARRY_CAPACITY
 
     /**
      * Gets the maximum work distance from the player.
      */
-    private fun getMaxWorkRange(): Double = robotContext?.workRange ?: 32.0
+    fun getMaxWorkRange(): Double = robotContext?.workRange ?: 32.0
     
     /**
      * Gets the speed multiplier from upgrades.
      */
-    private fun getSpeedMultiplier(): Double = robotContext?.speedMultiplier ?: 1.0
+    fun getSpeedMultiplier(): Double = robotContext?.speedMultiplier ?: 1.0
 
-    /**
-     * Gets a material source that checks all available inventories.
-     */
-    private fun getMaterialSource(): MaterialSource {
-        val ownerPlayer = getOwnerPlayer() ?: return CompositeMaterialSource(emptyList())
-        val sources = mutableListOf<MaterialSource>()
-        
-        // 1. Player inventory
-        sources.add(PlayerMaterialSource(ownerPlayer))
-        
-        // 2. Wireless Link (if enabled)
-        if (robotContext?.wirelessLinkEnabled == true) {
-            if (wirelessScanCooldown <= 0) {
-                scanForWirelessStorages(ownerPlayer)
-                wirelessScanCooldown = WIRELESS_SCAN_INTERVAL
-            } else {
-                wirelessScanCooldown--
-            }
-            sources.add(WirelessMaterialSource(level(), cachedWirelessStorages))
-        }
-        
-        return CompositeMaterialSource(sources)
-    }
-
-    /**
-     * Picks up items for the current task using the material source.
-     */
-    private fun pickUpItems(required: List<ItemStack>): Boolean {
-        val ownerPlayer = getOwnerPlayer() ?: return false
-        if (ownerPlayer.isCreative) return true
-        
-        val source = getMaterialSource()
-        val carryCapacity = getCarryCapacity()
-        var itemsPickedUp = 0
-        
-        carriedItems.clear()
-        
-        for (req in required) {
-            if (req.isEmpty) continue
-            if (itemsPickedUp >= carryCapacity) break
-            
-            val toPickUp = minOf(req.count, carryCapacity - itemsPickedUp)
-            val extracted = source.extractItems(req, toPickUp)
-            if (!extracted.isEmpty) {
-                carriedItems.add(extracted)
-                itemsPickedUp += extracted.count
-            }
-        }
-        
-        val totalRequired = required.sumOf { it.count }
-        return itemsPickedUp >= totalRequired
-    }
-    
     /**
      * Returns this robot to the player's backpack and removes the entity.
      * If the backpack is full, drops the robot as an item instead.
      */
-    private fun returnToBackpackAndDiscard(player: net.minecraft.world.entity.player.Player) {
+    fun returnToBackpackAndDiscard(player: net.minecraft.world.entity.player.Player) {
         if (hasBeenReturned) return
         hasBeenReturned = true
         
@@ -314,7 +268,7 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
      * Drops a robot item at the current position and removes the entity.
      * Used when the owner cannot be found.
      */
-    private fun dropRobotItemAndDiscard() {
+    fun dropRobotItemAndDiscard() {
         if (hasBeenReturned) return
         hasBeenReturned = true
         
@@ -331,230 +285,5 @@ class ConstructorRobotEntity(entityType: EntityType<out FlyingMob>, level: Level
         
         // Remove this entity
         discard()
-    }
-
-    /**
-     * Scans for inventories around the player for Wireless Link.
-     * This is an expensive operation, so it's called infrequently.
-     */
-    private fun scanForWirelessStorages(player: ServerPlayer) {
-        cachedWirelessStorages.clear()
-        val range = 16
-        val center = player.blockPosition()
-        
-        for (x in -range..range) {
-            for (y in -range..range) {
-                for (z in -range..range) {
-                    val pos = center.offset(x, y, z)
-                    val handler = level().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, pos, null)
-                    if (handler != null) {
-                        cachedWirelessStorages.add(pos)
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Goal for finding and executing tasks.
-     * Uses a state machine for clean logic flow.
-     */
-    inner class RobotExecuteTaskGoal : Goal() {
-        private var workTicks = 0
-
-        init {
-            this.flags = EnumSet.of(Flag.MOVE)
-        }
-
-        override fun canUse(): Boolean = true
-
-        override fun tick() {
-            val ownerPlayer = getOwnerPlayer()
-            if (ownerPlayer == null) {
-                dropRobotItemAndDiscard()
-                return
-            }
-
-            val tm = taskManager ?: return
-            
-            when (currentState) {
-                RobotState.IDLE -> handleIdleState(ownerPlayer, tm)
-                RobotState.FETCHING_ITEMS -> handleFetchingState(ownerPlayer, tm)
-                RobotState.TRAVELING_TO_WORK -> handleTravelingState()
-                RobotState.WORKING -> handleWorkingState()
-                RobotState.RETURNING_TO_PLAYER -> handleReturningState(ownerPlayer, tm)
-            }
-        }
-
-        private fun handleIdleState(player: ServerPlayer, tm: RobotTaskManager) {
-            if (tm.hasPendingTasks()) {
-                // In creative mode, we go straight to work
-                if (player.isCreative) {
-                    val nextTask = tm.getNextTask(id, emptyList(), true)
-                    if (nextTask != null) {
-                        assignTask(nextTask)
-                        currentState = RobotState.TRAVELING_TO_WORK
-                    }
-                } else {
-                    currentState = RobotState.FETCHING_ITEMS
-                }
-            } else {
-                currentState = RobotState.RETURNING_TO_PLAYER
-            }
-        }
-
-        private fun handleFetchingState(player: ServerPlayer, tm: RobotTaskManager) {
-            // Stay near player while fetching
-            val playerPos = player.position().add(0.0, 1.5, 0.0)
-            if (distanceToSqr(playerPos) > 4.0) {
-                flyTowards(playerPos)
-                return
-            }
-
-            // Try to get a task that we have materials for
-            // We use a dummy list since pickUpItems handles actual extraction
-            val nextTask = tm.getNextTask(id, emptyList(), false) 
-            if (nextTask != null) {
-                if (nextTask.type == RobotTask.TaskType.PLACE) {
-                    if (pickUpItems(nextTask.requiredItems)) {
-                        assignTask(nextTask)
-                        currentState = RobotState.TRAVELING_TO_WORK
-                    } else {
-                        // Can't get items, fail and wait
-                        tm.failTask(id)
-                        currentState = RobotState.IDLE
-                    }
-                } else {
-                    // Remove tasks don't need items
-                    assignTask(nextTask)
-                    currentState = RobotState.TRAVELING_TO_WORK
-                }
-            } else {
-                // No tasks available for our materials
-                currentState = RobotState.IDLE
-            }
-        }
-
-        private fun handleTravelingState() {
-            val task = currentTask
-            if (task == null) {
-                currentState = RobotState.IDLE
-                return
-            }
-            val targetVec = Vec3.atCenterOf(task.targetPos)
-            
-            if (distanceToSqr(targetVec) > 2.0) {
-                flyTowards(targetVec)
-            } else {
-                setDeltaMovement(Vec3.ZERO)
-                currentState = RobotState.WORKING
-                workTicks = 0
-            }
-        }
-
-        private fun handleWorkingState() {
-            val task = currentTask
-            if (task == null) {
-                currentState = RobotState.IDLE
-                return
-            }
-            
-            if (task.type == RobotTask.TaskType.PLACE) {
-                performWork()
-                completeTask()
-            } else {
-                workTicks++
-                // Visual effects
-                if (level() is ServerLevel) {
-                    (level() as ServerLevel).sendParticles(
-                        ParticleTypes.ELECTRIC_SPARK,
-                        task.targetPos.x + 0.5, task.targetPos.y + 0.5, task.targetPos.z + 0.5,
-                        2, 0.2, 0.2, 0.2, 0.05
-                    )
-                }
-
-                val requiredTicks = (BASE_BREAK_TICKS / getSpeedMultiplier()).toInt().coerceAtLeast(1)
-                if (workTicks >= requiredTicks) {
-                    performWork()
-                    completeTask()
-                }
-            }
-        }
-
-        private fun handleReturningState(player: ServerPlayer, tm: RobotTaskManager) {
-            val playerPos = player.position().add(0.0, 1.5, 0.0)
-            if (distanceToSqr(playerPos) > 4.0) {
-                flyTowards(playerPos)
-            } else {
-                setDeltaMovement(Vec3.ZERO)
-                if (tm.hasPendingTasks()) {
-                    currentState = RobotState.IDLE
-                } else {
-                    returnToBackpackAndDiscard(player)
-                }
-            }
-        }
-
-        private fun assignTask(task: RobotTask) {
-            currentTask = task
-            entityData.set(TASK_POS, Optional.of(task.targetPos))
-            entityData.set(IS_WORKING, true)
-            stuckTicks = 0
-        }
-
-        private fun completeTask() {
-            val tm = taskManager ?: return
-            tm.completeTask(id)
-            currentTask = null
-            carriedItems.clear()
-            entityData.set(TASK_POS, Optional.empty())
-            entityData.set(IS_WORKING, false)
-            currentState = RobotState.RETURNING_TO_PLAYER
-        }
-
-        private fun performWork() {
-            val task = currentTask ?: return
-            val context = robotContext ?: de.devin.ccr.content.upgrades.RobotContext()
-            
-            val action = when (task.type) {
-                RobotTask.TaskType.PLACE -> PlaceAction()
-                RobotTask.TaskType.REMOVE -> RemoveAction()
-            }
-            
-            action.execute(level(), task.targetPos, task, context)
-        }
-
-        private fun flyTowards(target: Vec3) {
-            val speed = 0.4 * getSpeedMultiplier()
-            val currentPos = position()
-            val direction = target.subtract(currentPos).normalize()
-            
-            setDeltaMovement(direction.scale(speed))
-            lookAt(target)
-
-            // Stuck detection
-            if (currentPos.distanceToSqr(lastPosition) < 0.01) {
-                stuckTicks++
-                if (stuckTicks >= MAX_STUCK_TICKS) {
-                    teleportTo(target.x, target.y, target.z)
-                    stuckTicks = 0
-                }
-            } else {
-                stuckTicks = 0
-            }
-            lastPosition = currentPos
-        }
-
-        private fun lookAt(target: Vec3) {
-            val dx = target.x - x
-            val dy = target.y - y
-            val dz = target.z - z
-            val horizontalDist = kotlin.math.sqrt(dx * dx + dz * dz)
-            xRot = (-(kotlin.math.atan2(dy, horizontalDist) * (180.0 / Math.PI))).toFloat()
-            yRot = (kotlin.math.atan2(dz, dx) * (180.0 / Math.PI)).toFloat() - 90f
-        }
-
-        override fun canContinueToUse(): Boolean = true
-        override fun isInterruptable(): Boolean = false
     }
 }

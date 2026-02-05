@@ -4,7 +4,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
+import de.devin.ccr.registry.AllKeys;
 import de.devin.ccr.network.StartConstructionPacket;
+import de.devin.ccr.network.StopTasksPacket;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -76,7 +79,8 @@ public abstract class SchematicHandlerHudMixin {
         RenderSystem.setShaderColor(1, 1, 1, 1);
 
         // Draw button text with Create-style coloring
-        Component buttonText = Component.translatable("gui.ccr.schematic.start_construction_key");
+        KeyMapping startKey = AllKeys.INSTANCE.getSTART_ACTION();
+        Component buttonText = Component.translatable("gui.ccr.schematic.start_construction_key", startKey.getTranslatedKeyMessage());
         int textWidth = mc.font.width(buttonText);
         int textX = buttonX + (BUTTON_WIDTH - textWidth) / 2;
         int textY = buttonY + (BUTTON_HEIGHT - 8) / 2;
@@ -88,16 +92,17 @@ public abstract class SchematicHandlerHudMixin {
     }
 
     /**
-     * Injects at the head of onKeyInput to handle the R key for starting construction.
+     * Injects at the head of onKeyInput to handle the configured keys for starting construction
+     * and stopping tasks.
      */
     @Inject(method = "onKeyInput", at = @At("HEAD"))
-    private void ccr$handleConstructionKey(int key, boolean pressed, CallbackInfo ci) {
+    private void ccr$handleKeys(int key, boolean pressed, CallbackInfo ci) {
         if (!active || !isDeployed() || !pressed) {
             return;
         }
 
-        // Check if R key is pressed (for "Robot" construction)
-        if (key == GLFW.GLFW_KEY_R) {
+        // Check if start action key is pressed
+        if (AllKeys.INSTANCE.getSTART_ACTION().matches(key, 0)) {
             // Send packet to server to start construction (use singleton INSTANCE)
             PacketDistributor.sendToServer(StartConstructionPacket.Companion.getINSTANCE());
             
@@ -109,6 +114,11 @@ public abstract class SchematicHandlerHudMixin {
                     true
                 );
             }
+        }
+
+        // Check if stop action key is pressed
+        if (AllKeys.INSTANCE.getSTOP_ACTION().matches(key, 0)) {
+            PacketDistributor.sendToServer(StopTasksPacket.getINSTANCE());
         }
     }
 }

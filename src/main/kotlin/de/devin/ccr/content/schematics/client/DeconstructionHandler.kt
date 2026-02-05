@@ -1,21 +1,19 @@
 package de.devin.ccr.content.schematics.client
 
-import de.devin.ccr.items.AllItems
 import com.mojang.blaze3d.systems.RenderSystem
+import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.foundation.gui.AllGuiTextures
+import com.simibubi.create.foundation.utility.RaycastHelper
+import de.devin.ccr.items.AllItems
 import de.devin.ccr.network.StartDeconstructionPacket
-import net.neoforged.neoforge.network.PacketDistributor
-import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.DeltaTracker
-import org.lwjgl.glfw.GLFW
+import de.devin.ccr.network.StopTasksPacket
+import de.devin.ccr.registry.AllKeys
 import net.createmod.catnip.animation.AnimationTickHolder
-import net.createmod.catnip.gui.ScreenOpener
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.outliner.Outliner
-import com.simibubi.create.AllSpecialTextures
-import com.simibubi.create.foundation.utility.RaycastHelper
+import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
-import net.minecraft.client.player.LocalPlayer
+import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.Direction.AxisDirection
@@ -25,9 +23,10 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.phys.AABB
-import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.network.PacketDistributor
+import org.lwjgl.glfw.GLFW
 
 /**
  * Client-side handler for the Deconstruction Planner tool.
@@ -45,27 +44,8 @@ import net.minecraft.world.phys.Vec3
  */
 object DeconstructionHandler {
     
-    private val outlineSlot = Any()
-    
-    /** First corner of the selection */
-    var firstPos: BlockPos? = null
-        private set
-    
-    /** Second corner of the selection */
-    var secondPos: BlockPos? = null
-        private set
-    
-    /** Currently targeted block position */
-    private var selectedPos: BlockPos? = null
-    
     /** Currently selected face (for resizing) */
     private var selectedFace: Direction? = null
-    
-    /** Selection range when using CTRL */
-    private var range = 10
-    
-    /** Red color for deconstruction selection (contrast to blue construction) */
-    private const val SELECTION_COLOR = 0xc56868
     
     /**
      * Handles mouse scroll input for resizing the selection.
@@ -77,13 +57,13 @@ object DeconstructionHandler {
         // Only handle scroll when CTRL is held
         if (!isCtrlDown()) return false
         
-        if (secondPos == null) {
-            range = Mth.clamp(range + delta.toInt(), 1, 100)
+        if (DeconstructionSelection.secondPos == null) {
+            DeconstructionSelection.range = Mth.clamp(DeconstructionSelection.range + delta.toInt(), 1, 100)
         }
         
         val face = selectedFace ?: return true
-        val first = firstPos ?: return true
-        val second = secondPos ?: return true
+        val first = DeconstructionSelection.firstPos ?: return true
+        val second = DeconstructionSelection.secondPos ?: return true
         
         var bb = AABB(Vec3.atLowerCornerOf(first), Vec3.atLowerCornerOf(second))
         val vec = face.normal
@@ -111,8 +91,8 @@ object DeconstructionHandler {
         
         bb = AABB(bb.minX, bb.minY, bb.minZ, maxX, maxY, maxZ)
         
-        firstPos = BlockPos.containing(bb.minX, bb.minY, bb.minZ)
-        secondPos = BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ)
+        DeconstructionSelection.firstPos = BlockPos.containing(bb.minX, bb.minY, bb.minZ)
+        DeconstructionSelection.secondPos = BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ)
         
         val player = Minecraft.getInstance().player ?: return true
         val sizeX = (bb.xsize + 1).toInt()
@@ -146,12 +126,12 @@ object DeconstructionHandler {
         
         // If both corners are set, we don't open the prompt screen anymore.
         // The deconstruction is now started via the HUD button or R key.
-        if (secondPos != null) {
+        if (DeconstructionSelection.secondPos != null) {
             return true
         }
         
         // No target selected
-        if (selectedPos == null) {
+        if (DeconstructionSelection.selectedPos == null) {
             player.displayClientMessage(
                 Component.translatable("ccr.deconstruction.no_target"),
                 true
@@ -160,17 +140,17 @@ object DeconstructionHandler {
         }
         
         // Set second corner if first is already set
-        if (firstPos != null) {
-            secondPos = selectedPos
+        if (DeconstructionSelection.firstPos != null) {
+            DeconstructionSelection.secondPos = DeconstructionSelection.selectedPos
             player.displayClientMessage(
-                Component.translatable("ccr.deconstruction.second_pos"),
+                Component.translatable("ccr.deconstruction.second_pos", AllKeys.START_ACTION.translatedKeyMessage),
                 true
             )
             return true
         }
         
         // Set first corner
-        firstPos = selectedPos
+        DeconstructionSelection.firstPos = DeconstructionSelection.selectedPos
         player.displayClientMessage(
             Component.translatable("ccr.deconstruction.first_pos"),
             true
@@ -182,8 +162,7 @@ object DeconstructionHandler {
      * Discards the current selection.
      */
     fun discard() {
-        firstPos = null
-        secondPos = null
+        DeconstructionSelection.discard()
         Minecraft.getInstance().player?.displayClientMessage(
             Component.translatable("ccr.deconstruction.abort"),
             true
@@ -202,8 +181,8 @@ object DeconstructionHandler {
         if (isCtrlDown()) {
             // Free-aim mode when CTRL is held
             val pt = AnimationTickHolder.getPartialTicks()
-            val targetVec = player.getEyePosition(pt).add(player.lookAngle.scale(range.toDouble()))
-            selectedPos = BlockPos.containing(targetVec)
+            val targetVec = player.getEyePosition(pt).add(player.lookAngle.scale(DeconstructionSelection.range.toDouble()))
+            DeconstructionSelection.selectedPos = BlockPos.containing(targetVec)
         } else {
             // Normal raycast mode
             val trace = RaycastHelper.rayTraceRange(player.level(), player, 75.0)
@@ -214,16 +193,16 @@ object DeconstructionHandler {
                 if (trace.direction.axis.isVertical && !replaceable) {
                     hit = hit.relative(trace.direction)
                 }
-                selectedPos = hit
+                DeconstructionSelection.selectedPos = hit
             } else {
-                selectedPos = null
+                DeconstructionSelection.selectedPos = null
             }
         }
         
         // Update selected face for resizing
         selectedFace = null
-        val first = firstPos
-        val second = secondPos
+        val first = DeconstructionSelection.firstPos
+        val second = DeconstructionSelection.secondPos
         if (first != null && second != null) {
             var bb = AABB(Vec3.atLowerCornerOf(first), Vec3.atLowerCornerOf(second))
                 .expandTowards(1.0, 1.0, 1.0)
@@ -241,39 +220,7 @@ object DeconstructionHandler {
         }
         
         // Render the selection box
-        val currentBox = getCurrentSelectionBox()
-        if (currentBox != null) {
-            Outliner.getInstance()
-                .chaseAABB(outlineSlot, currentBox)
-                .colored(SELECTION_COLOR)
-                .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
-                .lineWidth(1 / 16f)
-                .highlightFace(selectedFace)
-        }
-    }
-    
-    /**
-     * Gets the current selection bounding box based on selection state.
-     */
-    private fun getCurrentSelectionBox(): AABB? {
-        val first = firstPos
-        val second = secondPos
-        val selected = selectedPos
-        
-        return when {
-            second != null && first != null -> {
-                AABB(Vec3.atLowerCornerOf(first), Vec3.atLowerCornerOf(second)).expandTowards(1.0, 1.0, 1.0)
-            }
-            first != null -> {
-                if (selected != null) {
-                    AABB(Vec3.atLowerCornerOf(first), Vec3.atLowerCornerOf(selected)).expandTowards(1.0, 1.0, 1.0)
-                } else {
-                    AABB(first)
-                }
-            }
-            selected != null -> AABB(selected)
-            else -> null
-        }
+        DeconstructionRenderer.renderWorldOutline(selectedFace)
     }
     
     /**
@@ -282,9 +229,9 @@ object DeconstructionHandler {
     fun onKeyInput(key: Int, pressed: Boolean): Boolean {
         if (!pressed || !isActive()) return false
         
-        if (key == GLFW.GLFW_KEY_R && firstPos != null && secondPos != null) {
-            val first = firstPos!!
-            val second = secondPos!!
+        if (AllKeys.START_ACTION.matches(key, 0) && DeconstructionSelection.isComplete()) {
+            val first = DeconstructionSelection.firstPos!!
+            val second = DeconstructionSelection.secondPos!!
             
             // Send packet to server to start deconstruction
             PacketDistributor.sendToServer(StartDeconstructionPacket(first, second))
@@ -299,6 +246,11 @@ object DeconstructionHandler {
             discard()
             return true
         }
+
+        if (AllKeys.STOP_ACTION.matches(key, 0)) {
+            PacketDistributor.sendToServer(StopTasksPacket.INSTANCE)
+            return true
+        }
         
         return false
     }
@@ -307,70 +259,7 @@ object DeconstructionHandler {
      * Renders the deconstruction HUD.
      */
     fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
-        if (!isActive()) return
-        
-        val mc = Minecraft.getInstance()
-        if (mc.options.hideGui) return
-        
-        val first = firstPos
-        val second = secondPos
-        
-        // Only show HUD if at least one corner is set
-        if (first == null) return
-
-        val screenWidth = guiGraphics.guiWidth()
-        val screenHeight = guiGraphics.guiHeight()
-
-        // 1. Draw the "Selection Info" part (similar to Create's schematic info)
-        val infoWidth = 140
-        val infoHeight = 40
-        val infoX = screenWidth / 2 - infoWidth / 2
-        val infoY = 20
-
-        val gray = AllGuiTextures.HUD_BACKGROUND
-        
-        RenderSystem.enableBlend()
-        RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
-        
-        // Draw info background
-        guiGraphics.blit(gray.location, infoX, infoY, gray.startX.toFloat(), gray.startY.toFloat(), 
-            infoWidth, infoHeight, gray.width, gray.height)
-        
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-
-        // Draw info text
-        val titleText = Component.translatable("ccr.deconstruction.title")
-        guiGraphics.drawString(mc.font, titleText, infoX + (infoWidth - mc.font.width(titleText)) / 2, infoY + 5, 0xFFCCCC, false)
-        
-        if (second != null) {
-            val sizeX = Math.abs(first.x - second.x) + 1
-            val sizeY = Math.abs(first.y - second.y) + 1
-            val sizeZ = Math.abs(first.z - second.z) + 1
-            val dimText = Component.translatable("ccr.deconstruction.dimensions", sizeX, sizeY, sizeZ)
-            guiGraphics.drawString(mc.font, dimText, infoX + (infoWidth - mc.font.width(dimText)) / 2, infoY + 20, 0xCCDDFF, false)
-        } else {
-            val waitingText = Component.translatable("ccr.deconstruction.first_pos")
-            guiGraphics.drawString(mc.font, waitingText, infoX + (infoWidth - mc.font.width(waitingText)) / 2, infoY + 20, 0xAAAAAA, false)
-        }
-
-        // 2. Draw the "Start Button" part (only if both corners are set)
-        if (second != null) {
-            val buttonWidth = 150
-            val buttonHeight = 20
-            val buttonX = (screenWidth - buttonWidth) / 2
-            val buttonY = screenHeight - 50
-
-            RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
-            guiGraphics.blit(gray.location, buttonX, buttonY, gray.startX.toFloat(), gray.startY.toFloat(), 
-                buttonWidth, buttonHeight, gray.width, gray.height)
-            
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-
-            val buttonText = Component.translatable("gui.ccr.schematic.start_deconstruction")
-            guiGraphics.drawString(mc.font, buttonText, buttonX + (buttonWidth - mc.font.width(buttonText)) / 2, buttonY + (buttonHeight - 8) / 2, 0xFFCCCC, false)
-        }
-        
-        RenderSystem.disableBlend()
+        DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
     }
 
     /**
@@ -382,8 +271,7 @@ object DeconstructionHandler {
         val mainHandItem = player.mainHandItem
         return AllItems.DECONSTRUCTION_PLANNER.isIn(mainHandItem)
     }
-    
-    
+
     /**
      * Checks if CTRL key is held.
      */
