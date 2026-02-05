@@ -27,7 +27,7 @@ enum class UpgradeType(
         ctx.workRange += count * 16.0
     }),
     EFFICIENCY_MODULE(2, "tooltip.ccr.upgrade.efficiency_module", IUpgrade { ctx, count ->
-        ctx.efficiencyMultiplier -= count * 0.25
+        ctx.breakSpeedMultiplier -= count * 0.25
         ctx.carryCapacity += count * 2
     }),
     PRECISION_CORE(1, "tooltip.ccr.upgrade.precision_core", IUpgrade { ctx, count ->
@@ -35,6 +35,9 @@ enum class UpgradeType(
     }),
     SILK_TOUCH_MODULE(1, "tooltip.ccr.upgrade.silk_touch_module", IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
+    }),
+    PICKUP_MODULE(1, "tooltip.ccr.upgrade.pickup_module", IUpgrade { ctx, count ->
+        if (count > 0) ctx.pickupEnabled = true
     });
 
     companion object {
@@ -64,7 +67,7 @@ enum class UpgradeType(
  * - Parallel Processor: +2 concurrent robots per upgrade (max 3)
  * - Wireless Link: Connect to nearby storage (1 only)
  * - Extended Range: +16 blocks work radius per upgrade (max 2)
- * - Efficiency Module: Robots use less durability (max 2)
+ * - Efficiency Module: Increased carry capacity and break speed (max 2)
  * - Precision Core: Robots can place redstone/rails correctly (1 only)
  * - Silk Touch Module: Deconstruction preserves blocks (1 only)
  */
@@ -117,3 +120,5 @@ class EfficiencyModuleUpgrade(properties: Properties) : BackpackUpgradeItem(Upgr
 class PrecisionCoreUpgrade(properties: Properties) : BackpackUpgradeItem(UpgradeType.PRECISION_CORE, properties)
 
 class SilkTouchModuleUpgrade(properties: Properties) : BackpackUpgradeItem(UpgradeType.SILK_TOUCH_MODULE, properties)
+
+class PickupModuleUpgrade(properties: Properties) : BackpackUpgradeItem(UpgradeType.PICKUP_MODULE, properties)

@@ -25,8 +25,8 @@ import top.theillusivec4.curios.api.CuriosApi
  * Container/Menu for the Constructor Backpack.
  * 
  * Layout:
- * - Robot slots (8 slots)
- * - Upgrade slots (4 slots)
+ * - Robot slots (4 slots)
+ * - Upgrade slots (6 slots)
  * - Bottom section: Player inventory
  */
 class BackpackContainer : AbstractContainerMenu {
@@ -72,21 +72,19 @@ class BackpackContainer : AbstractContainerMenu {
         // FILTER background is 214x99, PLAYER_INVENTORY is 176x108
         // 4px gap between them
         
-        // Robot slots (2 rows of 4) - positioned in FILTER background area
-        // TOOLBELT_SLOT background is at x+16, y+21, so slot center is at x+19, y+24
-        for (row in 0 until 2) {
-            for (col in 0 until 4) {
-                val i = row * 4 + col
-                val x = 19 + (col * 22)
-                val y = 24 + (row * 22)
-                addSlot(RobotSlot(backpackInventory, i, x, y))
-            }
+        // Robot slots (1 row of 4) - positioned in FILTER background area
+        // Centered: (214 - (4 * 22)) / 2 = 63
+        for (i in 0 until ConstructorBackpackItem.ROBOT_SLOTS) {
+            val x = 63 + (i * 22)
+            val y = 30
+            addSlot(RobotSlot(backpackInventory, i, x, y))
         }
         
-        // Upgrade slots (1 row of 4 below robots)
+        // Upgrade slots (1 row of 6 below robots)
+        // Centered: (214 - (6 * 22)) / 2 = 41
         for (i in 0 until ConstructorBackpackItem.UPGRADE_SLOTS) {
-            val x = 19 + (i * 22)
-            val y = 74
+            val x = 41 + (i * 22)
+            val y = 60
             addSlot(UpgradeSlot(backpackInventory, ConstructorBackpackItem.ROBOT_SLOTS + i, x, y))
         }
         
@@ -220,22 +218,19 @@ class BackpackContainer : AbstractContainerMenu {
         
         val taskManager = ConstructorRobotEntity.playerTaskManagers[player.uuid]
         if (taskManager != null) {
+            val jobProgress = taskManager.getActiveJobProgress()
             val packet = TaskProgressSyncPacket(
-                totalTasks = taskManager.totalTasksGenerated,
-                completedTasks = taskManager.tasksCompleted,
-                activeTasks = taskManager.getActiveCount(),
-                pendingTasks = taskManager.getPendingCount(),
-                taskDescriptions = taskManager.getActiveTaskDescriptions(3)
+                globalTotal = jobProgress.values.sumOf { it.second },
+                globalCompleted = jobProgress.values.sumOf { it.first },
+                jobProgress = jobProgress
             )
             PacketDistributor.sendToPlayer(player, packet)
         } else {
             // No active tasks - send empty progress
             val packet = TaskProgressSyncPacket(
-                totalTasks = 0,
-                completedTasks = 0,
-                activeTasks = 0,
-                pendingTasks = 0,
-                taskDescriptions = emptyList()
+                globalTotal = 0,
+                globalCompleted = 0,
+                jobProgress = emptyMap()
             )
             PacketDistributor.sendToPlayer(player, packet)
         }

@@ -35,8 +35,8 @@ data class BackpackTooltipData(val stack: ItemStack) : TooltipComponent
  * Constructor Backpack - A wearable equipment item that manages constructor robots and their upgrades.
  *
  * This item can be worn in the Curios "back" slot. When opened, it provides a GUI with:
- * - 8 Slots for [ConstructorRobotItem]s.
- * - 4 Slots for [BackpackUpgradeItem]s.
+ * - 4 Slots for [ConstructorRobotItem]s.
+ * - 6 Slots for [BackpackUpgradeItem]s.
  *
  * The backpack acts as the central hub for the mod's automated building system, storing the state
  * of the workforce and providing the interface to initiate construction tasks.
@@ -44,8 +44,8 @@ data class BackpackTooltipData(val stack: ItemStack) : TooltipComponent
 class ConstructorBackpackItem(properties: Properties) : Item(properties), ICurioItem {
     
     companion object {
-        const val ROBOT_SLOTS = 8
-        const val UPGRADE_SLOTS = 4
+        const val ROBOT_SLOTS = 4
+        const val UPGRADE_SLOTS = 6
         const val TOTAL_SLOTS = ROBOT_SLOTS + UPGRADE_SLOTS
         
         // NBT keys for the container

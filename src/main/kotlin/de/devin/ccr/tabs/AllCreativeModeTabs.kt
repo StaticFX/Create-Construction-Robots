@@ -19,7 +19,7 @@ object AllCreativeModeTabs {
     val BASE_MOD_TAB: RegistryEntry<CreativeModeTab, CreativeModeTab> = CreateCCR.REGISTRATE.defaultCreativeTab("base_creative_tab") {
         CreativeModeTab
             .builder()
-            .icon { AllItems.TUNGSTEN_INGOT.asStack() }
+            .icon { AllItems.CONSTRUCTOR_ROBOT.asStack() }
             .title(Component.translatable("itemGroup.ccr.base_creative_tab"))
             .build()
     }.register()

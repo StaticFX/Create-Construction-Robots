@@ -12,5 +12,6 @@ data class RobotContext(
     var wirelessLinkEnabled: Boolean = false,
     var precisionEnabled: Boolean = false,
     var silkTouchEnabled: Boolean = false,
-    var efficiencyMultiplier: Double = 1.0
+    var pickupEnabled: Boolean = false,
+    var breakSpeedMultiplier: Double = 1.0
 )

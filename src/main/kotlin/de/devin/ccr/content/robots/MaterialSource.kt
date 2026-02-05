@@ -5,6 +5,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.neoforged.neoforge.capabilities.Capabilities
+import net.neoforged.neoforge.items.ItemHandlerHelper
 
 /**
  * Abstraction for finding and extracting materials from various sources.
@@ -17,6 +18,13 @@ interface MaterialSource {
      * @return The extracted item stack.
      */
     fun extractItems(required: ItemStack, amount: Int): ItemStack
+
+    /**
+     * Tries to insert items into this source.
+     * @param stack The item stack to insert.
+     * @return The remaining items that could not be inserted.
+     */
+    fun insertItems(stack: ItemStack): ItemStack
 }
 
 /**
@@ -31,6 +39,14 @@ class PlayerMaterialSource(private val player: Player) : MaterialSource {
             }
         }
         return ItemStack.EMPTY
+    }
+
+    override fun insertItems(stack: ItemStack): ItemStack {
+        val copy = stack.copy()
+        if (player.inventory.add(copy)) {
+            return ItemStack.EMPTY
+        }
+        return copy
     }
 }
 
@@ -52,6 +68,18 @@ class WirelessMaterialSource(private val level: Level, private val positions: Li
         }
         return ItemStack.EMPTY
     }
+
+    override fun insertItems(stack: ItemStack): ItemStack {
+        var current = stack
+        for (pos in positions) {
+            val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)
+            if (handler != null) {
+                current = ItemHandlerHelper.insertItem(handler, current, false)
+                if (current.isEmpty) return ItemStack.EMPTY
+            }
+        }
+        return current
+    }
 }
 
 /**
@@ -64,5 +92,14 @@ class CompositeMaterialSource(private val sources: List<MaterialSource>) : Mater
             if (!items.isEmpty) return items
         }
         return ItemStack.EMPTY
+    }
+
+    override fun insertItems(stack: ItemStack): ItemStack {
+        var current = stack
+        for (source in sources) {
+            current = source.insertItems(current)
+            if (current.isEmpty) return ItemStack.EMPTY
+        }
+        return current
     }
 }

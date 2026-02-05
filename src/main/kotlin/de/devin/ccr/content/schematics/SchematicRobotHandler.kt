@@ -4,6 +4,7 @@ import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.ccr.CreateCCR
+import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -74,9 +75,10 @@ class SchematicRobotHandler(
     
     /**
      * Generate all placement tasks from the loaded schematic
+     * @param jobId Optional job ID to assign to the tasks
      * @return List of RobotTasks for building the schematic
      */
-    fun generateBuildTasks(): List<RobotTask> {
+    fun generateBuildTasks(jobId: UUID? = null): List<RobotTask> {
         if (!isLoaded) {
             CreateCCR.LOGGER.warn("No schematic loaded")
             return emptyList()
@@ -109,7 +111,8 @@ class SchematicRobotHandler(
                             state = state,
                             items = items,
                             priority = calculatePriority(pos),
-                            tag = tag
+                            tag = tag,
+                            jobId = jobId
                         ))
                     }
                 }, { _, _ -> 
@@ -131,9 +134,10 @@ class SchematicRobotHandler(
      * Generate removal tasks for an area
      * @param corner1 First corner of the area
      * @param corner2 Second corner of the area
+     * @param jobId Optional job ID to assign to the tasks
      * @return List of RobotTasks for removing blocks in the area
      */
-    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos): List<RobotTask> {
+    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, jobId: UUID? = null): List<RobotTask> {
         val tasks = mutableListOf<RobotTask>()
         
         val minX = minOf(corner1.x, corner2.x)
@@ -154,7 +158,8 @@ class SchematicRobotHandler(
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
                         tasks.add(RobotTask.remove(
                             pos = pos,
-                            priority = calculateRemovalPriority(pos, maxY)
+                            priority = calculateRemovalPriority(pos, maxY),
+                            jobId = jobId
                         ))
                     }
                 }

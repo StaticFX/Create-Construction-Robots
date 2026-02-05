@@ -1,4 +1,6 @@
 {
+  "entity.ccr.constructor_robot": "Constructor Robot",
+  "itemGroup.ccr.create_construction_robots": "Create Construction Robots",
   "itemGroup.ccr": "Create Addon",
   "itemGroup.ccr.base_creative_tab": "Create Constructors",
   
@@ -11,6 +13,11 @@
   "item.ccr.speed_coil": "Speed Coil",
   "item.ccr.parallel_processor": "Parallel Processor",
   "item.ccr.wireless_link": "Wireless Link",
+  "item.ccr.extended_range": "Extended Range",
+  "item.ccr.efficiency_module": "Efficiency Module",
+  "item.ccr.precision_core": "Precision Core",
+  "item.ccr.silk_touch_module": "Silk Touch Module",
+  "item.ccr.pickup_module": "Pickup Module",
   
   "block.ccr.myblock": "My Block",
   "block.ccr.tungsten_casing": "Tungsten Casing",
@@ -21,7 +28,7 @@
   "gui.ccr.backpack.upgrades": "Upgrades",
   "gui.ccr.backpack.start": "Start",
   
-  "gui.ccr.schematic.start_construction": "Start Construction with Robots",
+  "gui.ccr.schematic.start_construction": "Start Construction",
   "gui.ccr.schematic.start_construction_key": "[%s] Start Construction",
   "gui.ccr.schematic.construction_started": "Construction started!",
   "gui.ccr.schematic.start_deconstruction": "[%s] Start Deconstruction",
@@ -49,13 +56,15 @@
   "tooltip.ccr.upgrade.parallel_processor": "+2 robots can work simultaneously",
   "tooltip.ccr.upgrade.wireless_link": "Connect to nearby storage for materials",
   "tooltip.ccr.upgrade.extended_range": "+16 blocks work radius",
-  "tooltip.ccr.upgrade.efficiency_module": "Robots use 25% less durability",
+  "tooltip.ccr.upgrade.efficiency_module": "Robots have increased carry capacity and break speed",
   "tooltip.ccr.upgrade.precision_core": "Robots can place redstone components correctly",
   "tooltip.ccr.upgrade.silk_touch_module": "Deconstruction preserves blocks intact",
-  
+  "tooltip.ccr.upgrade.pickup_module": "Robots collect and return broken blocks",
+
   "tooltip.ccr.upgrade.max_stack": "Max in backpack: %d",
   "tooltip.ccr.upgrade.unique": "Only one can be installed",
   
+  "ccr.construction.stopped": "Construction stopped!",
   "ccr.construction.already_active": "This schematic is already being constructed!",
   "ccr.construction.no_backpack": "No Constructor Backpack found!",
   "ccr.construction.no_robots": "No robots in backpack!",

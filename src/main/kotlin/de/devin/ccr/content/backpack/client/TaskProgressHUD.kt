@@ -2,6 +2,7 @@ package de.devin.ccr.content.backpack.client
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.foundation.gui.AllGuiTextures
+import java.util.UUID
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -32,7 +33,6 @@ object TaskProgressHUD {
      * Called from the RenderGuiEvent.Post event.
      */
     fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
-        // Don't render if hidden or no active tasks
         if (!isVisible) return
         if (!TaskProgressTracker.hasActiveTasks()) return
         if (!TaskProgressTracker.isDataRecent()) return
@@ -43,31 +43,30 @@ object TaskProgressHUD {
         // Don't show when a screen is open (except for chat)
         if (mc.screen != null) return
         
-        val screenWidth = guiGraphics.guiWidth()
         val screenHeight = guiGraphics.guiHeight()
         
         val padding = 6
-        val lineHeight = 11
         val progressBarHeight = 4
+        val lineSpacing = 10
         
-        // Calculate content
-        val taskDescriptions = TaskProgressTracker.taskDescriptions
-        val totalTasks = TaskProgressTracker.totalTasks
-        val completedTasks = TaskProgressTracker.completedTasks
-        val progress = TaskProgressTracker.getProgress()
-        val progressPercent = (progress * 100).toInt()
+        val jobProgress = TaskProgressTracker.jobProgress
+        val globalProgress = TaskProgressTracker.getGlobalProgress()
+
+        val jobLines = jobProgress.entries.sortedBy { it.key }.take(3).withIndex().map { (index, entry) ->
+            val progress = entry.value
+            val percent = if (progress.second == 0) 0 else (progress.first.toFloat() / progress.second * 100).toInt()
+            "Job ${index + 1} ($percent%)"
+        }
         
+        if (jobLines.isEmpty() && !TaskProgressTracker.hasActiveTasks()) return
+
+        val maxLineWidth = (jobLines.map { mc.font.width(it) } + mc.font.width("Construction Progress")).maxOrNull() ?: 100
+        val toastWidth = maxLineWidth + (padding * 2)
         
-        // Calculate toast dimensions
-        val headerText = "Tasks: $completedTasks/$totalTasks ($progressPercent%)"
-        val headerWidth = mc.font.width(headerText)
-        val toastWidth = headerWidth + (padding * 2)
-        
-        // Height: header + task lines + progress bar + padding
-        val toastHeight = progressBarHeight + (padding * 2) + 4
+        val toastHeight = padding + 12 + (jobLines.size * lineSpacing) + progressBarHeight + padding
 
         val toastX = 4
-        val toastY = screenHeight - toastHeight - 4
+        val toastY = screenHeight - toastHeight - 20
         
         val gray = AllGuiTextures.HUD_BACKGROUND
         
@@ -85,19 +84,31 @@ object TaskProgressHUD {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
         RenderSystem.disableBlend()
         
-        // Draw header
+        // Draw Header
         guiGraphics.drawString(
             mc.font,
-            headerText,
+            "Construction Tasks",
             toastX + padding,
             toastY + padding,
-            0xAAFFAA, // Light green
+            0xAAFFAA,
             false
         )
         
+        // Draw job lines
+        jobLines.forEachIndexed { index, line ->
+            guiGraphics.drawString(
+                mc.font,
+                line,
+                toastX + padding,
+                toastY + padding + 12 + (index * lineSpacing),
+                0xEEEEEE,
+                false
+            )
+        }
+        
         val barY = toastY + toastHeight - padding - progressBarHeight
         val barWidth = toastWidth - (padding * 2)
-        val filledWidth = (barWidth * progress).toInt()
+        val filledWidth = (barWidth * globalProgress).toInt()
         
         // Background of progress bar (dark gray)
         guiGraphics.fill(

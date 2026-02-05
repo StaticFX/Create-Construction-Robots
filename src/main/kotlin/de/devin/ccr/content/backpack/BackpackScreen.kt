@@ -15,8 +15,8 @@ import net.minecraft.world.entity.player.Inventory
  * - PLAYER_INVENTORY background for the bottom section
  * 
  * Displays:
- * - 8 robot slots (2x4 grid)
- * - 4 upgrade slots (1x4 row)
+ * - 4 robot slots (1x4 row)
+ * - 6 upgrade slots (1x6 row)
  * - Player inventory
  */
 class BackpackScreen(
@@ -53,22 +53,17 @@ class BackpackScreen(
         // Draw slot backgrounds for the backpack slots using TOOLBELT_SLOT
         // TOOLBELT_SLOT is 22x22, with the 16x16 slot area centered (3px border)
         
-        // Robots (2x4 grid) - centered in the FILTER background
-        // Slot positions in container: x = 19 + (col * 22), y = 24 + (row * 22)
-        // Background offset: slotX - 3, slotY - 3
-        for (row in 0 until 2) {
-            for (col in 0 until 4) {
-                val slotX = x + 16 + (col * 22)
-                val slotY = y + 21 + (row * 22)
-                AllGuiTextures.TOOLBELT_SLOT.render(guiGraphics, slotX, slotY)
-            }
+        // Robots (1x4 row)
+        for (i in 0 until 4) {
+            val slotX = x + 60 + (i * 22)
+            val slotY = y + 27
+            AllGuiTextures.TOOLBELT_SLOT.render(guiGraphics, slotX, slotY)
         }
         
-        // Upgrades (1x4 row) - below robots
-        // Slot positions in container: x = 19 + (i * 22), y = 74
-        for (i in 0 until 4) {
-            val slotX = x + 16 + (i * 22)
-            val slotY = y + 71
+        // Upgrades (1x6 row) - below robots
+        for (i in 0 until 6) {
+            val slotX = x + 38 + (i * 22)
+            val slotY = y + 57
             AllGuiTextures.TOOLBELT_SLOT.render(guiGraphics, slotX, slotY)
         }
         

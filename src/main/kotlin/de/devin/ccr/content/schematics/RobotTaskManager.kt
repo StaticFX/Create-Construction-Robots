@@ -17,8 +17,11 @@ class RobotTaskManager {
     
     private val pendingTasks: Queue<RobotTask> = ConcurrentLinkedQueue()
     private val activeTasks: MutableMap<Int, RobotTask> = mutableMapOf()
-    private val completedTasks: MutableList<RobotTask> = mutableListOf()
-    private val failedTasks: MutableList<RobotTask> = mutableListOf()
+    
+    // Track stats per jobId
+    private val jobTotalTasks = mutableMapOf<UUID, Int>()
+    private val jobCompletedTasks = mutableMapOf<UUID, Int>()
+    private val jobWorkingTaskCount = mutableMapOf<UUID, Int>()
     
     // Statistics
     var totalTasksGenerated: Int = 0
@@ -34,6 +37,10 @@ class RobotTaskManager {
     fun addTask(task: RobotTask) {
         pendingTasks.add(task)
         totalTasksGenerated++
+        task.jobId?.let { id ->
+            jobTotalTasks[id] = jobTotalTasks.getOrDefault(id, 0) + 1
+            jobWorkingTaskCount[id] = jobWorkingTaskCount.getOrDefault(id, 0) + 1
+        }
     }
     
     /**
@@ -67,8 +74,18 @@ class RobotTaskManager {
         val task = activeTasks.remove(robotId)
         if (task != null) {
             task.complete()
-            completedTasks.add(task)
             tasksCompleted++
+            task.jobId?.let { id ->
+                jobCompletedTasks[id] = jobCompletedTasks.getOrDefault(id, 0) + 1
+                
+                // Update working count
+                val remaining = jobWorkingTaskCount.getOrDefault(id, 0) - 1
+                if (remaining <= 0) {
+                    jobWorkingTaskCount.remove(id)
+                } else {
+                    jobWorkingTaskCount[id] = remaining
+                }
+            }
         }
     }
     
@@ -83,8 +100,16 @@ class RobotTaskManager {
                 task.status = RobotTask.TaskStatus.PENDING
                 pendingTasks.add(task)
             } else {
-                failedTasks.add(task)
                 tasksFailed++
+                task.jobId?.let { id ->
+                    // Update working count for non-requeued failures
+                    val remaining = jobWorkingTaskCount.getOrDefault(id, 0) - 1
+                    if (remaining <= 0) {
+                        jobWorkingTaskCount.remove(id)
+                    } else {
+                        jobWorkingTaskCount[id] = remaining
+                    }
+                }
             }
         }
     }
@@ -98,6 +123,10 @@ class RobotTaskManager {
         
         activeTasks.values.forEach { it.cancel() }
         activeTasks.clear()
+
+        jobTotalTasks.clear()
+        jobCompletedTasks.clear()
+        jobWorkingTaskCount.clear()
     }
     
     /**
@@ -131,11 +160,13 @@ class RobotTaskManager {
     fun getActiveCount(): Int = activeTasks.size
     
     /**
-     * Get progress as a percentage (0.0 to 1.0)
+     * Get progress as a percentage (0.0 to 1.0) for active jobs.
      */
     fun getProgress(): Float {
-        if (totalTasksGenerated == 0) return 0f
-        return tasksCompleted.toFloat() / totalTasksGenerated.toFloat()
+        val jobProgress = getActiveJobProgress()
+        val total = jobProgress.values.sumOf { it.second }
+        if (total == 0) return 0f
+        return jobProgress.values.sumOf { it.first }.toFloat() / total.toFloat()
     }
     
     /**
@@ -153,6 +184,29 @@ class RobotTaskManager {
                 RobotTask.TaskType.REMOVE -> "Removing block at $posStr"
             }
         }
+    }
+    
+    /**
+     * Get data for all active jobs (jobs that have pending or active tasks)
+     */
+    fun getActiveJobProgress(): Map<UUID, Pair<Int, Int>> {
+        return jobWorkingTaskCount.keys.associateWith { id ->
+            (jobCompletedTasks[id] ?: 0) to (jobTotalTasks[id] ?: 0)
+        }
+    }
+
+    /**
+     * Get total tasks for currently active jobs
+     */
+    fun getActiveTotalTasks(): Int {
+        return getActiveJobProgress().values.sumOf { it.second }
+    }
+
+    /**
+     * Get completed tasks for currently active jobs
+     */
+    fun getActiveCompletedTasks(): Int {
+        return getActiveJobProgress().values.sumOf { it.first }
     }
     
     /**

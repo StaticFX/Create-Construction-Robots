@@ -123,7 +123,8 @@ class RobotExecuteTaskGoal(private val robot: ConstructorRobotEntity) : Goal() {
                 )
             }
 
-            val requiredTicks = (ConstructorRobotEntity.BASE_BREAK_TICKS / robot.getSpeedMultiplier()).toInt().coerceAtLeast(1)
+            val breakSpeedMultiplier = robot.getRobotContext().breakSpeedMultiplier
+            val requiredTicks = (ConstructorRobotEntity.BASE_BREAK_TICKS * breakSpeedMultiplier / robot.getSpeedMultiplier()).toInt().coerceAtLeast(1)
             if (workTicks >= requiredTicks) {
                 performWork()
                 completeTask()
@@ -137,10 +138,19 @@ class RobotExecuteTaskGoal(private val robot: ConstructorRobotEntity) : Goal() {
             flyTowards(playerPos)
         } else {
             robot.setDeltaMovement(Vec3.ZERO)
-            if (tm.hasPendingTasks()) {
-                robot.currentState = RobotState.IDLE
-            } else {
-                robot.returnToBackpackAndDiscard(player)
+            
+            // Deposit items if carrying any
+            if (robot.carriedItems.isNotEmpty()) {
+                robot.inventoryManager.depositItems(robot.carriedItems, robot.getRobotContext())
+            }
+            
+            // Only stop returning if we managed to empty our hands
+            if (robot.carriedItems.isEmpty()) {
+                if (tm.hasPendingTasks()) {
+                    robot.currentState = RobotState.IDLE
+                } else {
+                    robot.returnToBackpackAndDiscard(player)
+                }
             }
         }
     }
@@ -154,12 +164,24 @@ class RobotExecuteTaskGoal(private val robot: ConstructorRobotEntity) : Goal() {
 
     private fun completeTask() {
         val tm = robot.taskManager ?: return
+        val task = robot.currentTask
         tm.completeTask(robot.id)
         robot.currentTask = null
-        robot.carriedItems.clear()
+        
+        // Only clear items if it was a placement task (consumed)
+        if (task?.type == RobotTask.TaskType.PLACE) {
+            robot.carriedItems.clear()
+        }
+        
         robot.setTaskPos(null)
         robot.setWorking(false)
-        robot.currentState = RobotState.RETURNING_TO_PLAYER
+        
+        val context = robot.getRobotContext()
+        if (task?.type == RobotTask.TaskType.REMOVE && !context.pickupEnabled) {
+            robot.currentState = RobotState.IDLE
+        } else {
+            robot.currentState = RobotState.RETURNING_TO_PLAYER
+        }
     }
 
     private fun performWork() {
@@ -168,7 +190,7 @@ class RobotExecuteTaskGoal(private val robot: ConstructorRobotEntity) : Goal() {
         
         val action = when (task.type) {
             RobotTask.TaskType.PLACE -> PlaceAction()
-            RobotTask.TaskType.REMOVE -> RemoveAction()
+            RobotTask.TaskType.REMOVE -> RemoveAction(robot)
         }
         
         action.execute(robot.level(), task.targetPos, task, context)

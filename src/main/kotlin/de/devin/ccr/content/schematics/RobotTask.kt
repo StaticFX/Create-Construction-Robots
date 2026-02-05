@@ -3,6 +3,7 @@ package de.devin.ccr.content.schematics
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
 
 /**
  * Represents a single task for a constructor robot.
@@ -46,6 +47,7 @@ data class RobotTask(
     
     var status: TaskStatus = TaskStatus.PENDING
     var assignedRobotId: Int? = null
+    var jobId: UUID? = null
     
     /**
      * Checks if this task can be started based on available materials and player mode.
@@ -106,15 +108,15 @@ data class RobotTask(
         /**
          * Create a placement task
          */
-        fun place(pos: BlockPos, state: BlockState, items: List<ItemStack>, priority: Int = 0, tag: net.minecraft.nbt.CompoundTag? = null): RobotTask {
-            return RobotTask(TaskType.PLACE, pos, state, tag, items, priority)
+        fun place(pos: BlockPos, state: BlockState, items: List<ItemStack>, priority: Int = 0, tag: net.minecraft.nbt.CompoundTag? = null, jobId: UUID? = null): RobotTask {
+            return RobotTask(TaskType.PLACE, pos, state, tag, items, priority).apply { this.jobId = jobId }
         }
         
         /**
          * Create a removal task
          */
-        fun remove(pos: BlockPos, priority: Int = 0): RobotTask {
-            return RobotTask(TaskType.REMOVE, pos, null, null, emptyList(), priority)
+        fun remove(pos: BlockPos, priority: Int = 0, jobId: UUID? = null): RobotTask {
+            return RobotTask(TaskType.REMOVE, pos, null, null, emptyList(), priority).apply { this.jobId = jobId }
         }
     }
 }

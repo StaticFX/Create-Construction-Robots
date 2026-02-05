@@ -5,7 +5,9 @@ import de.devin.ccr.content.upgrades.RobotContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Block
 
 /**
  * Interface for actions robots perform on blocks.
@@ -42,9 +44,26 @@ class PlaceAction : IWorkAction {
 /**
  * Action for breaking blocks, with optional silk touch support.
  */
-class RemoveAction : IWorkAction {
+class RemoveAction(private val robot: ConstructorRobotEntity) : IWorkAction {
     override fun execute(level: Level, pos: BlockPos, task: RobotTask, context: RobotContext) {
-        val dropItems = !context.silkTouchEnabled
-        level.destroyBlock(pos, dropItems)
+        if (context.pickupEnabled) {
+            val state = level.getBlockState(pos)
+            if (level is ServerLevel) {
+                // Determine drops
+                // Note: This doesn't perfectly simulate all tool effects (like silk touch)
+                // but it's a good approximation for a robot.
+                val drops = if (context.silkTouchEnabled) {
+                    listOf(ItemStack(state.block.asItem()))
+                } else {
+                    Block.getDrops(state, level, pos, level.getBlockEntity(pos))
+                }
+                
+                level.destroyBlock(pos, false)
+                robot.carriedItems.addAll(drops)
+            }
+        } else {
+            // No pickup upgrade - just destroy the block (void it)
+            level.destroyBlock(pos, true)
+        }
     }
 }

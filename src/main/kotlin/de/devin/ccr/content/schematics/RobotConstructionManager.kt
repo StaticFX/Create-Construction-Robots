@@ -5,6 +5,7 @@ import de.devin.ccr.content.backpack.ConstructorBackpackItem
 import de.devin.ccr.content.robots.ConstructorRobotEntity
 import de.devin.ccr.items.AllItems
 import de.devin.ccr.registry.AllEntityTypes
+import java.util.UUID
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.item.ItemEntity
@@ -51,7 +52,8 @@ object RobotConstructionManager {
 
         val handler = SchematicRobotHandler(player.level())
         if (handler.loadSchematic(schematicStack)) {
-            val tasks = handler.generateBuildTasks()
+            val jobId = UUID.randomUUID()
+            val tasks = handler.generateBuildTasks(jobId)
             if (tasks.isNotEmpty()) {
                 val tm = ConstructorRobotEntity.playerTaskManagers.getOrPut(player.uuid) { RobotTaskManager() }
                 tm.addTasks(tasks)
@@ -92,7 +94,8 @@ object RobotConstructionManager {
             return
         }
 
-        val tasks = SchematicRobotHandler(player.level()).generateRemovalTasks(pos1, pos2)
+        val jobId = UUID.randomUUID()
+        val tasks = SchematicRobotHandler(player.level()).generateRemovalTasks(pos1, pos2, jobId)
         if (tasks.isNotEmpty()) {
             val tm = ConstructorRobotEntity.playerTaskManagers.getOrPut(player.uuid) { RobotTaskManager() }
             tm.addTasks(tasks)

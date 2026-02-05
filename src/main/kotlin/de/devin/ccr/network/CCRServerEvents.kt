@@ -36,12 +36,11 @@ object CCRServerEvents {
             
             if (player is ServerPlayer) {
                 // Send progress sync packet
+                val jobProgress = taskManager.getActiveJobProgress()
                 val packet = TaskProgressSyncPacket(
-                    totalTasks = taskManager.totalTasksGenerated,
-                    completedTasks = taskManager.tasksCompleted,
-                    activeTasks = taskManager.getActiveCount(),
-                    pendingTasks = taskManager.getPendingCount(),
-                    taskDescriptions = taskManager.getActiveTaskDescriptions(3)
+                    globalTotal = jobProgress.values.sumOf { it.second },
+                    globalCompleted = jobProgress.values.sumOf { it.first },
+                    jobProgress = jobProgress
                 )
                 PacketDistributor.sendToPlayer(player, packet)
             }

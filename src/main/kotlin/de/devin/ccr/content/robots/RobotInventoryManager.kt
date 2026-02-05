@@ -48,6 +48,30 @@ class RobotInventoryManager(private val robot: ConstructorRobotEntity) {
     }
 
     /**
+     * Deposits carried items back into player or wireless inventory.
+     */
+    fun depositItems(carriedItems: MutableList<ItemStack>, context: RobotContext) {
+        val ownerPlayer = robot.getOwnerPlayer() ?: return
+        if (ownerPlayer.isCreative) {
+            carriedItems.clear()
+            return
+        }
+
+        val source = getMaterialSource(ownerPlayer, context)
+        val remainingItems = mutableListOf<ItemStack>()
+        
+        for (stack in carriedItems) {
+            val remaining = source.insertItems(stack)
+            if (!remaining.isEmpty) {
+                remainingItems.add(remaining)
+            }
+        }
+        
+        carriedItems.clear()
+        carriedItems.addAll(remainingItems)
+    }
+
+    /**
      * Gets a material source that checks all available inventories.
      */
     private fun getMaterialSource(ownerPlayer: ServerPlayer, context: RobotContext): MaterialSource {

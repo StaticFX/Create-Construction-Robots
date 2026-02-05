@@ -1,4 +1,5 @@
 package de.devin.ccr.content.backpack.client
+import java.util.UUID
 
 /**
  * Client-side tracker for robot task progress.
@@ -8,24 +9,16 @@ package de.devin.ccr.content.backpack.client
  */
 object TaskProgressTracker {
     
-    /** Total number of tasks generated for the current job */
-    var totalTasks: Int = 0
+    /** Total number of tasks across all jobs */
+    var globalTotal: Int = 0
         private set
     
-    /** Number of tasks completed */
-    var completedTasks: Int = 0
+    /** Number of tasks completed across all jobs */
+    var globalCompleted: Int = 0
         private set
     
-    /** Number of currently active tasks (robots working) */
-    var activeTasks: Int = 0
-        private set
-    
-    /** Number of tasks waiting to be assigned */
-    var pendingTasks: Int = 0
-        private set
-    
-    /** Descriptions of active tasks (max 3) */
-    var taskDescriptions: List<String> = emptyList()
+    /** Progress per job (jobId -> (completed, total)) */
+    var jobProgress: Map<UUID, Pair<Int, Int>> = emptyMap()
         private set
     
     /** Timestamp of last update (client tick) */
@@ -36,17 +29,13 @@ object TaskProgressTracker {
      * Updates the tracker with new data from the server.
      */
     fun update(
-        totalTasks: Int,
-        completedTasks: Int,
-        activeTasks: Int,
-        pendingTasks: Int,
-        taskDescriptions: List<String>
+        globalTotal: Int,
+        globalCompleted: Int,
+        jobProgress: Map<UUID, Pair<Int, Int>>
     ) {
-        this.totalTasks = totalTasks
-        this.completedTasks = completedTasks
-        this.activeTasks = activeTasks
-        this.pendingTasks = pendingTasks
-        this.taskDescriptions = taskDescriptions.take(3) // Max 3 shown
+        this.globalTotal = globalTotal
+        this.globalCompleted = globalCompleted
+        this.jobProgress = jobProgress
         this.lastUpdateTick = System.currentTimeMillis()
     }
     
@@ -54,25 +43,23 @@ object TaskProgressTracker {
      * Clears all tracked data.
      */
     fun clear() {
-        totalTasks = 0
-        completedTasks = 0
-        activeTasks = 0
-        pendingTasks = 0
-        taskDescriptions = emptyList()
+        globalTotal = 0
+        globalCompleted = 0
+        jobProgress = emptyMap()
         lastUpdateTick = 0
     }
     
     /**
      * Returns true if there are any tasks being tracked.
      */
-    fun hasActiveTasks(): Boolean = totalTasks > 0 && completedTasks < totalTasks
+    fun hasActiveTasks(): Boolean = globalTotal > 0 && globalCompleted < globalTotal
     
     /**
-     * Returns the progress as a value between 0.0 and 1.0.
+     * Returns the global progress as a value between 0.0 and 1.0.
      */
-    fun getProgress(): Float {
-        if (totalTasks == 0) return 0f
-        return completedTasks.toFloat() / totalTasks.toFloat()
+    fun getGlobalProgress(): Float {
+        if (globalTotal == 0) return 0f
+        return globalCompleted.toFloat() / globalTotal.toFloat()
     }
     
     /**
