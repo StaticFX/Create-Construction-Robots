@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.devin.ccr.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "ccr.refmap.json",
+  "mixins": [
+  ],
+  "client": [
+    "SchematicEditScreenMixin",
+    "SchematicHandlerHudMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
