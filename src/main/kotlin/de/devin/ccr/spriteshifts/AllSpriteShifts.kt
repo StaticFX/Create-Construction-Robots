@@ -10,8 +10,6 @@ import net.createmod.catnip.render.SpriteShifter
 
 object AllSpriteShifts {
 
-    val TUNGSTEN_CASING = omni("tungsten_casing")
-
 
         //
 

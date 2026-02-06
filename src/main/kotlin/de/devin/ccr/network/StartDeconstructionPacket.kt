@@ -1,7 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.schematics.RobotConstructionManager
+import de.devin.ccr.content.schematics.BeeWorkManager
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
@@ -41,7 +41,7 @@ class StartDeconstructionPacket(
                 CreateCCR.LOGGER.info("Received deconstruction request from ${player.name.string} for area ${payload.pos1} to ${payload.pos2}")
                 
                 // Start deconstruction with the provided positions
-                RobotConstructionManager.startDeconstruction(player, payload.pos1, payload.pos2)
+                BeeWorkManager.startDeconstruction(player, payload.pos1, payload.pos2)
             }
         }
     }

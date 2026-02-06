@@ -1,6 +1,6 @@
 package de.devin.ccr.content.backpack.client
 
-import de.devin.ccr.content.backpack.BackpackTooltipData
+import de.devin.ccr.content.backpack.BeehiveTooltipData
 import de.devin.ccr.registry.AllKeys
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent
 import net.neoforged.neoforge.client.event.RenderGuiEvent
@@ -20,7 +20,7 @@ object CCRClientEvents {
     @SubscribeEvent
     @JvmStatic
     fun registerTooltipComponents(event: RegisterClientTooltipComponentFactoriesEvent) {
-        event.register(BackpackTooltipData::class.java) { data: BackpackTooltipData -> BackpackTooltipComponent(data) }
+        event.register(BeehiveTooltipData::class.java) { data: BeehiveTooltipData -> BeehiveTooltipComponent(data) }
     }
 }
 

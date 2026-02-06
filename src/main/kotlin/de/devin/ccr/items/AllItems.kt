@@ -2,111 +2,107 @@ package de.devin.ccr.items
 
 import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.backpack.ConstructorBackpackItem
-import de.devin.ccr.content.robots.ConstructorRobotItem
-import de.devin.ccr.content.schematics.DeconstructionPlannerItem
+import de.devin.ccr.content.backpack.PortableBeehiveItem
+import de.devin.ccr.content.robots.MechanicalBeeItem
+import de.devin.ccr.content.schematics.StingerPlannerItem
 import de.devin.ccr.content.upgrades.*
 import de.devin.ccr.tabs.AllCreativeModeTabs
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 
 
 object AllItems {
+    fun register() {}
 
-    init {
-        CreateCCR.REGISTRATE.setCreativeTab(AllCreativeModeTabs.BASE_MOD_TAB)
-    }
-
-    // Constructor Backpack - wearable in Curios "back" slot
-    val CONSTRUCTOR_BACKPACK: ItemEntry<ConstructorBackpackItem> = CreateCCR.REGISTRATE
-        .item("constructor_backpack") { props ->
-            ConstructorBackpackItem(props)
+    // Portable Beehive - wearable in Curios "back" slot
+    val PORTABLE_BEEHIVE: ItemEntry<PortableBeehiveItem> = CreateCCR.REGISTRATE
+        .item("portable_beehive") { props ->
+            PortableBeehiveItem(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
     
-    // Constructor Robot - goes in backpack robot slots (stackable, consumed on deploy)
-    val CONSTRUCTOR_ROBOT: ItemEntry<ConstructorRobotItem> = CreateCCR.REGISTRATE
-        .item("constructor_robot") { props ->
-            ConstructorRobotItem(props)
+    // Mechanical Bee - goes in backpack robot slots (stackable, consumed on deploy)
+    val MECHANICAL_BEE: ItemEntry<MechanicalBeeItem> = CreateCCR.REGISTRATE
+        .item("mechanical_bee") { props ->
+            MechanicalBeeItem(props)
         }
         .properties {
-            it.stacksTo(ConstructorRobotItem.MAX_STACK_SIZE)
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
               .rarity(Rarity.UNCOMMON)
         }
         .register()
 
-    // Deconstruction Planner - select areas for removal (alternative to schematic-based deconstruction)
-    val DECONSTRUCTION_PLANNER: ItemEntry<DeconstructionPlannerItem> = CreateCCR.REGISTRATE
-        .item("deconstruction_planner") { props ->
-            DeconstructionPlannerItem(props)
+    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
+    val STINGER_PLANNER: ItemEntry<StingerPlannerItem> = CreateCCR.REGISTRATE
+        .item("stinger_planner") { props ->
+            StingerPlannerItem(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
     
     // ===== Backpack Upgrades =====
     
-    // Speed Coil - +25% robot speed (max 4)
-    val SPEED_COIL: ItemEntry<SpeedCoilUpgrade> = CreateCCR.REGISTRATE
-        .item("speed_coil") { props ->
-            SpeedCoilUpgrade(props)
+    // Rapid Wings - +25% bee speed (max 4)
+    val RAPID_WINGS: ItemEntry<RapidWingsUpgrade> = CreateCCR.REGISTRATE
+        .item("rapid_wings") { props ->
+            RapidWingsUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
     
-    // Parallel Processor - +2 concurrent robots (max 3)
-    val PARALLEL_PROCESSOR: ItemEntry<ParallelProcessorUpgrade> = CreateCCR.REGISTRATE
-        .item("parallel_processor") { props ->
-            ParallelProcessorUpgrade(props)
+    // Swarm Intelligence - +2 concurrent bees (max 3)
+    val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateCCR.REGISTRATE
+        .item("swarm_intelligence") { props ->
+            SwarmIntelligenceUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
     
-    // Wireless Link - connect to nearby storage
-    val WIRELESS_LINK: ItemEntry<WirelessLinkUpgrade> = CreateCCR.REGISTRATE
-        .item("wireless_link") { props ->
-            WirelessLinkUpgrade(props)
+    // Pollen Link - connect to nearby storage
+    val POLLEN_LINK: ItemEntry<PollenLinkUpgrade> = CreateCCR.REGISTRATE
+        .item("pollen_link") { props ->
+            PollenLinkUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Extended Range - +16 blocks work radius
-    val EXTENDED_RANGE: ItemEntry<ExtendedRangeUpgrade> = CreateCCR.REGISTRATE
-        .item("extended_range") { props ->
-            ExtendedRangeUpgrade(props)
+    // Long-Range Scout - +16 blocks work radius
+    val LONG_RANGE_SCOUT: ItemEntry<LongRangeScoutUpgrade> = CreateCCR.REGISTRATE
+        .item("long_range_scout") { props ->
+            LongRangeScoutUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Efficiency Module - Higher capacity and break speed
-    val EFFICIENCY_MODULE: ItemEntry<EfficiencyModuleUpgrade> = CreateCCR.REGISTRATE
-        .item("efficiency_module") { props ->
-            EfficiencyModuleUpgrade(props)
+    // Honey Efficiency - Higher capacity and break speed
+    val HONEY_EFFICIENCY: ItemEntry<HoneyEfficiencyUpgrade> = CreateCCR.REGISTRATE
+        .item("honey_efficiency") { props ->
+            HoneyEfficiencyUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Precision Core - Robots can place redstone/rails correctly
-    val PRECISION_CORE: ItemEntry<PrecisionCoreUpgrade> = CreateCCR.REGISTRATE
-        .item("precision_core") { props ->
-            PrecisionCoreUpgrade(props)
+    // Stinger Precision - Bees can place redstone/rails correctly
+    val STINGER_PRECISION: ItemEntry<StingerPrecisionUpgrade> = CreateCCR.REGISTRATE
+        .item("stinger_precision") { props ->
+            StingerPrecisionUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Silk Touch Module - Deconstruction preserves blocks
-    val SILK_TOUCH_MODULE: ItemEntry<SilkTouchModuleUpgrade> = CreateCCR.REGISTRATE
-        .item("silk_touch_module") { props ->
-            SilkTouchModuleUpgrade(props)
+    // Soft Touch - Deconstruction preserves blocks
+    val SOFT_TOUCH: ItemEntry<SoftTouchUpgrade> = CreateCCR.REGISTRATE
+        .item("soft_touch") { props ->
+            SoftTouchUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Pickup Module - Robots pick up broken blocks
-    val PICKUP_MODULE: ItemEntry<PickupModuleUpgrade> = CreateCCR.REGISTRATE
-        .item("pickup_module") { props ->
-            PickupModuleUpgrade(props)
+    // Gathering Wings - Bees pick up broken blocks
+    val GATHERING_WINGS: ItemEntry<GatheringWingsUpgrade> = CreateCCR.REGISTRATE
+        .item("gathering_wings") { props ->
+            GatheringWingsUpgrade(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()

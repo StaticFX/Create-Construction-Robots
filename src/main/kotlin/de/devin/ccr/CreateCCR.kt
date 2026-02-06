@@ -1,6 +1,7 @@
 package de.devin.ccr
 
 import com.simibubi.create.foundation.data.CreateRegistrate
+import com.simibubi.create.api.stress.BlockStressValues
 import de.devin.ccr.blocks.AllBlocks
 import de.devin.ccr.content.backpack.client.CCRClientEvents
 import de.devin.ccr.content.backpack.client.TaskProgressClientEvents
@@ -9,10 +10,13 @@ import de.devin.ccr.datagen.CCRDatagen
 import de.devin.ccr.items.AllItems
 import de.devin.ccr.network.AllPackets
 import de.devin.ccr.network.CCRServerEvents
+import de.devin.ccr.ponder.CCRPonderPlugin
+import de.devin.ccr.registry.AllBlockEntityTypes
 import de.devin.ccr.registry.AllEntityTypes
 import de.devin.ccr.registry.AllKeys
 import de.devin.ccr.registry.AllMenuTypes
 import de.devin.ccr.tabs.AllCreativeModeTabs
+import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.Mod
@@ -45,21 +49,28 @@ object CreateCCR {
     init {
         REGISTRATE.registerEventListeners(MOD_BUS)
 
-        AllCreativeModeTabs
-        AllItems
-        AllBlocks
+        AllCreativeModeTabs.register()
+        REGISTRATE.setCreativeTab(AllCreativeModeTabs.BASE_MOD_TAB)
+        AllBlocks.register()
+        AllItems.register()
         AllEntityTypes.register()
+        AllBlockEntityTypes.register()
         AllMenuTypes.register()
 
         MOD_BUS.addListener<RegisterPayloadHandlersEvent> {
             AllPackets.register(it)
         }
-        MOD_BUS.addListener<GatherDataEvent> { CCRDatagen.gatherData(it) }
-        MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
-        MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
         
-        // Register client-side tooltip component factories on the mod bus
-        MOD_BUS.register(CCRClientEvents::class.java)
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
+            MOD_BUS.register(CCRClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
+            MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
+            MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
+        }
+        
+        MOD_BUS.addListener<GatherDataEvent> { CCRDatagen.gatherData(it) }
+        MOD_BUS.addListener<FMLCommonSetupEvent> { onCommonSetup(it) }
         
         // Register server-side event handlers on the NeoForge event bus
         NeoForge.EVENT_BUS.register(CCRServerEvents::class.java)
@@ -77,12 +88,8 @@ object CreateCCR {
     private fun onClientSetup(event: FMLClientSetupEvent) {
         LOGGER.log(Level.INFO, "Initializing client...")
         
-        // Register client-side event handlers on the NeoForge event bus
-        // This is done manually to avoid compatibility issues with Kotlin For Forge's
-        // auto-registration system which uses deprecated NeoForge APIs
-        // Note: We register the class (not instance) because Kotlin object methods are static
-        NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
-        NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
+        // Register Ponder plugin
+        PonderIndex.addPlugin(CCRPonderPlugin())
     }
 
     /**
@@ -92,8 +99,7 @@ object CreateCCR {
         LOGGER.log(Level.INFO, "Server starting...")
     }
 
-    @SubscribeEvent
-    fun onCommonSetup(event: FMLCommonSetupEvent) {
-        LOGGER.log(Level.INFO, "Hello! This is working!")
+    private fun onCommonSetup(event: FMLCommonSetupEvent) {
+        LOGGER.log(Level.INFO, "Common setup...")
     }
 }

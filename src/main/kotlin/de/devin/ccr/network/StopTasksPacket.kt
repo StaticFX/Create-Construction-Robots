@@ -1,7 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.schematics.RobotConstructionManager
+import de.devin.ccr.content.schematics.BeeWorkManager
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -22,7 +22,7 @@ class StopTasksPacket private constructor() : CustomPacketPayload {
         fun handle(payload: StopTasksPacket, context: IPayloadContext) {
             context.enqueueWork {
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
-                RobotConstructionManager.stopAllTasks(player)
+                BeeWorkManager.stopAllTasks(player)
             }
         }
     }

@@ -5,7 +5,7 @@ import java.util.UUID
  * Client-side tracker for robot task progress.
  * 
  * This object holds the latest task progress data received from the server
- * and is used by BackpackScreen to render status toasts.
+ * and is used by BeehiveScreen to render status toasts.
  */
 object TaskProgressTracker {
     

@@ -1,6 +1,6 @@
 package de.devin.ccr.network
 
-import de.devin.ccr.content.robots.ConstructorRobotEntity
+import de.devin.ccr.content.robots.MechanicalBeeEntity
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
@@ -29,7 +29,7 @@ object CCRServerEvents {
         tickCounter = 0
         
         // Iterate through all players with active task managers
-        for ((playerUuid, taskManager) in ConstructorRobotEntity.playerTaskManagers) {
+        for ((playerUuid, taskManager) in MechanicalBeeEntity.playerTaskManagers) {
             // Find the player
             val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: continue
             val player = server.playerList.getPlayer(playerUuid) ?: continue

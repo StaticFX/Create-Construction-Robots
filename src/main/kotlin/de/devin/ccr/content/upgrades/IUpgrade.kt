@@ -5,10 +5,10 @@ package de.devin.ccr.content.upgrades
  */
 fun interface IUpgrade {
     /**
-     * Applies the effect of this upgrade to the [RobotContext].
+     * Applies the effect of this upgrade to the [BeeContext].
      * 
      * @param context The context to modify.
      * @param count The number of these upgrades installed in the backpack.
      */
-    fun apply(context: RobotContext, count: Int)
+    fun apply(context: BeeContext, count: Int)
 }

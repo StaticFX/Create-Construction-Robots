@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level
  * This utility class is responsible for:
  * - Loading Create's `.nbt` schematic files into a [SchematicPrinter].
  * - Iterating through the schematic's volume and identifying blocks that need to be placed.
- * - Generating [RobotTask] objects that represent construction actions.
+ * - Generating [BeeTask] objects that represent construction actions.
  * - Identifying item requirements for each block using Create's [ItemRequirement] API.
  * - Providing utilities for area deconstruction task generation.
  */
@@ -78,13 +78,13 @@ class SchematicRobotHandler(
      * @param jobId Optional job ID to assign to the tasks
      * @return List of RobotTasks for building the schematic
      */
-    fun generateBuildTasks(jobId: UUID? = null): List<RobotTask> {
+    fun generateBuildTasks(jobId: UUID? = null): List<BeeTask> {
         if (!isLoaded) {
             CreateCCR.LOGGER.warn("No schematic loaded")
             return emptyList()
         }
         
-        val tasks = mutableListOf<RobotTask>()
+        val tasks = mutableListOf<BeeTask>()
         
         // Iterate through all blocks in the schematic
         while (printer.isLoaded && !printer.isErrored) {
@@ -106,7 +106,7 @@ class SchematicRobotHandler(
                 printer.handleCurrentTarget({ pos, state, blockEntity ->
                     if (state != null && !state.isAir) {
                         val tag = blockEntity?.saveWithFullMetadata(level.registryAccess())
-                        tasks.add(RobotTask.place(
+                        tasks.add(BeeTask.place(
                             pos = pos,
                             state = state,
                             items = items,
@@ -137,8 +137,8 @@ class SchematicRobotHandler(
      * @param jobId Optional job ID to assign to the tasks
      * @return List of RobotTasks for removing blocks in the area
      */
-    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, jobId: UUID? = null): List<RobotTask> {
-        val tasks = mutableListOf<RobotTask>()
+    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, jobId: UUID? = null): List<BeeTask> {
+        val tasks = mutableListOf<BeeTask>()
         
         val minX = minOf(corner1.x, corner2.x)
         val minY = minOf(corner1.y, corner2.y)
@@ -156,7 +156,7 @@ class SchematicRobotHandler(
                     
                     // Skip air and unbreakable blocks
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        tasks.add(RobotTask.remove(
+                        tasks.add(BeeTask.remove(
                             pos = pos,
                             priority = calculateRemovalPriority(pos, maxY),
                             jobId = jobId

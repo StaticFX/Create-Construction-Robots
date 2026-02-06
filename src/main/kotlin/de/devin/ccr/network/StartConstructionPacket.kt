@@ -1,7 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.schematics.RobotConstructionManager
+import de.devin.ccr.content.schematics.BeeWorkManager
 import de.devin.ccr.content.schematics.SchematicRobotHandler
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
@@ -41,7 +41,7 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
                 }
 
                 if (!schematicStack.isEmpty) {
-                    RobotConstructionManager.startConstruction(player, schematicStack)
+                    BeeWorkManager.startConstruction(player, schematicStack)
                 }
             }
         }

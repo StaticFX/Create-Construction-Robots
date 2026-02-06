@@ -11,7 +11,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**
  * Packet sent from server to client to sync task progress information.
- * Used to display task status toasts in the BackpackScreen.
+ * Used to display task status toasts in the BeehiveScreen.
  * 
  * @param globalTotal Global total number of tasks generated across all jobs
  * @param globalCompleted Global number of tasks completed across all jobs

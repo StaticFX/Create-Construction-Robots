@@ -1,8 +1,5 @@
 package de.devin.ccr.content.schematics.client
 
-import com.mojang.blaze3d.systems.RenderSystem
-import com.simibubi.create.AllSpecialTextures
-import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.ccr.items.AllItems
 import de.devin.ccr.network.StartDeconstructionPacket
@@ -10,7 +7,6 @@ import de.devin.ccr.network.StopTasksPacket
 import de.devin.ccr.registry.AllKeys
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.VecHelper
-import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -269,7 +265,7 @@ object DeconstructionHandler {
     fun isActive(): Boolean {
         val player = Minecraft.getInstance().player ?: return false
         val mainHandItem = player.mainHandItem
-        return AllItems.DECONSTRUCTION_PLANNER.isIn(mainHandItem)
+        return AllItems.STINGER_PLANNER.isIn(mainHandItem)
     }
 
     /**
