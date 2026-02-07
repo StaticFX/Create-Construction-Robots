@@ -1,9 +1,12 @@
 package de.devin.ccr.content.robots.goals
 
+import de.devin.ccr.content.robots.PlayerBeeHome
+import de.devin.ccr.content.robots.BeeSource
 import de.devin.ccr.content.robots.MechanicalBeeEntity
 import de.devin.ccr.content.robots.BeeState
+import de.devin.ccr.content.schematics.BeeJob
 import de.devin.ccr.content.schematics.BeeTask
-import de.devin.ccr.content.schematics.BeeTaskManager
+import de.devin.ccr.content.schematics.GlobalJobPool
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -14,6 +17,9 @@ import java.util.*
 /**
  * Goal for finding and executing tasks.
  * Uses a state machine for clean logic flow.
+ * 
+ * Bees get tasks from the GlobalJobPool, which contains jobs from
+ * both stationary beehives and player backpacks.
  */
 class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
     private var workTicks = 0
@@ -25,18 +31,19 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
     override fun canUse(): Boolean = true
 
     override fun tick() {
+        // If the home is a player, we need the player to be online
+        val home = robot.getHome()
         val ownerPlayer = robot.getOwnerPlayer()
-        if (ownerPlayer == null) {
+        
+        if (home is PlayerBeeHome && ownerPlayer == null) {
             robot.dropRobotItemAndDiscard()
             return
         }
 
-        val tm = robot.taskManager ?: return
-
         if (robot.air <= 0 && robot.currentState != BeeState.RETURNING_TO_PLAYER) {
             robot.currentState = BeeState.RETURNING_TO_PLAYER
             if (robot.currentTask != null) {
-                tm.failTask(robot.id)
+                // Task will be failed/returned to pool by the job system
                 robot.currentTask = null
                 robot.setTaskPos(null)
                 robot.setWorking(false)
@@ -44,50 +51,64 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
         }
         
         when (robot.currentState) {
-            BeeState.IDLE -> handleIdleState(ownerPlayer, tm)
-            BeeState.FETCHING_ITEMS -> handleFetchingState(ownerPlayer, tm)
+            BeeState.IDLE -> handleIdleState(ownerPlayer)
+            BeeState.FETCHING_ITEMS -> handleFetchingState(ownerPlayer)
             BeeState.TRAVELING_TO_WORK -> handleTravelingState()
             BeeState.WORKING -> handleWorkingState()
-            BeeState.RETURNING_TO_PLAYER -> handleReturningState(ownerPlayer, tm)
+            BeeState.RETURNING_TO_PLAYER -> handleReturningState(ownerPlayer)
         }
     }
 
-    private fun handleIdleState(player: ServerPlayer, tm: BeeTaskManager) {
+    private fun handleIdleState(player: ServerPlayer?) {
         if (robot.air < (MechanicalBeeEntity.MAX_AIR / 4)) {
             robot.currentState = BeeState.RETURNING_TO_PLAYER
             return
         }
-
-        if (tm.hasPendingTasks()) {
-            if (player.isCreative) {
-                val nextTask = tm.getNextTask(robot.id, emptyList(), true)
-                if (nextTask != null) {
-                    assignTask(nextTask)
+        
+        // Check GlobalJobPool for jobs this bee's home can help with
+        val home = robot.getHome()
+        if (home is BeeSource) {
+            val task = GlobalJobPool.getTaskForBee(home, robot.id)
+            if (task != null) {
+                assignTask(task)
+                
+                // Use creative mode check if player is online and creative, or if it's a stationary hive (never creative)
+                val isCreative = player?.isCreative == true
+                if (isCreative || task.action.requiredItems.isEmpty()) {
                     robot.currentState = BeeState.TRAVELING_TO_WORK
+                } else {
+                    robot.currentState = BeeState.FETCHING_ITEMS
                 }
-            } else {
-                robot.currentState = BeeState.FETCHING_ITEMS
+                return
             }
-        } else {
-            robot.currentState = BeeState.RETURNING_TO_PLAYER
         }
+        
+        // No tasks available anywhere - return to player/home
+        robot.currentState = BeeState.RETURNING_TO_PLAYER
     }
 
-    private fun handleFetchingState(player: ServerPlayer, tm: BeeTaskManager) {
-        val playerPos = player.position().add(0.0, 1.5, 0.0)
-        if (robot.distanceToSqr(playerPos) > 4.0) {
-            flyTowards(playerPos)
+    private fun handleFetchingState(player: ServerPlayer?) {
+        val home = robot.getHome()
+        val fetchPos = if (player != null) {
+            player.position().add(0.0, 1.5, 0.0)
+        } else {
+            Vec3.atCenterOf(home?.position ?: robot.blockPosition()).add(0.0, 1.0, 0.0)
+        }
+
+        if (robot.distanceToSqr(fetchPos) > 4.0) {
+            flyTowards(fetchPos)
             return
         }
 
-        val nextTask = tm.getNextTask(robot.id, emptyList(), false) 
-        if (nextTask != null) {
-            val required = nextTask.action.requiredItems
+        val task = robot.currentTask
+        if (task != null) {
+            val required = task.action.requiredItems
             if (required.isEmpty() || robot.inventoryManager.pickUpItems(required, robot.getBeeContext(), robot.carriedItems)) {
-                assignTask(nextTask)
                 robot.currentState = BeeState.TRAVELING_TO_WORK
             } else {
-                tm.failTask(robot.id)
+                // Return task to job pool
+                task.cancel()
+                robot.currentTask = null
                 robot.currentState = BeeState.IDLE
             }
         } else {
@@ -132,10 +153,16 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
         }
     }
 
-    private fun handleReturningState(player: ServerPlayer, tm: BeeTaskManager) {
-        val playerPos = player.position().add(0.0, 1.5, 0.0)
-        if (robot.distanceToSqr(playerPos) > 4.0) {
-            flyTowards(playerPos)
+    private fun handleReturningState(player: ServerPlayer?) {
+        val home = robot.getHome()
+        val returnPos = if (player != null) {
+            player.position().add(0.0, 1.5, 0.0)
+        } else {
+            Vec3.atCenterOf(home?.position ?: robot.blockPosition()).add(0.0, 1.0, 0.0)
+        }
+
+        if (robot.distanceToSqr(returnPos) > 4.0) {
+            flyTowards(returnPos)
         } else {
             robot.setDeltaMovement(Vec3.ZERO)
             
@@ -147,17 +174,33 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
             // Refill air
             val refilled = robot.refillAirFromHive()
             
+            // Check if there are any global jobs available that this bee's home can help with
+            val hasTasks = hasAvailableGlobalJobs()
+            
             // Only stop returning if we managed to empty our hands
             if (robot.carriedItems.isEmpty()) {
-                if (tm.hasPendingTasks() && robot.air > (MechanicalBeeEntity.MAX_AIR / 2)) {
+                if (hasTasks && robot.air > (MechanicalBeeEntity.MAX_AIR / 2)) {
                     robot.currentState = BeeState.IDLE
                 } else if (robot.air <= 0 && !refilled) {
                     // Out of air and can't refill - go home
-                    robot.returnToBackpackAndDiscard(player)
-                } else if (!tm.hasPendingTasks()) {
-                    robot.returnToBackpackAndDiscard(player)
+                    robot.returnToHomeAndDiscard()
+                } else if (!hasTasks) {
+                    robot.returnToHomeAndDiscard()
                 }
             }
+        }
+    }
+    
+    /**
+     * Checks if there are any global jobs available that this bee's home can help with.
+     */
+    private fun hasAvailableGlobalJobs(): Boolean {
+        val home = robot.getHome()
+        if (home !is BeeSource) return false
+        
+        val jobsInRange = GlobalJobPool.findJobsForSource(home)
+        return jobsInRange.any { job ->
+            job.status == BeeJob.JobStatus.IN_PROGRESS && job.canStart() && job.getNextTask() != null
         }
     }
 
@@ -169,13 +212,24 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
     }
 
     private fun completeTask() {
-        val tm = robot.taskManager ?: return
         val task = robot.currentTask ?: return
-        tm.completeTask(robot.id)
+        
+        // Mark the task as complete
+        task.complete()
+        
+        // Check if the job is now complete
+        val jobId = task.jobId
+        if (jobId != null) {
+            GlobalJobPool.getJob(jobId)?.let { job ->
+                if (job.isComplete()) {
+                    job.complete()
+                }
+            }
+        }
+        
         robot.currentTask = null
         
-        // Only clear items if they were consumed (PlaceAction handles its own consumption logic usually, 
-        // but here we just clear carried items if it wasn't a return-trip action)
+        // Only clear items if they were consumed
         if (task.action.requiredItems.isNotEmpty()) {
             robot.carriedItems.clear()
         }

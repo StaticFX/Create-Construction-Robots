@@ -1,5 +1,9 @@
 package de.devin.ccr.content.beehive
 
+import de.devin.ccr.content.schematics.goals.BeeJobGoal
+import de.devin.ccr.content.schematics.goals.FertilizeGoal
+import de.devin.ccr.content.schematics.goals.MaintenanceDeconstructionGoal
+import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 
@@ -29,10 +33,16 @@ data class BeeInstruction(
 }
 
 enum class InstructionType(val translationKey: String) {
-    FERTILIZE("gui.ccr.instruction.fertilize"),
-    DECONSTRUCT("gui.ccr.instruction.deconstruct"),
+    FERTILIZE("gui.ccr.instruction.fertilize") {
+        override fun getGoal(pos: BlockPos, range: Int): BeeJobGoal = FertilizeGoal(pos, range)
+    },
+    DECONSTRUCT("gui.ccr.instruction.deconstruct") {
+        override fun getGoal(pos: BlockPos, range: Int): BeeJobGoal = MaintenanceDeconstructionGoal(pos, range)
+    },
     // CLEAN_FALLEN_ITEMS("gui.ccr.instruction.clean_items")
     ;
 
     val displayName: Component get() = Component.translatable(translationKey)
+
+    abstract fun getGoal(pos: BlockPos, range: Int): BeeJobGoal
 }

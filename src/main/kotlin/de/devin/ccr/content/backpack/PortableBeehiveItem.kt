@@ -2,7 +2,7 @@ package de.devin.ccr.content.backpack
 
 import de.devin.ccr.content.robots.MechanicalBeeEntity
 import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.upgrades.NaturifiedUpgradeItem
+import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.content.upgrades.UpgradeType
 import de.devin.ccr.registry.AllMenuTypes
 import com.simibubi.create.content.equipment.armor.BacktankUtil
@@ -36,7 +36,7 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  *
  * This item can be worn in the Curios "back" slot. When opened, it provides a GUI with:
  * - 4 Slots for [MechanicalBeeItem]s.
- * - 6 Slots for [NaturifiedUpgradeItem]s.
+ * - 6 Slots for [BeeUpgradeItem]s.
  *
  * The backpack acts as the central hub for the mod's automated building system, storing the state
  * of the workforce and providing the interface to initiate construction tasks.
@@ -156,7 +156,7 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
         
         val upgrades = mutableMapOf<UpgradeType, Int>()
         items.subList(ROBOT_SLOTS, TOTAL_SLOTS).forEach { itemStack ->
-            val upgradeItem = itemStack.item as? NaturifiedUpgradeItem
+            val upgradeItem = itemStack.item as? BeeUpgradeItem
             if (upgradeItem != null) {
                 upgrades[upgradeItem.upgradeType] = upgrades.getOrDefault(upgradeItem.upgradeType, 0) + 1
             }
@@ -262,16 +262,7 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
     }
     
     override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
-        // Called every tick when worn - can be used for robot management later
-        if (!slotContext.entity().level().isClientSide && slotContext.entity() is ServerPlayer) {
-            val player = slotContext.entity() as ServerPlayer
-            val tm = MechanicalBeeEntity.playerTaskManagers[player.uuid]
-            
-            if (tm != null && tm.hasPendingTasks() && !tm.hasActiveTasks()) {
-                // If there are tasks but no robots are working, maybe spawn some?
-                // For now, we'll wait for manual start to avoid surprise spawns
-            }
-        }
+        // Called every tick when worn
     }
     
     override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {

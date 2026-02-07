@@ -2,7 +2,6 @@ package de.devin.ccr.content.robots
 
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import de.devin.ccr.content.backpack.PortableBeehiveItem
-import de.devin.ccr.content.schematics.BeeTaskManager
 import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.content.upgrades.UpgradeType
 import net.minecraft.core.BlockPos
@@ -15,17 +14,30 @@ import java.util.*
 
 /**
  * Implementation of IBeeHome that wraps a player and their portable beehive (backpack).
+ * Also implements BeeSource to allow contributing bees to jobs from multiple sources.
  */
-class PlayerBeeHome(val player: ServerPlayer) : IBeeHome {
+class PlayerBeeHome(val player: ServerPlayer) : IBeeHome, BeeSource {
+    init {
+        // Register player as a bee source so they can contribute to jobs
+        BeeContributionManager.registerSource(this)
+    }
+
     override val world: Level get() = player.level()
     override val position: BlockPos get() = player.blockPosition()
-    override val taskManager: BeeTaskManager 
-        get() = MechanicalBeeEntity.playerTaskManagers.getOrPut(player.uuid) { BeeTaskManager() }
+    
+    // BeeSource implementation
+    override val sourceId: UUID get() = player.uuid
+    override val sourceWorld: Level get() = player.level()
+    override val sourcePosition: BlockPos get() = player.blockPosition()
 
     override fun getBeeContext(): BeeContext {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return BeeContext()
         return (backpack.item as PortableBeehiveItem).getBeeContext(backpack)
+    }
+
+    override fun getActiveBeeCount(): Int {
+        return MechanicalBeeEntity.getActiveBeeCount(player.uuid)
     }
 
     override fun consumeAir(amount: Int): Int {
@@ -48,7 +60,35 @@ class PlayerBeeHome(val player: ServerPlayer) : IBeeHome {
     override fun consumeBee(): Boolean {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return false
+        
+        // Creative mode players don't consume bees
+        if (player.isCreative) return true
+        
         return (backpack.item as PortableBeehiveItem).consumeRobot(backpack)
+    }
+    
+    // BeeSource implementation
+    override fun getAvailableBeeCount(): Int {
+        val backpack = getBackpackStack()
+        if (backpack.isEmpty) return 0
+        
+        // Creative mode players have infinite bees (represented by a large number)
+        if (player.isCreative) return 100
+        
+        return (backpack.item as PortableBeehiveItem).getTotalRobotCount(backpack)
+    }
+    
+    override fun returnBee(): Boolean {
+        return addBee()
+    }
+    
+    // Resolve diamond inheritance between IBeeHome and BeeSource
+    override fun onBeeSpawned(bee: MechanicalBeeEntity) {
+        // Default implementation - can be extended if needed
+    }
+    
+    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
+        // Default implementation - can be extended if needed
     }
 
     override fun getMaterialSource(): MaterialSource {
@@ -69,16 +109,10 @@ class PlayerBeeHome(val player: ServerPlayer) : IBeeHome {
     override fun getOwner(): Player? = player
 
     private fun getBackpackStack(): ItemStack {
-        // Check Curios slots for backpack
+        // Check Curios slots for backpack - this is the only way to "wear" it
         val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
         if (curiosResult.isPresent) {
             return curiosResult.get().stack()
-        }
-        
-        // Check main inventory
-        for (i in 0 until player.inventory.containerSize) {
-            val stack = player.inventory.getItem(i)
-            if (stack.item is PortableBeehiveItem) return stack
         }
         
         return ItemStack.EMPTY

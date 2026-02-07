@@ -1,7 +1,11 @@
 package de.devin.ccr
 
 import com.simibubi.create.foundation.data.CreateRegistrate
+import com.simibubi.create.foundation.item.ItemDescription
+import com.simibubi.create.foundation.item.KineticStats
+import com.simibubi.create.foundation.item.TooltipModifier
 import com.simibubi.create.api.stress.BlockStressValues
+import net.createmod.catnip.lang.FontHelper
 import de.devin.ccr.blocks.AllBlocks
 import de.devin.ccr.content.backpack.client.CCRClientEvents
 import de.devin.ccr.content.backpack.client.TaskProgressClientEvents
@@ -42,6 +46,10 @@ object CreateCCR {
     const val ID = "ccr"
 
     val REGISTRATE: CreateRegistrate = CreateRegistrate.create(ID)
+        .setTooltipModifierFactory { item ->
+            ItemDescription.Modifier(item, FontHelper.Palette.STANDARD_CREATE)
+                .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
+        }
 
     // the logger for our mod
     val LOGGER: Logger = LogManager.getLogger(ID)

@@ -1,8 +1,13 @@
 package de.devin.ccr.network
 
+import de.devin.ccr.content.robots.PlayerBeeHome
+import de.devin.ccr.content.robots.BeeContributionManager
 import de.devin.ccr.content.robots.MechanicalBeeEntity
+import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.schematics.GlobalJobPool
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import net.neoforged.neoforge.network.PacketDistributor
 
@@ -28,22 +33,32 @@ object CCRServerEvents {
         if (tickCounter < 10) return
         tickCounter = 0
         
-        // Iterate through all players with active task managers
-        for ((playerUuid, taskManager) in MechanicalBeeEntity.playerTaskManagers) {
-            // Find the player
-            val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: continue
-            val player = server.playerList.getPlayer(playerUuid) ?: continue
-            
-            if (player is ServerPlayer) {
-                // Send progress sync packet
-                val jobProgress = taskManager.getActiveJobProgress()
+        val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
+        for (player in server.playerList.players) {
+            val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
+            if (jobs.isNotEmpty()) {
+                val totalTasks = jobs.sumOf { it.tasks.size }
+                val completedTasks = jobs.sumOf { it.tasks.count { t -> t.status == BeeTask.TaskStatus.COMPLETED } }
+                
+                // jobProgress map: jobId -> (completed, total)
+                val jobProgress = jobs.associate { it.jobId to (it.tasks.count { t -> t.status == BeeTask.TaskStatus.COMPLETED } to it.tasks.size) }
+                
                 val packet = TaskProgressSyncPacket(
-                    globalTotal = jobProgress.values.sumOf { it.second },
-                    globalCompleted = jobProgress.values.sumOf { it.first },
+                    globalTotal = totalTasks,
+                    globalCompleted = completedTasks,
                     jobProgress = jobProgress
                 )
                 PacketDistributor.sendToPlayer(player, packet)
             }
         }
+    }
+
+    /**
+     * Unregisters players as bee sources when they log out.
+     */
+    @SubscribeEvent
+    @JvmStatic
+    fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
+        BeeContributionManager.unregisterSource(event.entity.uuid)
     }
 }

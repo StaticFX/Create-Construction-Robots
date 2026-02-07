@@ -11,11 +11,13 @@ import java.util.UUID
  * @property action The action to perform.
  * @property targetPos The world position where the task should be performed.
  * @property priority The priority of this task (higher values are processed first).
+ * @property requiredBees The number of bees required to complete this task (default 1).
  */
 data class BeeTask(
     val action: BeeAction,
     val targetPos: BlockPos,
-    val priority: Int = 0
+    val priority: Int = 0,
+    val requiredBees: Int = 1
 ) {
     /**
      * Enum defining the possible states of a robot task.

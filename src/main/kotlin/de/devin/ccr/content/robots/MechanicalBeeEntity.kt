@@ -2,7 +2,6 @@ package de.devin.ccr.content.robots
 
 import de.devin.ccr.content.backpack.PortableBeehiveItem
 import de.devin.ccr.content.schematics.BeeTask
-import de.devin.ccr.content.schematics.BeeTaskManager
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -53,17 +52,21 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         private val TASK_POS: EntityDataAccessor<Optional<BlockPos>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
         private val IS_WORKING: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.BOOLEAN)
 
-        /** Shared task managers per player UUID */
-        val playerTaskManagers = mutableMapOf<UUID, BeeTaskManager>()
-        
         /** Shared home registry (transient) */
         val activeHomes = mutableMapOf<UUID, IBeeHome>()
+
+        /** Active bees per home ID (transient, server side) */
+        val activeBeesPerHome = mutableMapOf<UUID, MutableSet<UUID>>()
 
         /** Maximum ticks before teleporting to target */
         const val MAX_STUCK_TICKS = 60  // 3 seconds
 
         /** Maximum air the bee can carry */
         const val MAX_AIR = 600 // 30 seconds of flight
+
+        fun getActiveBeeCount(homeId: UUID): Int {
+            return activeBeesPerHome[homeId]?.size ?: 0
+        }
 
         fun createAttributes(): AttributeSupplier.Builder {
             return Mob.createMobAttributes()
@@ -76,7 +79,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     var currentState: BeeState = BeeState.IDLE
     var currentTask: BeeTask? = null
     private var home: IBeeHome? = null
-    var taskManager: BeeTaskManager? = null
 
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
@@ -139,8 +141,14 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     override fun remove(reason: RemovalReason) {
-        if (!level().isClientSide && homeNotified) {
-            getHome()?.onBeeRemoved(this)
+        if (!level().isClientSide) {
+            val homeId = entityData.get(HOME_ID).orElse(null)
+            if (homeId != null) {
+                activeBeesPerHome[homeId]?.remove(this.uuid)
+            }
+            if (homeNotified) {
+                getHome()?.onBeeRemoved(this)
+            }
         }
         super.remove(reason)
     }
@@ -148,7 +156,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     fun setHome(home: IBeeHome) {
         this.home = home
         this.entityData.set(HOME_ID, Optional.of(home.getHomeId()))
-        this.taskManager = home.taskManager
         home.getOwner()?.let { setOwner(it.uuid) }
         activeHomes[home.getHomeId()] = home
     }
@@ -194,7 +201,14 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
                 return
             }
 
+            // Register home as BeeSource if it is one (especially for PlayerBeeHome)
+            if (currentHome is BeeSource) {
+                BeeContributionManager.registerSource(currentHome)
+            }
+
             if (!homeNotified) {
+                val homeId = currentHome.getHomeId()
+                activeBeesPerHome.computeIfAbsent(homeId) { mutableSetOf() }.add(this.uuid)
                 currentHome.onBeeSpawned(this)
                 homeNotified = true
             }
@@ -300,7 +314,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
      * Returns this robot to the home and removes the entity.
      * If the home is full, drops the robot as an item instead.
      */
-    fun returnToBackpackAndDiscard(player: net.minecraft.world.entity.player.Player) {
+    fun returnToHomeAndDiscard() {
         if (hasBeenReturned) return
         hasBeenReturned = true
         
@@ -313,6 +327,13 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         
         // Remove this entity
         discard()
+    }
+    
+    /**
+     * Returns this robot to a specific player's backpack.
+     */
+    fun returnToBackpackAndDiscard(player: net.minecraft.world.entity.player.Player) {
+        returnToHomeAndDiscard()
     }
     
     /**

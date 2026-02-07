@@ -103,3 +103,97 @@ class CompositeMaterialSource(private val sources: List<MaterialSource>) : Mater
         return current
     }
 }
+
+/**
+ * Helper object for generating adjacent block positions.
+ */
+object AdjacentPositions {
+    /**
+     * Gets all positions adjacent to a center position within a given range.
+     * For range=1, this returns all 26 neighboring blocks (3x3x3 cube minus center).
+     * 
+     * @param center The center position.
+     * @param range The range in blocks (default 1).
+     * @return List of all adjacent positions.
+     */
+    fun getAdjacentPositions(center: BlockPos, range: Int = 1): List<BlockPos> {
+        val positions = mutableListOf<BlockPos>()
+        for (x in -range..range) {
+            for (y in -range..range) {
+                for (z in -range..range) {
+                    if (x != 0 || y != 0 || z != 0) {
+                        positions.add(center.offset(x, y, z))
+                    }
+                }
+            }
+        }
+        return positions
+    }
+    
+    /**
+     * Gets the 6 directly adjacent positions (faces only, no diagonals).
+     */
+    fun getDirectlyAdjacentPositions(center: BlockPos): List<BlockPos> {
+        return listOf(
+            center.above(),
+            center.below(),
+            center.north(),
+            center.south(),
+            center.east(),
+            center.west()
+        )
+    }
+}
+
+/**
+ * Caches inventory handlers for adjacent blocks to avoid scanning every tick.
+ * Rescans periodically to detect new or removed inventories.
+ * 
+ * @param center The center position to scan around.
+ * @param level The level to scan in.
+ * @param range The range in blocks (default 1 for 26 neighbors).
+ * @param rescanInterval How often to rescan in game ticks (default 20 = 1 second).
+ */
+class AdjacentInventoryCache(
+    private val center: BlockPos,
+    private val level: Level,
+    private val range: Int = 1,
+    private val rescanInterval: Long = 20
+) {
+    private var cachedPositions: List<BlockPos>? = null
+    private var lastScanTick: Long = 0
+    
+    /**
+     * Gets positions of blocks with inventory capabilities.
+     * Results are cached and refreshed periodically.
+     */
+    fun getInventoryPositions(): List<BlockPos> {
+        val currentTick = level.gameTime
+        if (cachedPositions == null || currentTick - lastScanTick > rescanInterval) {
+            cachedPositions = scanForInventories()
+            lastScanTick = currentTick
+        }
+        return cachedPositions ?: emptyList()
+    }
+    
+    private fun scanForInventories(): List<BlockPos> {
+        val positions = AdjacentPositions.getAdjacentPositions(center, range)
+        return positions.filter { pos ->
+            level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) != null
+        }
+    }
+    
+    /**
+     * Creates a WirelessMaterialSource using the cached inventory positions.
+     */
+    fun createMaterialSource(): WirelessMaterialSource {
+        return WirelessMaterialSource(level, getInventoryPositions())
+    }
+    
+    /**
+     * Forces a rescan on the next access.
+     */
+    fun invalidateCache() {
+        cachedPositions = null
+    }
+}

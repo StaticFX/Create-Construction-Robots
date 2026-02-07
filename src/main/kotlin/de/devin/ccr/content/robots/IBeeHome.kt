@@ -1,6 +1,5 @@
 package de.devin.ccr.content.robots
 
-import de.devin.ccr.content.schematics.BeeTaskManager
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.player.Player
@@ -15,7 +14,6 @@ import java.util.*
 interface IBeeHome {
     val world: Level
     val position: BlockPos
-    val taskManager: BeeTaskManager
     
     /**
      * Gets the calculated context for bees based on installed upgrades.
@@ -40,6 +38,11 @@ interface IBeeHome {
      * @return true if successful.
      */
     fun consumeBee(): Boolean
+    
+    /**
+     * Gets the current number of active bees spawned from this home.
+     */
+    fun getActiveBeeCount(): Int
     
     /**
      * Gets a material source for this home.

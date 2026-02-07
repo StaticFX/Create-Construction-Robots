@@ -16,7 +16,7 @@ object AllBlocks {
         "mechanical_beehive"
     ) { MechanicalBeehiveBlock(it) }
         .initialProperties { Blocks.IRON_BLOCK }
-        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 2048.0 } }
+        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 64.0 } }
         .blockstate { c, p -> p.simpleBlock(c.get(), p.models().cubeAll(c.name, p.mcLoc("block/bee_nest_side"))) }
         .simpleItem()
         .register()

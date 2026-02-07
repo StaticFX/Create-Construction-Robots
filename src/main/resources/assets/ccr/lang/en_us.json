@@ -38,7 +38,6 @@
   "tooltip.ccr.beehive.bees": "Bees: %d/%d",
   "tooltip.ccr.beehive.naturified_header": "Installed Naturified Upgrades:",
   "tooltip.ccr.beehive.no_naturified": "No naturified upgrades installed",
-  "tooltip.ccr.mechanical_beehive.stress": "Requires 2048 SU (Stress Units)",
   
   "tooltip.ccr.bee.description": "Place in beehive to deploy for construction",
   "tooltip.ccr.bee.consumed_on_deploy": "Bees leave the hive to work, and return when done",

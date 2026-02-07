@@ -9,7 +9,6 @@ object BeeScenes {
     fun intro(scene: SceneBuilder, util: SceneBuildingUtil) {
         scene.title("mechanical_bee", "Introduction to Mechanical Bees")
         scene.configureBasePlate(0, 0, 5)
-        scene.world().replaceBlocks(util.select().everywhere(), Blocks.AIR.defaultBlockState(), false)
         scene.world().showSection(util.select().everywhere(), Direction.UP)
         scene.idle(10)
         

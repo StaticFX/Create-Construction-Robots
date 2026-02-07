@@ -72,7 +72,7 @@ enum class UpgradeType(
  * - Soft Touch: Deconstruction preserves blocks (1 only)
  * - Gathering Wings: Bees collect and return broken blocks (1 only)
  */
-open class NaturifiedUpgradeItem(
+open class BeeUpgradeItem(
     val upgradeType: UpgradeType,
     properties: Properties
 ) : Item(properties) {
@@ -108,18 +108,18 @@ open class NaturifiedUpgradeItem(
 
 // Specific upgrade implementations
 
-class RapidWingsUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.RAPID_WINGS, properties)
+class RapidWingsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.RAPID_WINGS, properties)
 
-class SwarmIntelligenceUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.SWARM_INTELLIGENCE, properties)
+class SwarmIntelligenceUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SWARM_INTELLIGENCE, properties)
 
-class PollenLinkUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.POLLEN_LINK, properties)
+class PollenLinkUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.POLLEN_LINK, properties)
 
-class LongRangeScoutUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.LONG_RANGE_SCOUT, properties)
+class LongRangeScoutUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.LONG_RANGE_SCOUT, properties)
 
-class HoneyEfficiencyUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.HONEY_EFFICIENCY, properties)
+class HoneyEfficiencyUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONEY_EFFICIENCY, properties)
 
-class StingerPrecisionUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.STINGER_PRECISION, properties)
+class StingerPrecisionUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.STINGER_PRECISION, properties)
 
-class SoftTouchUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.SOFT_TOUCH, properties)
+class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT_TOUCH, properties)
 
-class GatheringWingsUpgrade(properties: Properties) : NaturifiedUpgradeItem(UpgradeType.GATHERING_WINGS, properties)
+class GatheringWingsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.GATHERING_WINGS, properties)

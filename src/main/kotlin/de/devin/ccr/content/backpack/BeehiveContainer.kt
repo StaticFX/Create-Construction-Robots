@@ -2,7 +2,9 @@ package de.devin.ccr.content.backpack
 
 import de.devin.ccr.content.robots.MechanicalBeeEntity
 import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.upgrades.NaturifiedUpgradeItem
+import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.schematics.GlobalJobPool
+import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.network.TaskProgressSyncPacket
 import net.minecraft.core.NonNullList
 import net.minecraft.core.component.DataComponents
@@ -127,7 +129,7 @@ class BeehiveContainer : AbstractContainerMenu {
                     if (!moveItemStackTo(slotStack, 0, PortableBeehiveItem.ROBOT_SLOTS, false)) {
                         return ItemStack.EMPTY
                     }
-                } else if (slotStack.item is NaturifiedUpgradeItem) {
+                } else if (slotStack.item is BeeUpgradeItem) {
                     if (!moveItemStackTo(slotStack, PortableBeehiveItem.ROBOT_SLOTS, backpackSlotCount, false)) {
                         return ItemStack.EMPTY
                     }
@@ -187,7 +189,7 @@ class BeehiveContainer : AbstractContainerMenu {
      */
     inner class UpgradeSlot(container: Container, index: Int, x: Int, y: Int) : Slot(container, index, x, y) {
         override fun mayPlace(stack: ItemStack): Boolean {
-            return stack.item is NaturifiedUpgradeItem
+            return stack.item is BeeUpgradeItem
         }
         
         override fun getMaxStackSize(): Int = 1
@@ -215,12 +217,17 @@ class BeehiveContainer : AbstractContainerMenu {
         val player = playerInventory.player
         if (player !is ServerPlayer) return
         
-        val taskManager = MechanicalBeeEntity.playerTaskManagers[player.uuid]
-        if (taskManager != null) {
-            val jobProgress = taskManager.getActiveJobProgress()
+        val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
+        if (jobs.isNotEmpty()) {
+            val totalTasks = jobs.sumOf { it.tasks.size }
+            val completedTasks = jobs.sumOf { it.tasks.count { t -> t.status == BeeTask.TaskStatus.COMPLETED } }
+            
+            // jobProgress map: jobId -> (completed, total)
+            val jobProgress = jobs.associate { it.jobId to (it.tasks.count { t -> t.status == BeeTask.TaskStatus.COMPLETED } to it.tasks.size) }
+            
             val packet = TaskProgressSyncPacket(
-                globalTotal = jobProgress.values.sumOf { it.second },
-                globalCompleted = jobProgress.values.sumOf { it.first },
+                globalTotal = totalTasks,
+                globalCompleted = completedTasks,
                 jobProgress = jobProgress
             )
             PacketDistributor.sendToPlayer(player, packet)

@@ -36,14 +36,13 @@ class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipCompo
     }
 
     override fun renderImage(font: Font, x: Int, y: Int, guiGraphics: GuiGraphics) {
-        var currentX = x
         var currentY = y
 
         // Render robots (1x4 grid, centered)
         val robotOffset = (6 - PortableBeehiveItem.ROBOT_SLOTS) * 18 / 2  // Center the 4 slots in 6-wide space
         for (i in 0 until PortableBeehiveItem.ROBOT_SLOTS) {
             val stack = items[i]
-            renderSlot(guiGraphics, currentX + robotOffset + i * 18, currentY, stack, font)
+            renderSlot(guiGraphics, x + robotOffset + i * 18, currentY, stack, font)
         }
 
         // Render upgrades (1x6 grid)
@@ -51,7 +50,7 @@ class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipCompo
         for (i in 0 until PortableBeehiveItem.UPGRADE_SLOTS) {
             val index = PortableBeehiveItem.ROBOT_SLOTS + i
             val stack = items[index]
-            renderSlot(guiGraphics, currentX + i * 18, currentY, stack, font)
+            renderSlot(guiGraphics, x + i * 18, currentY, stack, font)
         }
     }
 

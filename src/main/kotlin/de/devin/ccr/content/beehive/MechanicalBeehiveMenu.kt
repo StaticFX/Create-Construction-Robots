@@ -1,7 +1,6 @@
 package de.devin.ccr.content.beehive
 
-import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.upgrades.NaturifiedUpgradeItem
+import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.registry.AllMenuTypes
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
@@ -65,7 +64,7 @@ class MechanicalBeehiveMenu(
                 if (!moveItemStackTo(stack, 0, 9, false)) {
                     return ItemStack.EMPTY
                 }
-            } else if (stack.item is NaturifiedUpgradeItem) {
+            } else if (stack.item is BeeUpgradeItem) {
                 if (!moveItemStackTo(stack, 9, 18, false)) {
                     return ItemStack.EMPTY
                 }
@@ -86,6 +85,6 @@ class MechanicalBeehiveMenu(
     }
 
     inner class UpgradeSlot(handler: ItemStackHandler, index: Int, x: Int, y: Int) : SlotItemHandler(handler, index, x, y) {
-        override fun mayPlace(stack: ItemStack): Boolean = stack.item is NaturifiedUpgradeItem
+        override fun mayPlace(stack: ItemStack): Boolean = stack.item is BeeUpgradeItem
     }
 }
