@@ -10,6 +10,7 @@ import de.devin.ccr.content.schematics.GlobalJobPool
 import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.items.AllItems
+import de.devin.ccr.registry.AllEntityTypes
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangNumberFormat
 import net.minecraft.ChatFormatting
@@ -51,7 +52,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     val beeInventory = object : ItemStackHandler(9) {
         override fun onContentsChanged(slot: Int) = setChanged()
-        override fun isItemValid(slot: Int, stack: ItemStack) = stack.item == AllItems.MECHANICAL_BEE.get()
+        override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is MechanicalBeeItem
     }
     
     val upgradeInventory = object : ItemStackHandler(9) {
@@ -159,9 +160,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             val canSpawn = minOf(contribution, maxRobots - activeCount)
             
             for (i in 0 until canSpawn) {
-                if (!consumeBee()) break
+                val tier = consumeBee() ?: break
                 
-                de.devin.ccr.registry.AllEntityTypes.MECHANICAL_BEE.create(world)?.apply {
+                AllEntityTypes.MECHANICAL_BEE.create(world)?.apply {
+                    this.tier = tier
                     setPos(position.x + 0.5, position.y + 1.5, position.z + 0.5)
                     setHome(this@MechanicalBeehiveBlockEntity)
                     // The bee will check GlobalJobPool for tasks via BeeExecuteTaskGoal
@@ -273,13 +275,14 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun getActiveBeeCount(): Int = activeBeeCount
 
-    override fun addBee(): Boolean {
+    override fun addBee(tier: MechanicalBeeTier): Boolean {
+        val item = tier.item()
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
             if (stack.isEmpty) {
-                beeInventory.setStackInSlot(i, de.devin.ccr.items.AllItems.MECHANICAL_BEE.asStack())
+                beeInventory.setStackInSlot(i, ItemStack(item, 1))
                 return true
-            } else if (stack.item == AllItems.MECHANICAL_BEE.get() && stack.count < stack.maxStackSize) {
+            } else if (stack.item == item && stack.count < stack.maxStackSize) {
                 stack.grow(1)
                 return true
             }
@@ -287,17 +290,22 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return false
     }
 
-    override fun consumeBee(): Boolean {
+    override fun consumeBee(): MechanicalBeeTier? {
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
-            if (!stack.isEmpty) {
+            if (!stack.isEmpty && stack.item is MechanicalBeeItem) {
+                val tier = (stack.item as MechanicalBeeItem).tier
                 stack.shrink(1)
-                return true
+                return tier
             }
         }
-        return false
+        return null
     }
-    
+
+    override fun returnBee(tier: MechanicalBeeTier): Boolean {
+        return addBee(tier)
+    }
+
     // BeeSource implementation
     override fun getAvailableBeeCount(): Int {
         var count = 0
@@ -308,10 +316,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             }
         }
         return count
-    }
-    
-    override fun returnBee(): Boolean {
-        return addBee()
     }
 
     override fun onBeeSpawned(bee: MechanicalBeeEntity) {
@@ -327,8 +331,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             sendData()
         }
     }
-
-
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
         // Show kinetic stats (speed, stress) from KineticBlockEntity
@@ -361,7 +363,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun getIcon(isPlayerSneaking: Boolean): ItemStack {
-        return AllItems.MECHANICAL_BEE.asStack()
+        return AllItems.ANDESITE_BEE.asStack()
     }
 
     override fun getMaterialSource(): MaterialSource {

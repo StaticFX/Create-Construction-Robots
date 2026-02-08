@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.item.Item.TooltipContext
 
 /**
  * Constructor Robot Item - Represents a robot that can be stored in the Constructor Backpack.
@@ -15,7 +16,7 @@ import net.minecraft.world.item.TooltipFlag
  * - Returned to backpack when task is complete
  * - If backpack is full, drops on the ground
  */
-class MechanicalBeeItem(properties: Properties) : Item(properties) {
+class MechanicalBeeItem(val tier: MechanicalBeeTier, properties: Properties) : Item(properties) {
     
     companion object {
         /** Maximum stack size for robots */

@@ -142,7 +142,7 @@ class BeeExecuteTaskGoal(private val robot: MechanicalBeeEntity) : Goal() {
         }
         
         val context = robot.getBeeContext()
-        val requiredTicks = (task.action.getWorkTicks(context) / robot.getSpeedMultiplier()).toInt().coerceAtLeast(0)
+        val requiredTicks = (task.action.getWorkTicks(context) / robot.getWorkSpeedMultiplier()).toInt().coerceAtLeast(0)
         
         if (workTicks >= requiredTicks) {
             performWork()

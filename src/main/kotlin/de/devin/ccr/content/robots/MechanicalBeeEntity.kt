@@ -1,10 +1,11 @@
 package de.devin.ccr.content.robots
 
-import de.devin.ccr.content.backpack.PortableBeehiveItem
+import de.devin.ccr.content.robots.goals.BeeExecuteTaskGoal
 import de.devin.ccr.content.schematics.BeeTask
-import com.simibubi.create.content.equipment.armor.BacktankUtil
+import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.Component
 import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
@@ -17,6 +18,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
+import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
@@ -26,7 +29,6 @@ import software.bernie.geckolib.animation.AnimatableManager
 import software.bernie.geckolib.animation.AnimationController
 import software.bernie.geckolib.animation.RawAnimation
 import software.bernie.geckolib.util.GeckoLibUtil
-import top.theillusivec4.curios.api.CuriosApi
 import java.util.*
 
 /**
@@ -51,6 +53,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         private val HOME_ID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
         private val TASK_POS: EntityDataAccessor<Optional<BlockPos>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
         private val IS_WORKING: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.BOOLEAN)
+        private val TIER: EntityDataAccessor<String> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.STRING)
 
         /** Shared home registry (transient) */
         val activeHomes = mutableMapOf<UUID, IBeeHome>()
@@ -83,7 +86,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
     /** Calculated stats for this robot based on backpack upgrades */
-    private var robotContext: de.devin.ccr.content.upgrades.BeeContext? = null
+    private var robotContext: BeeContext? = null
     
     /** Items the robot is currently carrying for the task */
     val carriedItems: MutableList<ItemStack> = mutableListOf()
@@ -110,13 +113,20 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     override fun registerGoals() {
-        this.goalSelector.addGoal(1, de.devin.ccr.content.robots.goals.BeeExecuteTaskGoal(this))
+        this.goalSelector.addGoal(1, BeeExecuteTaskGoal(this))
     }
+
+    fun isWorking(): Boolean = entityData.get(IS_WORKING)
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
         controllers.add(
             AnimationController(this, "controller", 5) { event ->
-                event.setAndContinue(RawAnimation.begin().thenLoop("flying"))
+                val animation = when {
+                    isWorking() -> RawAnimation.begin().thenLoop("flying")
+                    deltaMovement.lengthSqr() > 0.0001 -> RawAnimation.begin().thenPlay("flying_start").thenLoop("flying")
+                    else -> RawAnimation.begin().thenLoop("flying_idle")
+                }
+                event.setAndContinue(animation)
             }
         )
     }
@@ -125,12 +135,20 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return geoCache
     }
 
+    var tier: MechanicalBeeTier
+        get() = MechanicalBeeTier.valueOf(entityData.get(TIER).uppercase())
+        set(value) {
+            entityData.set(TIER, value.name.lowercase())
+            getAttribute(Attributes.FLYING_SPEED)?.baseValue = value.capabilities.flySpeed
+        }
+
     override fun defineSynchedData(builder: SynchedEntityData.Builder) {
         super.defineSynchedData(builder)
         builder.define(OWNER_UUID, Optional.empty())
         builder.define(HOME_ID, Optional.empty())
         builder.define(TASK_POS, Optional.empty())
         builder.define(IS_WORKING, false)
+        builder.define(TIER, MechanicalBeeTier.ANDESITE.name.lowercase())
     }
 
     override fun createNavigation(level: Level): PathNavigation {
@@ -233,6 +251,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         super.addAdditionalSaveData(compound)
         getOwnerUUID()?.let { compound.putUUID("Owner", it) }
         entityData.get(HOME_ID).ifPresent { compound.putUUID("HomeId", it) }
+        compound.putString("Tier", tier.name)
     }
 
     override fun readAdditionalSaveData(compound: CompoundTag) {
@@ -243,8 +262,15 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (compound.hasUUID("HomeId")) {
             entityData.set(HOME_ID, Optional.of(compound.getUUID("HomeId")))
         }
+        if (compound.contains("Tier")) {
+            tier = MechanicalBeeTier.valueOf(compound.getString("Tier"))
+        }
     }
 
+    override fun getName(): Component {
+        return Component.translatable("entity.ccr.mechanical_bee.${tier.id}")
+    }
+    
     /**
      * Gets the owner player entity.
      */
@@ -252,7 +278,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return getOwnerUUID()?.let { level().getPlayerByUUID(it) } as? ServerPlayer
     }
 
-    fun getBeeContext(): de.devin.ccr.content.upgrades.BeeContext = robotContext ?: getHome()?.getBeeContext() ?: de.devin.ccr.content.upgrades.BeeContext()
+    fun getBeeContext(): BeeContext = robotContext ?: getHome()?.getBeeContext() ?: BeeContext()
 
     /**
      * Refills air from the home.
@@ -306,9 +332,14 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     fun getMaxWorkRange(): Double = getBeeContext().workRange
     
     /**
-     * Gets the speed multiplier from upgrades.
+     * Gets the speed multiplier from upgrades and tier.
      */
-    fun getSpeedMultiplier(): Double = getBeeContext().speedMultiplier
+    fun getSpeedMultiplier(): Double = getBeeContext().speedMultiplier * tier.capabilities.flySpeed
+
+    /**
+     * Gets the work speed multiplier from upgrades and tier.
+     */
+    fun getWorkSpeedMultiplier(): Double = getBeeContext().speedMultiplier * tier.capabilities.blockDestroySpeed
 
     /**
      * Returns this robot to the home and removes the entity.
@@ -319,7 +350,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         hasBeenReturned = true
         
         val currentHome = getHome()
-        if (currentHome != null && currentHome.addBee()) {
+        if (currentHome != null && currentHome.addBee(tier)) {
             // Success
         } else {
             dropRobotItemAndDiscard()
@@ -332,7 +363,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     /**
      * Returns this robot to a specific player's backpack.
      */
-    fun returnToBackpackAndDiscard(player: net.minecraft.world.entity.player.Player) {
+    fun returnToBackpackAndDiscard(player: Player) {
         returnToHomeAndDiscard()
     }
     
@@ -345,8 +376,9 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         hasBeenReturned = true
         
         // Drop robot item at current position
-        val robotStack = ItemStack(de.devin.ccr.items.AllItems.MECHANICAL_BEE.get(), 1)
-        val itemEntity = net.minecraft.world.entity.item.ItemEntity(
+        val item = tier.item()
+        val robotStack = ItemStack(item, 1)
+        val itemEntity = ItemEntity(
             level(),
             x,
             y,

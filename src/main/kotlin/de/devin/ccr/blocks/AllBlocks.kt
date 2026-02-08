@@ -28,6 +28,7 @@ object AllBlocks {
         .initialProperties { Blocks.IRON_BLOCK }
         .properties { p -> p.noOcclusion() }
         .blockstate { c, p -> p.simpleBlock(c.getEntry(), p.models().getExistingFile(p.modLoc("block/mechanical_beehive/block"))) }
+        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 256.0 } }
         .item()
         .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/mechanical_beehive/item")) }
         .build()

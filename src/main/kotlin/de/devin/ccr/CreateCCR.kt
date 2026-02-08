@@ -38,6 +38,7 @@ import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
 import dev.engine_room.flywheel.api.visualization.VisualizerRegistry
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import de.devin.ccr.content.beehive.MechanicalBeehiveVisual
+import de.devin.ccr.content.beehive.client.BeehiveRangeHandler
 
 /**
  * Main mod class.
@@ -76,6 +77,7 @@ object CreateCCR {
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
         }

@@ -15,7 +15,7 @@ class CCRPonderPlugin : PonderPlugin {
     override fun registerScenes(helper: PonderSceneRegistrationHelper<ResourceLocation>) {
         val TAG = CreateCCR.asResource("buzzy_bees")
         
-        helper.addStoryBoard(AllItems.MECHANICAL_BEE.id, "base", PonderStoryBoard { scene, util -> BeeScenes.intro(scene, util) }, TAG)
+        helper.addStoryBoard(AllItems.ANDESITE_BEE.id, "base", PonderStoryBoard { scene, util -> BeeScenes.intro(scene, util) }, TAG)
         helper.addStoryBoard(AllItems.PORTABLE_BEEHIVE.id, "base", PonderStoryBoard { scene, util -> BeeScenes.portableHive(scene, util) }, TAG)
         helper.addStoryBoard(AllBlocks.MECHANICAL_BEEHIVE.id, "base", PonderStoryBoard { scene, util -> BeeScenes.stationaryHive(scene, util) }, TAG)
     }
@@ -24,7 +24,7 @@ class CCRPonderPlugin : PonderPlugin {
         helper.registerTag("buzzy_bees")
             .title("Buzzy Bees")
             .description("Automated construction and deconstruction with mechanical bees")
-            .item(AllItems.MECHANICAL_BEE.get())
+            .item(AllItems.ANDESITE_BEE.get())
             .addToIndex()
             .register()
     }

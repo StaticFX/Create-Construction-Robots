@@ -41,15 +41,15 @@ interface BeeSource {
     
     /**
      * Attempts to consume a bee from this source for deployment.
-     * @return true if a bee was successfully consumed, false if no bees available.
+     * @return the tier of the bee consumed, or null if no bees available.
      */
-    fun consumeBee(): Boolean
+    fun consumeBee(): MechanicalBeeTier?
     
     /**
      * Attempts to return a bee to this source.
      * @return true if the bee was successfully returned, false if the source is full.
      */
-    fun returnBee(): Boolean
+    fun returnBee(tier: MechanicalBeeTier): Boolean
     
     /**
      * Gets the maximum range at which bees from this source can work.

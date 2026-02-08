@@ -5,6 +5,7 @@ import de.devin.ccr.content.backpack.PortableBeehiveItem
 import de.devin.ccr.content.robots.BeeContributionManager
 import de.devin.ccr.content.robots.BeeSource
 import de.devin.ccr.content.robots.MechanicalBeeEntity
+import de.devin.ccr.content.robots.MechanicalBeeTier
 import de.devin.ccr.items.AllItems
 import de.devin.ccr.content.robots.IBeeHome
 import de.devin.ccr.content.robots.PlayerBeeHome
@@ -103,11 +104,11 @@ object BeeWorkManager {
 
     fun returnBeeToBeehive(player: Player): Boolean {
         val home = PlayerBeeHome(player as? ServerPlayer ?: return false)
-        return home.addBee()
+        return home.addBee(MechanicalBeeTier.ANDESITE)
     }
 
     private fun dropBeeItem(player: Player) {
-        val itemEntity = ItemEntity(player.level(), player.x, player.y + 0.5, player.z, ItemStack(AllItems.MECHANICAL_BEE.get(), 1))
+        val itemEntity = ItemEntity(player.level(), player.x, player.y + 0.5, player.z, ItemStack(AllItems.ANDESITE_BEE.get(), 1))
         player.level().addFreshEntity(itemEntity)
     }
 
@@ -129,8 +130,9 @@ object BeeWorkManager {
         val toSpawn = maxRobots - activeCount
 
         for (i in 0 until toSpawn) {
-            if (!home.consumeBee()) break
+            val tier = home.consumeBee() ?: break
             AllEntityTypes.MECHANICAL_BEE.create(home.world)?.apply {
+                this.tier = tier
                 setPos(home.position.x + 0.5, home.position.y + 1.5, home.position.z + 0.5)
                 setHome(home)
                 home.world.addFreshEntity(this)
@@ -201,8 +203,9 @@ object BeeWorkManager {
             val canSpawn = minOf(contribution, maxRobots - activeCount)
             
             for (i in 0 until canSpawn) {
-                if (!home.consumeBee()) break
+                val tier = home.consumeBee() ?: break
                 AllEntityTypes.MECHANICAL_BEE.create(home.world)?.apply {
+                    this.tier = tier
                     setPos(home.position.x + 0.5, home.position.y + 1.5, home.position.z + 0.5)
                     setHome(home)
                     home.world.addFreshEntity(this)

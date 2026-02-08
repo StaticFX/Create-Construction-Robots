@@ -51,18 +51,18 @@ class PlayerBeeHome(val player: ServerPlayer) : IBeeHome, BeeSource {
         return toConsume
     }
 
-    override fun addBee(): Boolean {
+    override fun addBee(tier: MechanicalBeeTier): Boolean {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return false
-        return (backpack.item as PortableBeehiveItem).addRobot(backpack)
+        return (backpack.item as PortableBeehiveItem).addRobot(backpack, tier)
     }
 
-    override fun consumeBee(): Boolean {
+    override fun consumeBee(): MechanicalBeeTier? {
         val backpack = getBackpackStack()
-        if (backpack.isEmpty) return false
+        if (backpack.isEmpty) return null
         
-        // Creative mode players don't consume bees
-        if (player.isCreative) return true
+        // Creative mode players don't consume bees, return ANDESITE as default
+        if (player.isCreative) return MechanicalBeeTier.ANDESITE
         
         return (backpack.item as PortableBeehiveItem).consumeRobot(backpack)
     }
@@ -78,8 +78,8 @@ class PlayerBeeHome(val player: ServerPlayer) : IBeeHome, BeeSource {
         return (backpack.item as PortableBeehiveItem).getTotalRobotCount(backpack)
     }
     
-    override fun returnBee(): Boolean {
-        return addBee()
+    override fun returnBee(tier: MechanicalBeeTier): Boolean {
+        return addBee(tier)
     }
     
     // Resolve diamond inheritance between IBeeHome and BeeSource

@@ -1,5 +1,7 @@
 package de.devin.ccr.content.beehive
 
+import de.devin.ccr.blocks.AllBlocks
+import de.devin.ccr.content.robots.MechanicalBeeItem
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.registry.AllMenuTypes
 import net.minecraft.world.entity.player.Inventory
@@ -45,7 +47,7 @@ class MechanicalBeehiveMenu(
     }
 
     override fun stillValid(player: Player): Boolean {
-        return AbstractContainerMenu.stillValid(ContainerLevelAccess.create(content.world, content.position), player, de.devin.ccr.blocks.AllBlocks.MECHANICAL_BEEHIVE.get())
+        return AbstractContainerMenu.stillValid(ContainerLevelAccess.create(content.world, content.position), player, AllBlocks.MECHANICAL_BEEHIVE.get())
     }
 
     override fun quickMoveStack(player: Player, index: Int): ItemStack {
@@ -60,7 +62,7 @@ class MechanicalBeehiveMenu(
                 return ItemStack.EMPTY
             }
         } else { // From Player to Hive
-            if (stack.item == de.devin.ccr.items.AllItems.MECHANICAL_BEE.get()) {
+            if (stack.item is MechanicalBeeItem) {
                 if (!moveItemStackTo(stack, 0, 9, false)) {
                     return ItemStack.EMPTY
                 }
@@ -81,7 +83,7 @@ class MechanicalBeehiveMenu(
     }
 
     inner class BeeSlot(handler: ItemStackHandler, index: Int, x: Int, y: Int) : SlotItemHandler(handler, index, x, y) {
-        override fun mayPlace(stack: ItemStack): Boolean = stack.item == de.devin.ccr.items.AllItems.MECHANICAL_BEE.get()
+        override fun mayPlace(stack: ItemStack): Boolean = stack.item is MechanicalBeeItem
     }
 
     inner class UpgradeSlot(handler: ItemStackHandler, index: Int, x: Int, y: Int) : SlotItemHandler(handler, index, x, y) {

@@ -31,13 +31,13 @@ interface IBeeHome {
      * Tries to add a bee back to the home's inventory.
      * @return true if successful, false if full.
      */
-    fun addBee(): Boolean
+    fun addBee(tier: MechanicalBeeTier): Boolean
     
     /**
      * Tries to consume a bee from the home's inventory to spawn it.
-     * @return true if successful.
+     * @return the tier of the bee consumed, or null if none available.
      */
-    fun consumeBee(): Boolean
+    fun consumeBee(): MechanicalBeeTier?
     
     /**
      * Gets the current number of active bees spawned from this home.

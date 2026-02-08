@@ -1,11 +1,15 @@
 {
-  "entity.ccr.mechanical_bee": "Mechanical Bee",
+  "entity.ccr.mechanical_bee.andesite": "Andesite Encased Mechanical Bee",
+  "entity.ccr.mechanical_bee.brass": "Brass Encased Mechanical Bee",
+  "entity.ccr.mechanical_bee.sturdy": "Sturdy Mechanical Bee",
   "itemGroup.ccr.buzzy_bees": "Buzzy Bees",
   "itemGroup.ccr": "Create Addon",
   "itemGroup.ccr.base_creative_tab": "Buzzy Bees",
   
   "item.ccr.portable_beehive": "Portable Beehive",
-  "item.ccr.mechanical_bee": "Mechanical Bee",
+  "item.ccr.andesite_mechanical_bee": "Andesite Encased Mechanical Bee",
+  "item.ccr.brass_mechanical_bee": "Brass Encased Mechanical Bee",
+  "item.ccr.sturdy_mechanical_bee": "Sturdy Mechanical Bee",
   "item.ccr.stinger_planner": "Stinger Planner",
   "item.ccr.rapid_wings": "Rapid Wings",
   "item.ccr.swarm_intelligence": "Swarm Intelligence",
@@ -17,7 +21,11 @@
   "item.ccr.gathering_wings": "Gathering Wings",
   
   "container.ccr.portable_beehive": "Portable Beehive",
+  "item.ccr.portable_beehive.tooltip": "Mobile Construction Backpack",
+  "item.ccr.portable_beehive.tooltip.summary": "Allows carrying Mechanical Bees and Upgrades. When equipped in the back slot, it enables coordinating construction tasks using the swarm.",
   "block.ccr.mechanical_beehive": "Mechanical Beehive",
+  "item.ccr.mechanical_beehive.tooltip": "Industrial Workforce Base",
+  "item.ccr.mechanical_beehive.tooltip.summary": "The Mechanical Beehive coordinates large-scale construction and maintenance tasks by deploying Mechanical Bees. Requires rotational power to operate.",
   
   "gui.ccr.beehive.bees": "Bees",
   "gui.ccr.beehive.naturified": "Naturified",

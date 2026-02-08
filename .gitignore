@@ -5,6 +5,7 @@
 *.ipr
 *.iws
 .kotlin
+.kotlin/*
 
 # IntelliJ
 out/

@@ -4,6 +4,7 @@ import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.backpack.PortableBeehiveItem
 import de.devin.ccr.content.robots.MechanicalBeeItem
+import de.devin.ccr.content.robots.MechanicalBeeTier
 import de.devin.ccr.content.schematics.StingerPlannerItem
 import de.devin.ccr.content.upgrades.*
 import de.devin.ccr.tabs.AllCreativeModeTabs
@@ -22,10 +23,30 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
     
-    // Mechanical Bee - goes in backpack robot slots (stackable, consumed on deploy)
-    val MECHANICAL_BEE: ItemEntry<MechanicalBeeItem> = CreateCCR.REGISTRATE
-        .item("mechanical_bee") { props ->
-            MechanicalBeeItem(props)
+    // Mechanical Bees - goes in backpack robot slots (stackable, consumed on deploy)
+    val ANDESITE_BEE: ItemEntry<MechanicalBeeItem> = CreateCCR.REGISTRATE
+        .item("andesite_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.ANDESITE, props)
+        }
+        .properties {
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+              .rarity(Rarity.UNCOMMON)
+        }
+        .register()
+
+    val BRASS_BEE: ItemEntry<MechanicalBeeItem> = CreateCCR.REGISTRATE
+        .item("brass_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.BRASS, props)
+        }
+        .properties {
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+              .rarity(Rarity.UNCOMMON)
+        }
+        .register()
+
+    val STURDY_BEE: ItemEntry<MechanicalBeeItem> = CreateCCR.REGISTRATE
+        .item("sturdy_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.STURDY, props)
         }
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)

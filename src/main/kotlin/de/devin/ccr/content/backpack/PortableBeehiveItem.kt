@@ -2,8 +2,11 @@ package de.devin.ccr.content.backpack
 
 import de.devin.ccr.content.robots.MechanicalBeeEntity
 import de.devin.ccr.content.robots.MechanicalBeeItem
+import de.devin.ccr.content.robots.MechanicalBeeTier
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
+import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.content.upgrades.UpgradeType
+import de.devin.ccr.items.AllItems
 import de.devin.ccr.registry.AllMenuTypes
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import net.minecraft.core.NonNullList
@@ -184,40 +187,43 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
 
     /**
      * Consumes a single robot from the backpack inventory.
-     * @return true if a robot was consumed, false if no robots available
+     * @return the tier of the robot consumed, or null if no robots available
      */
-    fun consumeRobot(stack: ItemStack): Boolean {
-        val contents = stack.get(DataComponents.CONTAINER) ?: return false
+    fun consumeRobot(stack: ItemStack): MechanicalBeeTier? {
+        val contents = stack.get(DataComponents.CONTAINER) ?: return null
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
 
         for (i in 0 until ROBOT_SLOTS) {
             val s = items[i]
             if (!s.isEmpty && s.item is MechanicalBeeItem) {
+                val tier = (s.item as MechanicalBeeItem).tier
                 s.shrink(1)
                 if (s.isEmpty) {
                     items[i] = ItemStack.EMPTY
                 }
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
-                return true
+                return tier
             }
         }
-        return false
+        return null
     }
 
     /**
      * Adds a single robot to the backpack inventory.
      * @return true if successful, false if backpack is full
      */
-    fun addRobot(stack: ItemStack): Boolean {
+    fun addRobot(stack: ItemStack, tier: MechanicalBeeTier): Boolean {
         val contents = stack.get(DataComponents.CONTAINER)
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents?.copyInto(items)
 
+        val item = tier.item()
+
         // Try to stack with existing robots first
         for (i in 0 until ROBOT_SLOTS) {
             val s = items[i]
-            if (!s.isEmpty && s.item is MechanicalBeeItem && s.count < s.maxStackSize) {
+            if (!s.isEmpty && s.item == item && s.count < s.maxStackSize) {
                 s.grow(1)
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
                 return true
@@ -227,7 +233,7 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
         // Try to find an empty slot
         for (i in 0 until ROBOT_SLOTS) {
             if (items[i].isEmpty) {
-                items[i] = ItemStack(de.devin.ccr.items.AllItems.MECHANICAL_BEE.get(), 1)
+                items[i] = ItemStack(item, 1)
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
                 return true
             }
@@ -246,7 +252,7 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
     /**
      * Gets the calculated [BeeContext] for this backpack.
      */
-    fun getBeeContext(stack: ItemStack): de.devin.ccr.content.upgrades.BeeContext {
+    fun getBeeContext(stack: ItemStack): BeeContext {
         return UpgradeType.fromBackpack(stack)
     }
     

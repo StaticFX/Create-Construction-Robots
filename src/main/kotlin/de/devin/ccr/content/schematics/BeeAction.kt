@@ -9,7 +9,9 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.BonemealableBlock
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.item.Items
 
 /**
  * Interface for actions bees perform on blocks.
@@ -121,7 +123,7 @@ class RemoveAction : BeeAction {
 class FertilizeAction : BeeAction {
     override fun getWorkTicks(context: BeeContext): Int = 20
     
-    override val requiredItems: List<ItemStack> = listOf(ItemStack(net.minecraft.world.item.Items.BONE_MEAL))
+    override val requiredItems: List<ItemStack> = listOf(ItemStack(Items.BONE_MEAL))
 
     override fun onTick(robot: MechanicalBeeEntity, tick: Int) {
         if (robot.level() is ServerLevel && tick % 5 == 0) {
@@ -135,8 +137,8 @@ class FertilizeAction : BeeAction {
 
     override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext) {
         val state = level.getBlockState(pos)
-        if (state.block is net.minecraft.world.level.block.BonemealableBlock) {
-            val bonemealable = state.block as net.minecraft.world.level.block.BonemealableBlock
+        if (state.block is BonemealableBlock) {
+            val bonemealable = state.block as BonemealableBlock
             if (bonemealable.isValidBonemealTarget(level, pos, state)) {
                 if (level is ServerLevel) {
                     if (bonemealable.isBonemealSuccess(level, level.random, pos, state)) {
