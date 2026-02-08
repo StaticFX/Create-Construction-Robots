@@ -1,8 +1,8 @@
 package de.devin.ccr.content.beehive
 
-import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.content.kinetics.base.KineticBlock
 import com.simibubi.create.content.kinetics.simpleRelays.ICogWheel
+import com.simibubi.create.foundation.block.IBE
 import de.devin.ccr.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -13,7 +13,6 @@ import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
-import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
@@ -21,7 +20,7 @@ import net.minecraft.world.phys.BlockHitResult
 class MechanicalBeehiveBlock(properties: Properties) : KineticBlock(properties), IBE<MechanicalBeehiveBlockEntity>, ICogWheel {
     
     override fun hasShaftTowards(world: LevelReader, pos: BlockPos, state: BlockState, face: Direction): Boolean {
-        return face == Direction.DOWN
+        return false;
     }
 
     override fun getRotationAxis(state: BlockState): Axis {

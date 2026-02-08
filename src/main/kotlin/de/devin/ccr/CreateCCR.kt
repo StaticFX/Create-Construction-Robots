@@ -35,6 +35,9 @@ import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
+import dev.engine_room.flywheel.api.visualization.VisualizerRegistry
+import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
+import de.devin.ccr.content.beehive.MechanicalBeehiveVisual
 
 /**
  * Main mod class.
