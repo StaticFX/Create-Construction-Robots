@@ -1,5 +1,6 @@
 package de.devin.ccr.content.schematics
 
+import de.devin.ccr.content.domain.task.BeeTask
 import net.minecraft.core.BlockPos
 
 /**

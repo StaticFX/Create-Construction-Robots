@@ -1,7 +1,7 @@
 package de.devin.ccr.content.schematics.goals
 
-import de.devin.ccr.content.schematics.BeeTask
-import de.devin.ccr.content.schematics.RemoveAction
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.RemoveAction
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.level.Level

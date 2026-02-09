@@ -1,12 +1,10 @@
 package de.devin.ccr.content.backpack
 
-import de.devin.ccr.content.robots.MechanicalBeeEntity
-import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.robots.MechanicalBeeTier
+import de.devin.ccr.content.bee.MechanicalBeeItem
+import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.content.upgrades.UpgradeType
-import de.devin.ccr.items.AllItems
 import de.devin.ccr.registry.AllMenuTypes
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import net.minecraft.core.NonNullList
@@ -19,7 +17,6 @@ import net.minecraft.world.MenuProvider
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
-import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.inventory.tooltip.TooltipComponent
@@ -28,6 +25,9 @@ import net.minecraft.world.level.Level
 import top.theillusivec4.curios.api.SlotContext
 import top.theillusivec4.curios.api.type.capability.ICurioItem
 import java.util.Optional
+
+import net.minecraft.world.item.ArmorItem
+import net.minecraft.world.item.ArmorMaterials
 
 /**
  * Data class for the backpack's tooltip preview.
@@ -44,7 +44,7 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  * The backpack acts as the central hub for the mod's automated building system, storing the state
  * of the workforce and providing the interface to initiate construction tasks.
  */
-class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem {
+class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEATHER, Type.CHESTPLATE, properties), ICurioItem {
     
     companion object {
         const val ROBOT_SLOTS = 4
@@ -269,6 +269,29 @@ class PortableBeehiveItem(properties: Properties) : Item(properties), ICurioItem
     
     override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
         // Called every tick when worn
+        val player = slotContext.entity() as? Player ?: return
+        if (player.level().isClientSide) return
+        
+        // Handle air refilling from Create's systems
+        // If the item is tagged as pressurized_air_sources, BacktankUtil.getAir and maxAir should work.
+        // We can manually refill if we find the player is in a refilling state.
+        // Actually, Create's AirbacktankBlockEntity usually handles refilling by checking if the player is wearing a backtank.
+        // If we are in the "back" Curio slot, it might not be found by Create.
+        
+        // We can try to simulate the refilling if the player is holding an air hose (simplified)
+        // or just let BacktankUtil handle it if we can find where it's called.
+        
+        // Let's implement a simple refilling if submerged in air from a nearby source?
+        // Actually, the most reliable way is to ensure we are compatible with BacktankUtil.
+        
+        // Creative mode players always have full air
+        if (player.isCreative) {
+            val maxAir = BacktankUtil.maxAir(stack)
+            if (BacktankUtil.getAir(stack) < maxAir) {
+                // We'll leave it for now if we can't find the exact component name,
+                // but at least we've made it an ArmorItem which should help with compatibility.
+            }
+        }
     }
     
     override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {

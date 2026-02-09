@@ -1,14 +1,16 @@
-package de.devin.ccr.content.schematics
+package de.devin.ccr.content.domain
 
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.backpack.PortableBeehiveItem
-import de.devin.ccr.content.robots.BeeContributionManager
-import de.devin.ccr.content.robots.BeeSource
-import de.devin.ccr.content.robots.MechanicalBeeEntity
-import de.devin.ccr.content.robots.MechanicalBeeTier
+import de.devin.ccr.content.beehive.MechanicalBeehiveBlockEntity
+import de.devin.ccr.content.domain.bee.BeeContributionManager
+import de.devin.ccr.content.domain.beehive.BeeHive
+import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.items.AllItems
-import de.devin.ccr.content.robots.IBeeHome
-import de.devin.ccr.content.robots.PlayerBeeHome
+import de.devin.ccr.content.domain.bee.IBeeHome
+import de.devin.ccr.content.domain.beehive.PlayerBeeHive
+import de.devin.ccr.content.domain.job.BeeJob
+import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.schematics.goals.BeeJobGoal
 import de.devin.ccr.content.schematics.goals.ConstructionGoal
 import de.devin.ccr.content.schematics.goals.DeconstructionGoal
@@ -46,7 +48,7 @@ object BeeWorkManager {
         startJob(player, ConstructionGoal(schematicStack))
     }
 
-    fun startDeconstruction(player: ServerPlayer, pos1: net.minecraft.core.BlockPos, pos2: net.minecraft.core.BlockPos) {
+    fun startDeconstruction(player: ServerPlayer, pos1: BlockPos, pos2: BlockPos) {
         startJob(player, DeconstructionGoal(pos1, pos2))
     }
 
@@ -72,11 +74,28 @@ object BeeWorkManager {
 
         val centerPos = goal.getCenterPos(player.level(), tasks)
 
-        // Ensure player is registered as source before calculating available bees
-        PlayerBeeHome(player)
+        // Ensure player is registered as source
+        val playerHome = PlayerBeeHive(player)
 
         // Check for available bees from any source (backpack or nearby beehives)
-        val totalAvailableBees = BeeContributionManager.calculateTotalBees(player.level(), centerPos)
+        val sourcesInRange = BeeContributionManager.findSourcesForJob(player.level(), centerPos)
+        
+        if (sourcesInRange.isEmpty()) {
+            // No sources in range. Let's find why.
+            val allSources = BeeContributionManager.getAllSources().filter { it.sourceWorld == player.level() }
+            
+            if (allSources.none { it is PlayerBeeHive && it.getAvailableBeeCount() > 0 || it is MechanicalBeehiveBlockEntity }) {
+                 player.displayClientMessage(Component.translatable("ccr.construction.no_beehive"), true)
+            } else {
+                 player.displayClientMessage(Component.translatable("ccr.construction.out_of_range"), true)
+            }
+            return
+        }
+
+        val totalAvailableBees = sourcesInRange.sumOf { source ->
+            minOf(source.getAvailableBeeCount(), source.getMaxContributedBees())
+        }
+        
         if (totalAvailableBees <= 0) {
             player.displayClientMessage(Component.translatable("ccr.construction.no_bees"), true)
             return
@@ -103,7 +122,7 @@ object BeeWorkManager {
     }
 
     fun returnBeeToBeehive(player: Player): Boolean {
-        val home = PlayerBeeHome(player as? ServerPlayer ?: return false)
+        val home = PlayerBeeHive(player as? ServerPlayer ?: return false)
         return home.addBee(MechanicalBeeTier.ANDESITE)
     }
 
@@ -130,6 +149,9 @@ object BeeWorkManager {
         val toSpawn = maxRobots - activeCount
 
         for (i in 0 until toSpawn) {
+            // Prevent spawning loop if no air/power available
+            if (!home.hasAir(10)) break
+
             val tier = home.consumeBee() ?: break
             AllEntityTypes.MECHANICAL_BEE.create(home.world)?.apply {
                 this.tier = tier
@@ -203,6 +225,9 @@ object BeeWorkManager {
             val canSpawn = minOf(contribution, maxRobots - activeCount)
             
             for (i in 0 until canSpawn) {
+                // Prevent spawning loop if no air/power available
+                if (!home.hasAir(10)) break
+                
                 val tier = home.consumeBee() ?: break
                 AllEntityTypes.MECHANICAL_BEE.create(home.world)?.apply {
                     this.tier = tier
@@ -232,7 +257,7 @@ object BeeWorkManager {
      * @param jobPos The position of the job.
      * @return List of sources in range.
      */
-    fun findSourcesForJob(level: Level, jobPos: BlockPos): List<BeeSource> {
+    fun findSourcesForJob(level: Level, jobPos: BlockPos): List<BeeHive> {
         return BeeContributionManager.findSourcesForJob(level, jobPos)
     }
     

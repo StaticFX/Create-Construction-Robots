@@ -1,8 +1,8 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.schematics.BeeWorkManager
-import de.devin.ccr.content.schematics.SchematicRobotHandler
+import de.devin.ccr.content.domain.BeeWorkManager
+import de.devin.ccr.content.schematics.SchematicCreateBridge
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -27,13 +27,13 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
                 
                 // First check item in hand
                 val mainHand = player.mainHandItem
-                if (SchematicRobotHandler.isValidSchematic(mainHand) && SchematicRobotHandler.isSchematicDeployed(mainHand)) {
+                if (SchematicCreateBridge.isValidSchematic(mainHand) && SchematicCreateBridge.isSchematicDeployed(mainHand)) {
                     schematicStack = mainHand
                 } else {
                     // Check whole inventory
                     for (i in 0 until player.inventory.containerSize) {
                         val stack = player.inventory.getItem(i)
-                        if (SchematicRobotHandler.isValidSchematic(stack) && SchematicRobotHandler.isSchematicDeployed(stack)) {
+                        if (SchematicCreateBridge.isValidSchematic(stack) && SchematicCreateBridge.isSchematicDeployed(stack)) {
                             schematicStack = stack
                             break
                         }

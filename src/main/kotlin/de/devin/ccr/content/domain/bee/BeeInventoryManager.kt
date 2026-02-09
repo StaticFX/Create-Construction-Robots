@@ -1,5 +1,10 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.domain.bee
 
+import de.devin.ccr.content.bee.CompositeMaterialSource
+import de.devin.ccr.content.bee.MaterialSource
+import de.devin.ccr.content.bee.MechanicalBeeEntity
+import de.devin.ccr.content.bee.PlayerMaterialSource
+import de.devin.ccr.content.bee.WirelessMaterialSource
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer

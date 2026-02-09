@@ -1,7 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.schematics.BeeWorkManager
+import de.devin.ccr.content.domain.BeeWorkManager
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload

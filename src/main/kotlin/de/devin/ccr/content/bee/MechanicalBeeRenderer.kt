@@ -1,4 +1,4 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.bee
 
 import net.minecraft.client.renderer.entity.EntityRendererProvider
 import software.bernie.geckolib.renderer.GeoEntityRenderer

@@ -1,8 +1,8 @@
 package de.devin.ccr.content.schematics.goals
 
-import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.schematics.SchematicJobKey
-import de.devin.ccr.content.schematics.SchematicRobotHandler
+import de.devin.ccr.content.schematics.SchematicCreateBridge
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
@@ -18,7 +18,7 @@ class ConstructionGoal(private val schematicStack: ItemStack) : BeeJobGoal {
     }
 
     override fun validate(level: Level): Component? {
-        val handler = SchematicRobotHandler(level)
+        val handler = SchematicCreateBridge(level)
         if (!handler.loadSchematic(schematicStack)) {
             return Component.translatable("ccr.construction.load_failed")
         }
@@ -26,7 +26,7 @@ class ConstructionGoal(private val schematicStack: ItemStack) : BeeJobGoal {
     }
 
     override fun generateTasks(jobId: UUID, level: Level): List<BeeTask> {
-        val handler = SchematicRobotHandler(level)
+        val handler = SchematicCreateBridge(level)
         return if (handler.loadSchematic(schematicStack)) {
             handler.generateBuildTasks(jobId)
         } else {
@@ -35,7 +35,7 @@ class ConstructionGoal(private val schematicStack: ItemStack) : BeeJobGoal {
     }
 
     override fun getCenterPos(level: Level, tasks: List<BeeTask>): BlockPos {
-        val handler = SchematicRobotHandler(level)
+        val handler = SchematicCreateBridge(level)
         if (handler.loadSchematic(schematicStack)) {
             return handler.getAnchor() ?: (if (tasks.isNotEmpty()) tasks[0].targetPos else BlockPos.ZERO)
         }

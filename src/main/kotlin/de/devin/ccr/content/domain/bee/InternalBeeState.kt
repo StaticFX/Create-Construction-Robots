@@ -1,9 +1,9 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.domain.bee
 
 /**
- * Possible states for a constructor robot's state machine.
+ * Internal state of a bee
  */
-enum class BeeState {
+enum class InternalBeeState {
     /** Waiting for a new task or returning to player */
     IDLE,
     /** Moving to player or storage to collect required items */
@@ -13,5 +13,5 @@ enum class BeeState {
     /** Performing the actual placement or removal */
     WORKING,
     /** Returning to the player's backpack after work is done */
-    RETURNING_TO_PLAYER
+    RETURNING_TO_HOME
 }

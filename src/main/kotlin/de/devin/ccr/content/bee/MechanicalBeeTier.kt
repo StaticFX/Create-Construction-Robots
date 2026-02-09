@@ -1,4 +1,4 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.bee
 
 import de.devin.ccr.items.AllItems
 import net.minecraft.util.StringRepresentable

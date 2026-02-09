@@ -4,6 +4,7 @@ import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.ccr.CreateCCR
+import de.devin.ccr.content.domain.task.BeeTask
 import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
@@ -19,7 +20,7 @@ import net.minecraft.world.level.Level
  * - Identifying item requirements for each block using Create's [ItemRequirement] API.
  * - Providing utilities for area deconstruction task generation.
  */
-class SchematicRobotHandler(
+class SchematicCreateBridge(
     private val level: Level
 ) {
     private val printer = SchematicPrinter()
@@ -87,26 +88,18 @@ class SchematicRobotHandler(
         val tasks = mutableListOf<BeeTask>()
         
         // Iterate through all blocks in the schematic
-        while (printer.isLoaded && !printer.isErrored) {
-            val target = printer.currentTarget
-            if (target == null) {
-                if (!printer.advanceCurrentPos()) {
-                    break // No more positions
-                }
-                continue
-            }
-            
-            // Check if this block should be placed
-            if (printer.shouldPlaceCurrent(level)) {
-                // Get the required items for this block
-                val requirement = printer.currentRequirement
-                val items = getItemsFromRequirement(requirement)
-                
-                // Get the block state and potential block entity data to place
-                printer.handleCurrentTarget({ pos, state, blockEntity ->
-                    if (state != null && !state.isAir) {
-                        val tag = blockEntity?.saveWithFullMetadata(level.registryAccess())
-                        tasks.add(BeeTask.place(
+        while (printer.isLoaded && !printer.isErrored && printer.advanceCurrentPos()) {
+            if (!printer.shouldPlaceCurrent(level)) continue
+
+            val requirement = printer.currentRequirement
+            val items = getItemsFromRequirement(requirement)
+
+            // Get the block state and potential block entity data to place
+            printer.handleCurrentTarget({ pos, state, blockEntity ->
+                if (state != null && !state.isAir) {
+                    val tag = blockEntity?.saveWithFullMetadata(level.registryAccess())
+                    tasks.add(
+                        BeeTask.place(
                             pos = pos,
                             state = state,
                             items = items,
@@ -114,16 +107,10 @@ class SchematicRobotHandler(
                             tag = tag,
                             jobId = jobId
                         ))
-                    }
-                }, { _, _ -> 
-                    // Entity handler - we don't handle entities yet
-                })
-            }
-            
-            // Move to next position
-            if (!printer.advanceCurrentPos()) {
-                break
-            }
+                }
+            }, { _, _ ->
+                // TODO Add entity handling... somehow
+            })
         }
         
         // Sort tasks for optimal building order (bottom-up)
@@ -156,7 +143,8 @@ class SchematicRobotHandler(
                     
                     // Skip air and unbreakable blocks
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        tasks.add(BeeTask.remove(
+                        tasks.add(
+                            BeeTask.remove(
                             pos = pos,
                             priority = calculateRemovalPriority(pos, maxY),
                             jobId = jobId
@@ -170,17 +158,12 @@ class SchematicRobotHandler(
     }
     
     /**
-     * Check if a schematic is loaded
-     */
-    fun isSchematicLoaded(): Boolean = isLoaded
-    
-    /**
      * Get the anchor position of the loaded schematic
      */
     fun getAnchor(): BlockPos? {
         return if (isLoaded) printer.anchor else null
     }
-    
+
     /**
      * Reset the handler
      */

@@ -1,11 +1,15 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.domain.bee
 
-import de.devin.ccr.content.schematics.BeeJob
-import de.devin.ccr.content.schematics.GlobalJobPool
+import de.devin.ccr.content.bee.MechanicalBeeEntity
+import de.devin.ccr.content.domain.job.BeeJob
+import de.devin.ccr.content.domain.GlobalJobPool
+import de.devin.ccr.content.domain.beehive.BeeHive
+import de.devin.ccr.content.domain.beehive.PlayerBeeHive
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.iterator
 
 /**
  * Manages bee contributions from multiple sources to jobs.
@@ -19,7 +23,7 @@ object BeeContributionManager {
     /**
      * Registry of all known bee sources, keyed by their source ID.
      */
-    private val sources = ConcurrentHashMap<UUID, BeeSource>()
+    private val sources = ConcurrentHashMap<UUID, BeeHive>()
     
     /**
      * Tracks active contributions: sourceId -> set of jobIds
@@ -29,7 +33,7 @@ object BeeContributionManager {
     /**
      * Registers a bee source so it can be found by the job system.
      */
-    fun registerSource(source: BeeSource) {
+    fun registerSource(source: BeeHive) {
         sources[source.sourceId] = source
     }
     
@@ -49,7 +53,7 @@ object BeeContributionManager {
     /**
      * Gets a registered source by ID.
      */
-    fun getSource(sourceId: UUID): BeeSource? = sources[sourceId]
+    fun getSource(sourceId: UUID): BeeHive? = sources[sourceId]
     
     /**
      * Finds all sources that can contribute to a job at the given position.
@@ -58,7 +62,7 @@ object BeeContributionManager {
      * @param jobPos The position of the job.
      * @return List of sources that are in range of the job.
      */
-    fun findSourcesForJob(level: Level, jobPos: BlockPos): List<BeeSource> {
+    fun findSourcesForJob(level: Level, jobPos: BlockPos): List<BeeHive> {
         return sources.values.filter { source ->
             source.sourceWorld == level && source.isInRange(jobPos)
         }
@@ -104,7 +108,7 @@ object BeeContributionManager {
      */
     fun contributeToJob(job: BeeJob, level: Level): Int {
         val sourcesInRange = findSourcesForJob(level, job.centerPos)
-            .sortedBy { it is PlayerBeeHome } // Prioritize stationary beehives over players
+            .sortedBy { it is PlayerBeeHive } // Prioritize stationary beehives over players
         var totalContributed = 0
         
         // Target is to have enough bees for all tasks, but at least the required amount
@@ -175,7 +179,7 @@ object BeeContributionManager {
     /**
      * Gets all registered sources.
      */
-    fun getAllSources(): Collection<BeeSource> = sources.values
+    fun getAllSources(): Collection<BeeHive> = sources.values
     
     /**
      * Clears all data (used for server shutdown/restart).
@@ -183,7 +187,7 @@ object BeeContributionManager {
     fun clear() {
         sources.clear()
         activeContributions.clear()
-        MechanicalBeeEntity.activeBeesPerHome.clear()
-        MechanicalBeeEntity.activeHomes.clear()
+        MechanicalBeeEntity.Companion.activeBeesPerHome.clear()
+        MechanicalBeeEntity.Companion.activeHomes.clear()
     }
 }

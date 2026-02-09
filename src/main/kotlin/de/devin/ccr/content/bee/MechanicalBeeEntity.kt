@@ -1,7 +1,10 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.bee
 
-import de.devin.ccr.content.robots.goals.BeeExecuteTaskGoal
-import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.bee.goals.BeeExecuteTaskGoal
+import de.devin.ccr.content.domain.bee.BeeInventoryManager
+import de.devin.ccr.content.domain.beehive.BeeHive
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.bee.InternalBeeState
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -12,17 +15,16 @@ import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.FlyingMob
-import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
 import net.minecraft.world.entity.item.ItemEntity
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.common.damagesource.DamageContainer
 import software.bernie.geckolib.animatable.GeoEntity
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.animation.AnimatableManager
@@ -43,45 +45,30 @@ import java.util.*
  * 5. Placing blocks instantly or breaking blocks quickly.
  * 6. Returning to the player to pick up more items for the next task.
  *
- * The robot entity is tied to a specific [owner] player and will discard itself if the owner is not found.
+ * The robot entity is tied to a specific [owner] (player/beehive) and will discard itself if the owner is not found.
  */
 class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) : FlyingMob(entityType, level),
     GeoEntity {
 
     companion object {
         private val OWNER_UUID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
-        private val HOME_ID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
+        private val BEEHIVE_ID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
         private val TASK_POS: EntityDataAccessor<Optional<BlockPos>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
         private val IS_WORKING: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.BOOLEAN)
         private val TIER: EntityDataAccessor<String> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.STRING)
 
-        /** Shared home registry (transient) */
-        val activeHomes = mutableMapOf<UUID, IBeeHome>()
-
-        /** Active bees per home ID (transient, server side) */
-        val activeBeesPerHome = mutableMapOf<UUID, MutableSet<UUID>>()
-
         /** Maximum ticks before teleporting to target */
         const val MAX_STUCK_TICKS = 60  // 3 seconds
 
-        /** Maximum air the bee can carry */
-        const val MAX_AIR = 600 // 30 seconds of flight
-
-        fun getActiveBeeCount(homeId: UUID): Int {
-            return activeBeesPerHome[homeId]?.size ?: 0
-        }
-
         fun createAttributes(): AttributeSupplier.Builder {
-            return Mob.createMobAttributes()
+            return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0)
                 .add(Attributes.FLYING_SPEED, 0.6)  // Increased speed
                 .add(Attributes.MOVEMENT_SPEED, 0.3)
         }
     }
 
-    var currentState: BeeState = BeeState.IDLE
-    var currentTask: BeeTask? = null
-    private var home: IBeeHome? = null
+    val mechanicalBeeBrain = MechanicalBeeBrain(this)
 
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
@@ -95,9 +82,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     
     /** Whether this robot has already been returned to backpack (prevents double-return) */
     private var hasBeenReturned = false
-
-    /** Whether we have notified the home about our presence */
-    private var homeNotified = false
     
     /** Last position for stuck detection */
     var lastPosition: Vec3 = Vec3.ZERO
@@ -105,15 +89,16 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     /** Ticks spent stuck (not making progress) */
     var stuckTicks = 0
 
-    /** Current air level of the bee */
-    var air: Int = MAX_AIR
-
     init {
         this.moveControl = FlyingMoveControl(this, 20, true)
     }
 
     override fun registerGoals() {
         this.goalSelector.addGoal(1, BeeExecuteTaskGoal(this))
+    }
+
+    override fun onDamageTaken(damageContainer: DamageContainer) {
+        return
     }
 
     fun isWorking(): Boolean = entityData.get(IS_WORKING)
@@ -145,7 +130,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     override fun defineSynchedData(builder: SynchedEntityData.Builder) {
         super.defineSynchedData(builder)
         builder.define(OWNER_UUID, Optional.empty())
-        builder.define(HOME_ID, Optional.empty())
+        builder.define(BEEHIVE_ID, Optional.empty())
         builder.define(TASK_POS, Optional.empty())
         builder.define(IS_WORKING, false)
         builder.define(TIER, MechanicalBeeTier.ANDESITE.name.lowercase())
@@ -158,46 +143,20 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return navigation
     }
 
+    fun beehive(): BeeHive {
+        return mechanicalBeeBrain.beehive
+    }
+
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide) {
-            val homeId = entityData.get(HOME_ID).orElse(null)
-            if (homeId != null) {
-                activeBeesPerHome[homeId]?.remove(this.uuid)
-            }
-            if (homeNotified) {
-                getHome()?.onBeeRemoved(this)
-            }
+            beehive.onBeeRemoved(this)
         }
         super.remove(reason)
     }
 
-    fun setHome(home: IBeeHome) {
-        this.home = home
-        this.entityData.set(HOME_ID, Optional.of(home.getHomeId()))
-        home.getOwner()?.let { setOwner(it.uuid) }
-        activeHomes[home.getHomeId()] = home
-    }
-
-    fun getHome(): IBeeHome? {
-        if (home != null) return home
-        val id = entityData.get(HOME_ID).orElse(null) ?: return null
-        
-        // Try to recover home from registry
-        home = activeHomes[id]
-        
-        // If it was a player home, try to recover it
-        if (home == null) {
-            val ownerUuid = getOwnerUUID()
-            if (ownerUuid != null) {
-                val player = level().getPlayerByUUID(ownerUuid) as? ServerPlayer
-                if (player != null) {
-                    val playerHome = PlayerBeeHome(player)
-                    setHome(playerHome)
-                }
-            }
-        }
-        
-        return home
+    fun setHome(home: BeeHive) {
+        this.beehive = home
+        this.entityData.set(BEEHIVE_ID, Optional.of(home.sourceId))
     }
 
     fun setOwner(uuid: UUID) {
@@ -208,38 +167,10 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     override fun tick() {
         super.tick()
-        
-        if (!level().isClientSide) {
-            // Ensure home is initialized
-            val currentHome = getHome()
-            
-            // Discard if no home can be found/recovered
-            if (currentHome == null) {
-                this.discard()
-                return
-            }
+        if (level().isClientSide) return
 
-            // Register home as BeeSource if it is one (especially for PlayerBeeHome)
-            if (currentHome is BeeSource) {
-                BeeContributionManager.registerSource(currentHome)
-            }
-
-            if (!homeNotified) {
-                val homeId = currentHome.getHomeId()
-                activeBeesPerHome.computeIfAbsent(homeId) { mutableSetOf() }.add(this.uuid)
-                currentHome.onBeeSpawned(this)
-                homeNotified = true
-            }
-
-            // Update stats from home
-            if (robotContext == null || tickCount % 100 == 0) {
-                robotContext = currentHome.getBeeContext()
-            }
-
-            // Consume air when active
-            if (currentState != BeeState.IDLE) {
-                consumeAir(1)
-            }
+        if (robotContext == null || tickCount % 100 == 0) {
+            robotContext = beehive.getBeeContext()
         }
     }
 
@@ -250,7 +181,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     override fun addAdditionalSaveData(compound: CompoundTag) {
         super.addAdditionalSaveData(compound)
         getOwnerUUID()?.let { compound.putUUID("Owner", it) }
-        entityData.get(HOME_ID).ifPresent { compound.putUUID("HomeId", it) }
+        entityData.get(BEEHIVE_ID).ifPresent { compound.putUUID("HomeId", it) }
         compound.putString("Tier", tier.name)
     }
 
@@ -260,7 +191,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
             setOwner(compound.getUUID("Owner"))
         }
         if (compound.hasUUID("HomeId")) {
-            entityData.set(HOME_ID, Optional.of(compound.getUUID("HomeId")))
+            entityData.set(BEEHIVE_ID, Optional.of(compound.getUUID("HomeId")))
         }
         if (compound.contains("Tier")) {
             tier = MechanicalBeeTier.valueOf(compound.getString("Tier"))
@@ -278,32 +209,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return getOwnerUUID()?.let { level().getPlayerByUUID(it) } as? ServerPlayer
     }
 
-    fun getBeeContext(): BeeContext = robotContext ?: getHome()?.getBeeContext() ?: BeeContext()
-
-    /**
-     * Refills air from the home.
-     * @return true if air was refilled or already full
-     */
-    fun refillAirFromHive(): Boolean {
-        val currentHome = getHome() ?: return false
-        
-        val needed = MAX_AIR - air
-        if (needed <= 0) return true
-        
-        val taken = currentHome.consumeAir(needed)
-        air += taken
-        return taken > 0 || air > 0
-    }
-
-    /**
-     * Consumes air for flying/working.
-     */
-    fun consumeAir(amount: Int) {
-        val ownerPlayer = getOwnerPlayer()
-        if (ownerPlayer != null && ownerPlayer.isCreative) return
-        
-        air = maxOf(0, air - amount)
-    }
+    fun getBeeContext(): BeeContext = robotContext ?: BeeContext()
 
     fun setTaskPos(pos: BlockPos?) {
         entityData.set(TASK_POS, Optional.ofNullable(pos))
@@ -358,13 +264,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         
         // Remove this entity
         discard()
-    }
-    
-    /**
-     * Returns this robot to a specific player's backpack.
-     */
-    fun returnToBackpackAndDiscard(player: Player) {
-        returnToHomeAndDiscard()
     }
     
     /**

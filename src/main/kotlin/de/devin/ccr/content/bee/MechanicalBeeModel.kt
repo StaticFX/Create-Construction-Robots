@@ -1,4 +1,4 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.bee
 
 import de.devin.ccr.CreateCCR
 import net.minecraft.resources.ResourceLocation

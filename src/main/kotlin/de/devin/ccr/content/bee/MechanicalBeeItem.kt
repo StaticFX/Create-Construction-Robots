@@ -1,11 +1,10 @@
-package de.devin.ccr.content.robots
+package de.devin.ccr.content.bee
 
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
-import net.minecraft.world.item.Item.TooltipContext
 
 /**
  * Constructor Robot Item - Represents a robot that can be stored in the Constructor Backpack.

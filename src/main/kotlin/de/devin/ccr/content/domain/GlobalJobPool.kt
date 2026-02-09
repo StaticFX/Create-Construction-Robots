@@ -1,6 +1,8 @@
-package de.devin.ccr.content.schematics
+package de.devin.ccr.content.domain
 
-import de.devin.ccr.content.robots.BeeSource
+import de.devin.ccr.content.domain.job.BeeJob
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.beehive.BeeHive
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.Level
@@ -127,7 +129,7 @@ object GlobalJobPool {
      * @param source The bee source looking for jobs.
      * @return List of jobs within the source's work range.
      */
-    fun findJobsForSource(source: BeeSource): List<BeeJob> {
+    fun findJobsForSource(source: BeeHive): List<BeeJob> {
         return findJobsInRange(source.sourceWorld, source.sourcePosition, source.getWorkRange())
     }
     
@@ -139,7 +141,7 @@ object GlobalJobPool {
      * @param beeCount The number of bees to contribute.
      * @return true if the contribution was successful.
      */
-    fun contributeToJob(jobId: UUID, source: BeeSource, beeCount: Int): Boolean {
+    fun contributeToJob(jobId: UUID, source: BeeHive, beeCount: Int): Boolean {
         val job = jobs[jobId] ?: return false
         
         // Check if source is in range
@@ -163,7 +165,7 @@ object GlobalJobPool {
      * @param robotId The ID of the robot requesting the task.
      * @return A task to work on, or null if no tasks available.
      */
-    fun getTaskForBee(source: BeeSource, robotId: Int): BeeTask? {
+    fun getTaskForBee(source: BeeHive, robotId: Int): BeeTask? {
         val jobsInRange = findJobsForSource(source)
         
         // Prioritize jobs that are in progress and have tasks
@@ -185,7 +187,7 @@ object GlobalJobPool {
      * @param sources List of available bee sources.
      * @return Total number of bees that can be contributed.
      */
-    fun aggregateFromSources(level: Level, jobPos: BlockPos, sources: List<BeeSource>): Int {
+    fun aggregateFromSources(level: Level, jobPos: BlockPos, sources: List<BeeHive>): Int {
         return sources
             .filter { it.sourceWorld == level && it.isInRange(jobPos) }
             .sumOf { minOf(it.getAvailableBeeCount(), it.getMaxContributedBees()) }

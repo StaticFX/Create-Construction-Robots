@@ -1,9 +1,8 @@
 package de.devin.ccr.content.backpack
 
-import de.devin.ccr.content.robots.MechanicalBeeEntity
-import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.schematics.BeeTask
-import de.devin.ccr.content.schematics.GlobalJobPool
+import de.devin.ccr.content.bee.MechanicalBeeItem
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.network.TaskProgressSyncPacket
 import net.minecraft.core.NonNullList

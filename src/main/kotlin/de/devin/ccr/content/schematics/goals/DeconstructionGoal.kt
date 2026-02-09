@@ -1,8 +1,8 @@
 package de.devin.ccr.content.schematics.goals
 
-import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.schematics.SchematicJobKey
-import de.devin.ccr.content.schematics.SchematicRobotHandler
+import de.devin.ccr.content.schematics.SchematicCreateBridge
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.level.Level
@@ -13,7 +13,7 @@ class DeconstructionGoal(private val pos1: BlockPos, private val pos2: BlockPos)
         SchematicJobKey(playerUuid, "deconstruct_area", pos1.x, pos1.y, pos1.z)
 
     override fun generateTasks(jobId: UUID, level: Level): List<BeeTask> =
-        SchematicRobotHandler(level).generateRemovalTasks(pos1, pos2, jobId)
+        SchematicCreateBridge(level).generateRemovalTasks(pos1, pos2, jobId)
 
     override fun getCenterPos(level: Level, tasks: List<BeeTask>): BlockPos =
         BlockPos(

@@ -3,12 +3,10 @@ package de.devin.ccr.items
 import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.backpack.PortableBeehiveItem
-import de.devin.ccr.content.robots.MechanicalBeeItem
-import de.devin.ccr.content.robots.MechanicalBeeTier
+import de.devin.ccr.content.bee.MechanicalBeeItem
+import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.content.schematics.StingerPlannerItem
 import de.devin.ccr.content.upgrades.*
-import de.devin.ccr.tabs.AllCreativeModeTabs
-import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 
 

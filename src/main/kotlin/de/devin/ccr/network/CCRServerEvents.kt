@@ -1,11 +1,8 @@
 package de.devin.ccr.network
 
-import de.devin.ccr.content.robots.PlayerBeeHome
-import de.devin.ccr.content.robots.BeeContributionManager
-import de.devin.ccr.content.robots.MechanicalBeeEntity
-import de.devin.ccr.content.schematics.BeeTask
-import de.devin.ccr.content.schematics.GlobalJobPool
-import net.minecraft.server.level.ServerPlayer
+import de.devin.ccr.content.domain.bee.BeeContributionManager
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.GlobalJobPool
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent

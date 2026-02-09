@@ -1,6 +1,6 @@
 package de.devin.ccr.content.schematics.goals
 
-import de.devin.ccr.content.schematics.BeeTask
+import de.devin.ccr.content.domain.task.BeeTask
 
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component

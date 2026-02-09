@@ -29,6 +29,7 @@ enum class UpgradeType(
     HONEY_EFFICIENCY(2, "tooltip.ccr.upgrade.honey_efficiency", IUpgrade { ctx, count ->
         ctx.breakSpeedMultiplier -= count * 0.25
         ctx.carryCapacity += count * 2
+        ctx.airConsumptionMultiplier -= count * 0.15
     }),
     STINGER_PRECISION(1, "tooltip.ccr.upgrade.stinger_precision", IUpgrade { ctx, count ->
         if (count > 0) ctx.precisionEnabled = true

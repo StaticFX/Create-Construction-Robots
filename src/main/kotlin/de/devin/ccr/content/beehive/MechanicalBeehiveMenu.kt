@@ -1,7 +1,7 @@
 package de.devin.ccr.content.beehive
 
 import de.devin.ccr.blocks.AllBlocks
-import de.devin.ccr.content.robots.MechanicalBeeItem
+import de.devin.ccr.content.bee.MechanicalBeeItem
 import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.registry.AllMenuTypes
 import net.minecraft.world.entity.player.Inventory

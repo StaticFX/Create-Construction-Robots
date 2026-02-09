@@ -15,5 +15,6 @@ data class BeeContext(
     var pickupEnabled: Boolean = false,
     var breakSpeedMultiplier: Double = 1.0,
     /** Maximum number of bees this source can contribute to a single job */
-    var maxContributedBees: Int = 4
+    var maxContributedBees: Int = 4,
+    var airConsumptionMultiplier: Double = 1.0
 )
