@@ -10,18 +10,16 @@ import net.minecraft.world.level.block.state.BlockState
 import java.util.UUID
 
 /**
- * Represents a single task for a constructor robot.
+ * Represents a single task for a single bee.
  *
  * @property action The action to perform.
  * @property targetPos The world position where the task should be performed.
  * @property priority The priority of this task (higher values are processed first).
- * @property requiredBees The number of bees required to complete this task (default 1).
  */
 data class BeeTask(
     val action: BeeAction,
     val targetPos: BlockPos,
     val priority: Int = 0,
-    val requiredBees: Int = 1
 ) {
     var status: TaskStatus = TaskStatus.PENDING
     var assignedRobotId: Int? = null

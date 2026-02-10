@@ -20,7 +20,7 @@ class PlaceBlockAction(
     override val requiredItems: List<ItemStack> = emptyList()
 ) : BeeAction {
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext) {
+    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         level.setBlock(pos, blockState, 3)
 
         if (context.precisionEnabled && blockEntityTag != null) {
@@ -37,6 +37,8 @@ class PlaceBlockAction(
                 5, 0.3, 0.3, 0.3, 0.0
             )
         }
+
+        return true
     }
 
     override fun getDescription(pos: BlockPos): String {

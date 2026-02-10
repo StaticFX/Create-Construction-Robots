@@ -10,8 +10,9 @@ import net.minecraft.world.item.Item
  * @property blockDestroySpeed The speed at which the bee destroys blocks (multiplier).
  */
 data class BeeCapabilities(
-    val flySpeed: Double,
-    val blockDestroySpeed: Float
+    val flySpeedModifier: Float,
+    val blockDestroySpeed: Float,
+    val workRange: Double,
 )
 
 enum class MechanicalBeeTier(
@@ -23,19 +24,19 @@ enum class MechanicalBeeTier(
     ANDESITE(
         "andesite", 
         "Andesite Encased", 
-        BeeCapabilities(1.0, 1.0f), 
+        BeeCapabilities(1.0f, 1.0f, 1.0),
         { AllItems.ANDESITE_BEE.get() }
     ),
     BRASS(
         "brass", 
         "Brass Encased", 
-        BeeCapabilities(1.4, 2.0f), 
+        BeeCapabilities(1.4f, 2.0f, 1.5),
         { AllItems.BRASS_BEE.get() }
     ),
     STURDY(
         "sturdy", 
         "Sturdy", 
-        BeeCapabilities(1.8, 4.0f), 
+        BeeCapabilities(1.8f, 4.0f, 2.0),
         { AllItems.STURDY_BEE.get() }
     );
 

@@ -1,29 +1,30 @@
 package de.devin.ccr.content.bee
 
-import de.devin.ccr.content.bee.goals.BeeExecuteTaskGoal
+import com.mojang.serialization.Dynamic
+import de.devin.ccr.content.bee.brain.BeeBrainProvider
+import de.devin.ccr.content.bee.brain.BeeMemoryModules
 import de.devin.ccr.content.domain.bee.BeeInventoryManager
 import de.devin.ccr.content.domain.beehive.BeeHive
-import de.devin.ccr.content.domain.task.BeeTask
-import de.devin.ccr.content.domain.bee.InternalBeeState
 import de.devin.ccr.content.upgrades.BeeContext
-import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.FlyingMob
+import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
 import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.entity.schedule.Activity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.common.damagesource.DamageContainer
 import software.bernie.geckolib.animatable.GeoEntity
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
@@ -53,8 +54,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     companion object {
         private val OWNER_UUID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
         private val BEEHIVE_ID: EntityDataAccessor<Optional<UUID>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
-        private val TASK_POS: EntityDataAccessor<Optional<BlockPos>> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
-        private val IS_WORKING: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.BOOLEAN)
         private val TIER: EntityDataAccessor<String> = SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.STRING)
 
         /** Maximum ticks before teleporting to target */
@@ -68,8 +67,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         }
     }
 
-    val mechanicalBeeBrain = MechanicalBeeBrain(this)
-
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
     /** Calculated stats for this robot based on backpack upgrades */
@@ -80,12 +77,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     val inventoryManager = BeeInventoryManager(this)
     
-    /** Whether this robot has already been returned to backpack (prevents double-return) */
-    private var hasBeenReturned = false
-    
-    /** Last position for stuck detection */
-    var lastPosition: Vec3 = Vec3.ZERO
-    
     /** Ticks spent stuck (not making progress) */
     var stuckTicks = 0
 
@@ -93,27 +84,32 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         this.moveControl = FlyingMoveControl(this, 20, true)
     }
 
-    override fun registerGoals() {
-        this.goalSelector.addGoal(1, BeeExecuteTaskGoal(this))
-    }
-
     override fun onDamageTaken(damageContainer: DamageContainer) {
         return
     }
 
-    fun isWorking(): Boolean = entityData.get(IS_WORKING)
-
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
         controllers.add(
             AnimationController(this, "controller", 5) { event ->
+                val brain = this.getBrain()
                 val animation = when {
-                    isWorking() -> RawAnimation.begin().thenLoop("flying")
+                    // If the brain is in Activity.WORK, play the working animation
+                    brain.isActive(Activity.WORK) -> RawAnimation.begin().thenLoop("flying")
+                    // If moving, play flying
                     deltaMovement.lengthSqr() > 0.0001 -> RawAnimation.begin().thenPlay("flying_start").thenLoop("flying")
                     else -> RawAnimation.begin().thenLoop("flying_idle")
                 }
                 event.setAndContinue(animation)
             }
         )
+    }
+
+    override fun customServerAiStep() {
+        this.level().profiler.push("beeBrain")
+        this.getBrain().tick(this.level() as ServerLevel, this)
+        this.level().profiler.pop()
+
+        super.customServerAiStep()
     }
 
     override fun getAnimatableInstanceCache(): AnimatableInstanceCache? {
@@ -124,39 +120,44 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         get() = MechanicalBeeTier.valueOf(entityData.get(TIER).uppercase())
         set(value) {
             entityData.set(TIER, value.name.lowercase())
-            getAttribute(Attributes.FLYING_SPEED)?.baseValue = value.capabilities.flySpeed
+            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 1.0 * value.capabilities.flySpeedModifier
         }
+
+    override fun brainProvider(): Brain.Provider<*> {
+        return BeeBrainProvider.brain()
+    }
+
+    override fun makeBrain(dynamic: Dynamic<*>): Brain<MechanicalBeeEntity> {
+        val brain = this.brainProvider().makeBrain(dynamic)
+        return BeeBrainProvider.makeBrain(brain as Brain<MechanicalBeeEntity>)    }
+
+    override fun getBrain(): Brain<MechanicalBeeEntity> {
+        return super.getBrain() as Brain<MechanicalBeeEntity>
+    }
 
     override fun defineSynchedData(builder: SynchedEntityData.Builder) {
         super.defineSynchedData(builder)
         builder.define(OWNER_UUID, Optional.empty())
         builder.define(BEEHIVE_ID, Optional.empty())
-        builder.define(TASK_POS, Optional.empty())
-        builder.define(IS_WORKING, false)
         builder.define(TIER, MechanicalBeeTier.ANDESITE.name.lowercase())
     }
 
     override fun createNavigation(level: Level): PathNavigation {
         val navigation = FlyingPathNavigation(this, level)
         navigation.setCanOpenDoors(false)
-        navigation.setCanPassDoors(false)
+        navigation.setCanPassDoors(true)
         return navigation
     }
 
     fun beehive(): BeeHive {
-        return mechanicalBeeBrain.beehive
+        return this.getBrain().getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).orElseThrow()
     }
 
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide) {
-            beehive.onBeeRemoved(this)
+            beehive().onBeeRemoved(this)
         }
         super.remove(reason)
-    }
-
-    fun setHome(home: BeeHive) {
-        this.beehive = home
-        this.entityData.set(BEEHIVE_ID, Optional.of(home.sourceId))
     }
 
     fun setOwner(uuid: UUID) {
@@ -170,7 +171,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (level().isClientSide) return
 
         if (robotContext == null || tickCount % 100 == 0) {
-            robotContext = beehive.getBeeContext()
+            robotContext = beehive().getBeeContext()
         }
     }
 
@@ -191,6 +192,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
             setOwner(compound.getUUID("Owner"))
         }
         if (compound.hasUUID("HomeId")) {
+            //TODO receive beehive instance from global registry and add it here to bee
             entityData.set(BEEHIVE_ID, Optional.of(compound.getUUID("HomeId")))
         }
         if (compound.contains("Tier")) {
@@ -211,78 +213,24 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     fun getBeeContext(): BeeContext = robotContext ?: BeeContext()
 
-    fun setTaskPos(pos: BlockPos?) {
-        entityData.set(TASK_POS, Optional.ofNullable(pos))
-    }
-
-    fun setWorking(working: Boolean) {
-        entityData.set(IS_WORKING, working)
-    }
-
-    fun resetStuckTicks() {
-        stuckTicks = 0
-    }
-
-    fun incrementStuckTicks() {
-        stuckTicks++
-    }
-
     /**
      * Gets the maximum number of items this robot can carry per trip.
      */
     fun getCarryCapacity(): Int = getBeeContext().carryCapacity
-
-    /**
-     * Gets the maximum work distance from the home.
-     */
-    fun getMaxWorkRange(): Double = getBeeContext().workRange
-    
-    /**
-     * Gets the speed multiplier from upgrades and tier.
-     */
-    fun getSpeedMultiplier(): Double = getBeeContext().speedMultiplier * tier.capabilities.flySpeed
-
-    /**
-     * Gets the work speed multiplier from upgrades and tier.
-     */
-    fun getWorkSpeedMultiplier(): Double = getBeeContext().speedMultiplier * tier.capabilities.blockDestroySpeed
-
-    /**
-     * Returns this robot to the home and removes the entity.
-     * If the home is full, drops the robot as an item instead.
-     */
-    fun returnToHomeAndDiscard() {
-        if (hasBeenReturned) return
-        hasBeenReturned = true
-        
-        val currentHome = getHome()
-        if (currentHome != null && currentHome.addBee(tier)) {
-            // Success
-        } else {
-            dropRobotItemAndDiscard()
-        }
-        
-        // Remove this entity
-        discard()
-    }
     
     /**
      * Drops a robot item at the current position and removes the entity.
      * Used when the home cannot be found or is full.
      */
-    fun dropRobotItemAndDiscard() {
-        if (hasBeenReturned) return
-        hasBeenReturned = true
-        
-        // Drop robot item at current position
+    fun dropBeeItemAndDiscard() {
         val item = tier.item()
-        val robotStack = ItemStack(item, 1)
+        val beeItemStack = ItemStack(item, 1)
         val itemEntity = ItemEntity(
             level(),
             x,
             y,
             z,
-            robotStack
+            beeItemStack
         )
         level().addFreshEntity(itemEntity)
         

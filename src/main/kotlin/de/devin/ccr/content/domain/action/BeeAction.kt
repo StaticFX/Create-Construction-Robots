@@ -15,7 +15,7 @@ interface BeeAction {
 
     fun onStart(robot: MechanicalBeeEntity) {}
     fun onTick(robot: MechanicalBeeEntity, tick: Int) {}
-    fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext)
+    fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean
 
     /**
      * Whether the bee should return to home after performing this action.
