@@ -28,6 +28,7 @@ import java.util.Optional
 
 import net.minecraft.world.item.ArmorItem
 import net.minecraft.world.item.ArmorMaterials
+import kotlin.math.roundToInt
 
 /**
  * Data class for the backpack's tooltip preview.
@@ -44,27 +45,28 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  * The backpack acts as the central hub for the mod's automated building system, storing the state
  * of the workforce and providing the interface to initiate construction tasks.
  */
-class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEATHER, Type.CHESTPLATE, properties), ICurioItem {
-    
+class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEATHER, Type.CHESTPLATE, properties),
+    ICurioItem {
+
     companion object {
         const val ROBOT_SLOTS = 4
         const val UPGRADE_SLOTS = 6
         const val TOTAL_SLOTS = ROBOT_SLOTS + UPGRADE_SLOTS
-        
+
         // NBT keys for the container
         const val TAG_INVENTORY = "BackpackInventory"
     }
-    
+
     override fun use(level: Level, player: Player, usedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val stack = player.getItemInHand(usedHand)
-        
+
         if (!level.isClientSide && player is ServerPlayer) {
             openBackpackScreen(player, usedHand)
         }
-        
+
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
     }
-    
+
     private fun openBackpackScreen(player: ServerPlayer, hand: InteractionHand) {
         // Find the slot index of the backpack in player's inventory
         val slotIndex = if (hand == InteractionHand.MAIN_HAND) {
@@ -72,15 +74,19 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
         } else {
             40 // Offhand slot
         }
-        
+
         val stack = player.getItemInHand(hand)
-        
+
         player.openMenu(object : MenuProvider {
             override fun getDisplayName(): Component {
                 return Component.translatable("container.ccr.portable_beehive")
             }
-            
-            override fun createMenu(containerId: Int, playerInventory: Inventory, player: Player): AbstractContainerMenu {
+
+            override fun createMenu(
+                containerId: Int,
+                playerInventory: Inventory,
+                player: Player
+            ): AbstractContainerMenu {
                 return BeehiveContainer(
                     AllMenuTypes.CONSTRUCTOR_BACKPACK.get(),
                     containerId,
@@ -93,7 +99,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
             buf.writeVarInt(slotIndex)
         }
     }
-    
+
     override fun getTooltipImage(stack: ItemStack): Optional<TooltipComponent> {
         return Optional.of(BeehiveTooltipData(stack))
     }
@@ -105,7 +111,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
     override fun getBarWidth(stack: ItemStack): Int {
         val maxAir = BacktankUtil.maxAir(stack)
         if (maxAir <= 0) return 0
-        return Math.round(13.0f * BacktankUtil.getAir(stack) / maxAir)
+        return (13.0f * BacktankUtil.getAir(stack) / maxAir).roundToInt()
     }
 
     override fun getBarColor(stack: ItemStack): Int {
@@ -119,23 +125,34 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
         tooltipFlag: TooltipFlag
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
-        
+
         // Count robots and upgrades in the backpack
         val robotCount = getRobotCount(stack)
         val upgrades = getUpgrades(stack)
-        
-        tooltipComponents.add(Component.translatable("tooltip.ccr.beehive.bees", robotCount, ROBOT_SLOTS).withStyle(net.minecraft.ChatFormatting.GRAY))
-        
+
+        tooltipComponents.add(
+            Component.translatable("tooltip.ccr.beehive.bees", robotCount, ROBOT_SLOTS)
+                .withStyle(net.minecraft.ChatFormatting.GRAY)
+        )
+
         if (upgrades.isNotEmpty()) {
-            tooltipComponents.add(Component.translatable("tooltip.ccr.beehive.naturified_header").withStyle(net.minecraft.ChatFormatting.GOLD))
+            tooltipComponents.add(
+                Component.translatable("tooltip.ccr.beehive.naturified_header")
+                    .withStyle(net.minecraft.ChatFormatting.GOLD)
+            )
             for ((type, count) in upgrades) {
-                tooltipComponents.add(Component.literal(" - ")
-                    .append(Component.translatable(type.descriptionKey))
-                    .append(Component.literal(" x$count"))
-                    .withStyle(net.minecraft.ChatFormatting.BLUE))
+                tooltipComponents.add(
+                    Component.literal(" - ")
+                        .append(Component.translatable(type.descriptionKey))
+                        .append(Component.literal(" x$count"))
+                        .withStyle(net.minecraft.ChatFormatting.BLUE)
+                )
             }
         } else {
-            tooltipComponents.add(Component.translatable("tooltip.ccr.beehive.no_naturified").withStyle(net.minecraft.ChatFormatting.DARK_GRAY))
+            tooltipComponents.add(
+                Component.translatable("tooltip.ccr.beehive.no_naturified")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
+            )
         }
     }
 
@@ -156,7 +173,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
         val contents = stack.get(DataComponents.CONTAINER) ?: return emptyMap()
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
-        
+
         val upgrades = mutableMapOf<UpgradeType, Int>()
         items.subList(ROBOT_SLOTS, TOTAL_SLOTS).forEach { itemStack ->
             val upgradeItem = itemStack.item as? BeeUpgradeItem
@@ -189,7 +206,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
      * Consumes a single robot from the backpack inventory.
      * @return the tier of the robot consumed, or null if no robots available
      */
-    fun consumeRobot(stack: ItemStack): MechanicalBeeTier? {
+    fun consumeBee(stack: ItemStack): MechanicalBeeTier? {
         val contents = stack.get(DataComponents.CONTAINER) ?: return null
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
@@ -255,35 +272,35 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
     fun getBeeContext(stack: ItemStack): BeeContext {
         return UpgradeType.fromBackpack(stack)
     }
-    
+
     // ICurioItem implementation
-    
+
     override fun canEquip(slotContext: SlotContext, stack: ItemStack): Boolean {
         // Only allow in "back" slot
         return slotContext.identifier() == "back"
     }
-    
+
     override fun canUnequip(slotContext: SlotContext, stack: ItemStack): Boolean {
         return true
     }
-    
+
     override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
         // Called every tick when worn
         val player = slotContext.entity() as? Player ?: return
         if (player.level().isClientSide) return
-        
+
         // Handle air refilling from Create's systems
         // If the item is tagged as pressurized_air_sources, BacktankUtil.getAir and maxAir should work.
         // We can manually refill if we find the player is in a refilling state.
         // Actually, Create's AirbacktankBlockEntity usually handles refilling by checking if the player is wearing a backtank.
         // If we are in the "back" Curio slot, it might not be found by Create.
-        
+
         // We can try to simulate the refilling if the player is holding an air hose (simplified)
         // or just let BacktankUtil handle it if we can find where it's called.
-        
+
         // Let's implement a simple refilling if submerged in air from a nearby source?
         // Actually, the most reliable way is to ensure we are compatible with BacktankUtil.
-        
+
         // Creative mode players always have full air
         if (player.isCreative) {
             val maxAir = BacktankUtil.maxAir(stack)
@@ -293,11 +310,11 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEA
             }
         }
     }
-    
+
     override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {
         // Called when the backpack is equipped
     }
-    
+
     override fun onUnequip(slotContext: SlotContext, newStack: ItemStack, stack: ItemStack) {
         // Called when the backpack is unequipped
     }

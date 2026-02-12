@@ -1,8 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.content.domain.GlobalJobPool
-import de.devin.ccr.content.domain.beehive.PlayerBeeHive
-import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.beehive.PortableBeeHive
 import de.devin.ccr.content.domain.task.TaskStatus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
@@ -60,6 +59,6 @@ object CCRServerEvents {
     fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
         // Handled by BeeHive implementations if needed, 
         // but PlayerBeeHive should ideally be unregistered here if it's not a block entity
-        GlobalJobPool.workers.removeIf { it is PlayerBeeHive && it.player.uuid == event.entity.uuid }
+        GlobalJobPool.workers.removeIf { it is PortableBeeHive && it.player.uuid == event.entity.uuid }
     }
 }

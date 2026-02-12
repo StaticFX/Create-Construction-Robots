@@ -16,9 +16,11 @@ class BeeHiveSensor : Sensor<MechanicalBeeEntity>() {
     override fun doTick(level: ServerLevel, entity: MechanicalBeeEntity) {
         val brain = entity.brain
         val pos = brain.getMemory(BeeMemoryModules.HIVE_POS.get()).orElse(null) ?: return
+        if (brain.hasMemoryValue(BeeMemoryModules.HIVE_INSTANCE.get())) return
 
         // Check if the block at the saved position is still a valid hive
         // TODO release task bee is working on
+        // TODO Player is the hive
         if (level.isLoaded(pos)) {
             val blockEntity = level.getBlockEntity(pos)
             if (blockEntity is BeeHive) {

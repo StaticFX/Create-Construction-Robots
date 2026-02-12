@@ -21,6 +21,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.Component
+import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -30,7 +31,6 @@ import net.neoforged.neoforge.items.ItemStackHandler
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 import java.util.*
 import kotlin.math.abs
-import kotlin.math.min
 
 class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) :
     KineticBlockEntity(type, pos, state), IHaveGoggleInformation, BeeHive {
@@ -119,6 +119,14 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         nextTask?.assignToRobot(bee)
 
         return nextTask
+    }
+
+    override fun walkTarget(): WalkTarget {
+        return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 0)
+    }
+
+    override fun currentLocation(): BlockPos {
+        return blockPos
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {

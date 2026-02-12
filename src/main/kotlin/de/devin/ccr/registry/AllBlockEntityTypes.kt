@@ -9,14 +9,13 @@ import de.devin.ccr.content.beehive.MechanicalBeehiveBlockEntity
 
 import de.devin.ccr.content.beehive.MechanicalBeehiveRenderer
 import com.tterrag.registrate.util.nullness.NonNullFunction
-import de.devin.ccr.content.beehive.MechanicalBeehiveVisual
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 
 object AllBlockEntityTypes {
 
     val MECHANICAL_BEEHIVE: BlockEntityEntry<MechanicalBeehiveBlockEntity> = CreateCCR.REGISTRATE
         .blockEntity("mechanical_beehive", ::MechanicalBeehiveBlockEntity)
-        .visual( { SingleAxisRotatingVisual.of(AllPartialModels.SHAFTLESS_COGWHEEL) }, false)
+        .visual({ SingleAxisRotatingVisual.of(AllPartialModels.SHAFTLESS_COGWHEEL) }, false)
         .validBlocks(AllBlocks.MECHANICAL_BEEHIVE)
         .renderer { NonNullFunction { MechanicalBeehiveRenderer(it) } }
         .register()

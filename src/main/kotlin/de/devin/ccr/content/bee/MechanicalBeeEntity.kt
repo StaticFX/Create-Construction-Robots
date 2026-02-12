@@ -100,8 +100,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
             AnimationController(this, "controller", 5) { event ->
                 val brain = this.getBrain()
                 val animation = when {
-                    // If the brain is in Activity.WORK, play the working animation
                     brain.isActive(Activity.WORK) -> RawAnimation.begin().thenLoop("flying")
+                    brain.isActive(Activity.REST) -> RawAnimation.begin().thenLoop("flying")
                     // If moving, play flying
                     deltaMovement.lengthSqr() > 0.0001 -> RawAnimation.begin().thenPlay("flying_start")
                         .thenLoop("flying")

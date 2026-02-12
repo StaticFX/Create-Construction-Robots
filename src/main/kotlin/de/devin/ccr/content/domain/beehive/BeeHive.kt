@@ -5,6 +5,7 @@ import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
+import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.level.Level
 import java.util.UUID
 
@@ -93,6 +94,11 @@ interface BeeHive {
     fun acceptTask(task: BeeTask): Boolean
 
     /**
+     * Returns a walk target for this beehive.
+     */
+    fun walkTarget(): WalkTarget
+
+    /**
      * Marks the given task as completed by the given bee.
      * @return optionally next task to be processed, or null if all tasks are completed.
      */
@@ -107,4 +113,7 @@ interface BeeHive {
      * Called when a bee from this source is removed/returned.
      */
     fun onBeeRemoved(bee: MechanicalBeeEntity) {}
+
+
+    fun currentLocation(): BlockPos
 }

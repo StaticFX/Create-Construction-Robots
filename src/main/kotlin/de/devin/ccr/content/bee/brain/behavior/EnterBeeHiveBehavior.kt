@@ -10,13 +10,12 @@ import net.minecraft.world.entity.ai.memory.MemoryStatus
 class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
     mapOf(
         BeeMemoryModules.HIVE_INSTANCE.get() to MemoryStatus.VALUE_PRESENT,
-        BeeMemoryModules.HIVE_POS.get() to MemoryStatus.VALUE_PRESENT,
         BeeMemoryModules.CURRENT_TASK.get() to MemoryStatus.VALUE_ABSENT,
     )
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
-        val hivePos = owner.brain.getMemory(BeeMemoryModules.HIVE_POS.get()).get()
+        val hivePos = owner.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get().currentLocation()
         return owner.blockPosition().closerThan(hivePos, 1.5)
     }
 

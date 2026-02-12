@@ -7,20 +7,19 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
-import net.minecraft.world.entity.ai.memory.WalkTarget
 
 class SetHiveWalkTargetBehavior : Behavior<MechanicalBeeEntity>(
     mapOf(
-        BeeMemoryModules.HIVE_POS.get() to MemoryStatus.VALUE_PRESENT,
+        BeeMemoryModules.HIVE_INSTANCE.get() to MemoryStatus.VALUE_PRESENT,
         MemoryModuleType.WALK_TARGET to MemoryStatus.VALUE_ABSENT // Only reset if lost
     )
 ) {
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
-        val hivePos = entity.brain.getMemory(BeeMemoryModules.HIVE_POS.get()).get()
-        val flySpeed = entity.tier.capabilities.flySpeedModifier
+        val hive = entity.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
+        val walkTarget = hive.walkTarget()
+        
+        CreateCCR.LOGGER.info("Setting hive target")
 
-        CreateCCR.LOGGER.info("Setting hive target to $hivePos")
-
-        entity.brain.setMemory(MemoryModuleType.WALK_TARGET, WalkTarget(hivePos, flySpeed, 1))
+        entity.brain.setMemory(MemoryModuleType.WALK_TARGET, walkTarget)
     }
 }

@@ -7,6 +7,7 @@ import de.devin.ccr.content.domain.task.TaskStatus
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.saveddata.SavedData
+import java.util.UUID
 
 /**
  * Global Bee Job distribution pool.
@@ -25,6 +26,11 @@ object GlobalJobPool : SavedData() {
 
     fun unregisterWorker(worker: BeeHive) {
         workers.remove(worker)
+        this.setDirty()
+    }
+
+    fun unregisterWorker(sourceId: UUID) {
+        workers.removeIf { it.sourceId == sourceId }
         this.setDirty()
     }
 

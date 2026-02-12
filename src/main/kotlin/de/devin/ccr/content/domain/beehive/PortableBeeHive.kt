@@ -11,10 +11,10 @@ import de.devin.ccr.content.domain.task.TaskStatus
 import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.registry.AllEntityTypes
 import net.minecraft.core.BlockPos
-import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.ai.memory.WalkTarget
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.minecraft.world.phys.Vec3
 import top.theillusivec4.curios.api.CuriosApi
 import java.util.*
 
@@ -22,11 +22,7 @@ import java.util.*
  * Implementation of IBeeHome that wraps a player and their portable beehive (backpack).
  * Also implements BeeSource to allow contributing bees to jobs from multiple sources.
  */
-class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
-    init {
-        // Register player as a bee source so they can contribute to jobs
-        GlobalJobPool.registerWorker(this)
-    }
+class PortableBeeHive(val player: Player) : BeeHive {
 
     override fun acceptTask(task: BeeTask): Boolean {
         if (getAvailableBeeCount() <= 0) {
@@ -54,14 +50,11 @@ class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
         task.complete()
         val nextTask = GlobalJobPool.workBacklog(this)
 
-        if (nextTask != null) {
-            nextTask.assignToRobot(bee)
-        }
+        nextTask?.assignToRobot(bee)
 
         return nextTask
     }
 
-    // BeeSource implementation
     override val sourceId: UUID get() = player.uuid
     override val sourceWorld: Level get() = player.level()
     override val sourcePosition: BlockPos get() = player.blockPosition()
@@ -91,6 +84,7 @@ class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
     }
 
     fun addBee(tier: MechanicalBeeTier): Boolean {
+        if (player.isCreative) return true
         val backpackItemStack = getBackpackStack()
         if (backpackItemStack.isEmpty) return false
         return (backpackItemStack.item as PortableBeehiveItem).addRobot(backpackItemStack, tier)
@@ -101,9 +95,9 @@ class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
         if (backpack.isEmpty) return null
 
         // Creative mode players don't consume bees, return ANDESITE as default
-        if (player.isCreative) return MechanicalBeeTier.ANDESITE
+        if (player.isCreative) return MechanicalBeeTier.STURDY
 
-        return (backpack.item as PortableBeehiveItem).consumeRobot(backpack)
+        return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
     }
 
     // BeeSource implementation
@@ -121,13 +115,12 @@ class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
         return addBee(tier)
     }
 
-    // Resolve diamond inheritance between IBeeHome and BeeSource
-    override fun onBeeSpawned(bee: MechanicalBeeEntity) {
-        // Default implementation - can be extended if needed
+    override fun walkTarget(): WalkTarget {
+        return WalkTarget(player, 1.0f, 0)
     }
 
-    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
-        // Default implementation - can be extended if needed
+    override fun currentLocation(): BlockPos {
+        return player.blockPosition()
     }
 
     private fun getBackpackStack(): ItemStack {
