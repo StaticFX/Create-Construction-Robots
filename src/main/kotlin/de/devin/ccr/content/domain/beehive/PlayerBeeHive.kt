@@ -2,31 +2,63 @@ package de.devin.ccr.content.domain.beehive
 
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import de.devin.ccr.content.backpack.PortableBeehiveItem
-import de.devin.ccr.content.domain.bee.BeeContributionManager
-import de.devin.ccr.content.bee.CompositeMaterialSource
-import de.devin.ccr.content.bee.MaterialSource
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.bee.MechanicalBeeTier
-import de.devin.ccr.content.bee.PlayerMaterialSource
+import de.devin.ccr.content.bee.brain.BeeMemoryModules
+import de.devin.ccr.content.domain.GlobalJobPool
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskStatus
 import de.devin.ccr.content.upgrades.BeeContext
+import de.devin.ccr.registry.AllEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.EquipmentSlot
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.phys.Vec3
 import top.theillusivec4.curios.api.CuriosApi
-import java.util.UUID
-import javax.sound.sampled.Port
+import java.util.*
 
 /**
  * Implementation of IBeeHome that wraps a player and their portable beehive (backpack).
  * Also implements BeeSource to allow contributing bees to jobs from multiple sources.
  */
-class PlayerBeeHive(val player: ServerPlayer): BeeHive {
+class PlayerBeeHive(val player: ServerPlayer) : BeeHive {
     init {
         // Register player as a bee source so they can contribute to jobs
-        BeeContributionManager.registerSource(this)
+        GlobalJobPool.registerWorker(this)
+    }
+
+    override fun acceptTask(task: BeeTask): Boolean {
+        if (getAvailableBeeCount() <= 0) {
+            return false
+        }
+
+        val beeTier = consumeBee() ?: return false
+        val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), player.level()).apply {
+            tier = beeTier
+            setOwner(player.uuid)
+            setPos(player.position().add(0.0, 1.0, 0.0))
+        }
+
+        bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
+        bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
+        bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(task))
+
+        task.status = TaskStatus.IN_PROGRESS
+
+        player.level().addFreshEntity(bee)
+        return true
+    }
+
+    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): BeeTask? {
+        task.complete()
+        val nextTask = GlobalJobPool.workBacklog(this)
+
+        if (nextTask != null) {
+            nextTask.assignToRobot(bee)
+        }
+
+        return nextTask
     }
 
     // BeeSource implementation

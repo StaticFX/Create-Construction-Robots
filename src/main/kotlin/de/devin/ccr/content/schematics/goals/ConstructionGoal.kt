@@ -1,5 +1,6 @@
 package de.devin.ccr.content.schematics.goals
 
+import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.schematics.SchematicJobKey
 import de.devin.ccr.content.schematics.SchematicCreateBridge
@@ -25,10 +26,10 @@ class ConstructionGoal(private val schematicStack: ItemStack) : BeeJobGoal {
         return null
     }
 
-    override fun generateTasks(jobId: UUID, level: Level): List<BeeTask> {
-        val handler = SchematicCreateBridge(level)
+    override fun generateTasks(job: BeeJob): List<BeeTask> {
+        val handler = SchematicCreateBridge(job.level)
         return if (handler.loadSchematic(schematicStack)) {
-            handler.generateBuildTasks(jobId)
+            handler.generateBuildTasks(job)
         } else {
             emptyList()
         }

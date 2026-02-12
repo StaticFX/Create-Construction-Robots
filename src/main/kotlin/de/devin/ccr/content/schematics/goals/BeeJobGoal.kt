@@ -1,5 +1,6 @@
 package de.devin.ccr.content.schematics.goals
 
+import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
 
 import net.minecraft.core.BlockPos
@@ -13,13 +14,13 @@ import java.util.UUID
  */
 interface BeeJobGoal {
     fun createJobKey(playerUuid: UUID): Any?
-    fun generateTasks(jobId: UUID, level: Level): List<BeeTask>
+    fun generateTasks(job: BeeJob): List<BeeTask>
     fun getCenterPos(level: Level, tasks: List<BeeTask>): BlockPos
-    
+
     fun getStartMessage(taskCount: Int): Component
     fun getAlreadyActiveMessage(): Component
     fun getNoTasksMessage(): Component
-    
+
     fun validate(level: Level): Component? = null
     fun onJobStarted(player: ServerPlayer) {}
 }

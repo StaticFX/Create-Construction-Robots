@@ -1,8 +1,10 @@
 package de.devin.ccr.content.domain.task
 
+import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.domain.action.BeeAction
 import de.devin.ccr.content.domain.action.impl.PlaceBlockAction
 import de.devin.ccr.content.domain.action.impl.RemoveBlockAction
+import de.devin.ccr.content.domain.job.BeeJob
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
@@ -19,18 +21,23 @@ import java.util.UUID
 data class BeeTask(
     val action: BeeAction,
     val targetPos: BlockPos,
+    val job: BeeJob,
     val priority: Int = 0,
 ) {
     var status: TaskStatus = TaskStatus.PENDING
-    var assignedRobotId: Int? = null
-    var jobId: UUID? = null
+    var mechanicalBee: MechanicalBeeEntity? = null
+
+    /**
+     * The unique identifier for the job this task belongs to.
+     */
+    val jobId: UUID get() = job.jobId
 
     /**
      * Mark this task as in progress by a specific robot
      */
-    fun assignToRobot(robotId: Int) {
+    fun assignToRobot(mechanicalBeeEntity: MechanicalBeeEntity) {
         status = TaskStatus.IN_PROGRESS
-        assignedRobotId = robotId
+        mechanicalBee = mechanicalBeeEntity
     }
 
     /**
@@ -45,7 +52,7 @@ data class BeeTask(
      */
     fun fail() {
         status = TaskStatus.FAILED
-        assignedRobotId = null
+        mechanicalBee = null
     }
 
     /**
@@ -53,7 +60,7 @@ data class BeeTask(
      */
     fun release() {
         status = TaskStatus.PENDING
-        assignedRobotId = null
+        mechanicalBee = null
     }
 
     /**
@@ -61,22 +68,30 @@ data class BeeTask(
      */
     fun cancel() {
         status = TaskStatus.CANCELLED
-        assignedRobotId = null
+        mechanicalBee = null
     }
 
     companion object {
         /**
          * Create a placement task
          */
-        fun place(pos: BlockPos, state: BlockState, items: List<ItemStack>, priority: Int = 0, tag: CompoundTag? = null, jobId: UUID? = null): BeeTask {
-            return BeeTask(PlaceBlockAction(state, tag, items), pos, priority).apply { this.jobId = jobId }
+        fun place(
+            pos: BlockPos,
+            state: BlockState,
+            items: List<ItemStack>,
+            priority: Int = 0,
+            tag: CompoundTag? = null,
+            job: BeeJob
+        ): BeeTask {
+            val action = PlaceBlockAction(state, tag, items)
+            return BeeTask(action, pos, job, priority)
         }
 
         /**
          * Create a removal task
          */
-        fun remove(pos: BlockPos, priority: Int = 0, jobId: UUID? = null): BeeTask {
-            return BeeTask(RemoveBlockAction(), pos, priority).apply { this.jobId = jobId }
+        fun remove(pos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
+            return BeeTask(RemoveBlockAction(), pos, job, priority)
         }
     }
 }

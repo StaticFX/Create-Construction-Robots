@@ -3,11 +3,15 @@ package de.devin.ccr.content.beehive
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import de.devin.ccr.content.bee.*
+import de.devin.ccr.content.bee.brain.BeeMemoryModules
 import de.devin.ccr.content.domain.GlobalJobPool
-import de.devin.ccr.content.domain.bee.BeeContributionManager
 import de.devin.ccr.content.domain.beehive.BeeHive
+import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskStatus
 import de.devin.ccr.content.upgrades.BeeContext
+import de.devin.ccr.content.upgrades.BeeUpgradeItem
 import de.devin.ccr.items.AllItems
+import de.devin.ccr.registry.AllEntityTypes
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangNumberFormat
 import net.minecraft.ChatFormatting
@@ -21,72 +25,111 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.items.ItemStackHandler
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.min
 
-class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) : 
+class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) :
     KineticBlockEntity(type, pos, state), IHaveGoggleInformation, BeeHive {
-    
+
     val world: Level get() = getLevel()!!
     val position: BlockPos get() = blockPos
-    
+
     override val sourceId: UUID get() = homeId
     override val sourceWorld: Level get() = getLevel()!!
     override val sourcePosition: BlockPos get() = blockPos
-    
+
     private var homeId = UUID.randomUUID()
-    private var maintenanceJobId: UUID? = null
 
     /** Set of active bee UUIDs (server side only) */
     private val activeBees = mutableSetOf<UUID>()
-    
-    /** Count of active bees synced to clients */
-    private var activeBeeCount = 0
 
     val beeInventory = object : ItemStackHandler(9) {
         override fun onContentsChanged(slot: Int) = setChanged()
         override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is MechanicalBeeItem
     }
-    
-    val inventory = CombinedInvWrapper(beeInventory)
+
+    val upgradeInventory = object : ItemStackHandler(9) {
+        override fun onContentsChanged(slot: Int) = setChanged()
+        override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is BeeUpgradeItem
+    }
+
+    val inventory = CombinedInvWrapper(beeInventory, upgradeInventory)
 
     val instructions = mutableListOf<BeeInstruction>()
-    
+
     /** Flag to track if we've registered with BeeContributionManager */
     private var registeredAsSource = false
 
-    override fun setLevel(level: net.minecraft.world.level.Level) {
+    override fun setLevel(level: Level) {
         super.setLevel(level)
         // Register with BeeContributionManager so we can contribute to jobs
         if (!level.isClientSide && !registeredAsSource) {
-            BeeContributionManager.registerSource(this)
+            GlobalJobPool.registerWorker(this)
             registeredAsSource = true
         }
     }
-    
+
     override fun destroy() {
         // Unregister from BeeContributionManager when destroyed
         if (!getLevel()!!.isClientSide) {
             if (registeredAsSource) {
-                BeeContributionManager.unregisterSource(sourceId)
+                GlobalJobPool.unregisterWorker(this)
                 registeredAsSource = false
             }
-            maintenanceJobId?.let { GlobalJobPool.unregisterJob(it) }
         }
         super.destroy()
+    }
+
+    override fun acceptTask(task: BeeTask): Boolean {
+        if (getAvailableBeeCount() <= 0) {
+            return false // Safety check
+        }
+
+        this.setChanged()
+
+        val beeTier = consumeBee() ?: run {
+            return false
+        }
+        val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
+            tier = beeTier
+            setPos(Vec3.atCenterOf(blockPos.above()))
+        }
+
+
+        bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
+        bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
+        bee.getBrain().setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(task))
+
+        task.status = TaskStatus.IN_PROGRESS
+
+        level!!.addFreshEntity(bee)
+        activeBees.add(bee.uuid)
+
+        return true
+    }
+
+    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): BeeTask? {
+        task.complete()
+        val nextTask = GlobalJobPool.workBacklog(this)
+
+        nextTask?.assignToRobot(bee)
+
+        return nextTask
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("HomeId", homeId)
-        tag.putInt("ActiveBeeCount", activeBeeCount)
+        tag.putInt("ActiveBeeCount", activeBees.size)
         tag.put("BeeInv", beeInventory.serializeNBT(registries))
+        tag.put("UpgradeInv", upgradeInventory.serializeNBT(registries))
 
         val instList = ListTag()
-        instructions.forEach { 
+        instructions.forEach {
             val instTag = CompoundTag()
             it.serializeNBT(instTag)
             instList.add(instTag)
@@ -99,8 +142,8 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         if (tag.hasUUID("HomeId")) {
             homeId = tag.getUUID("HomeId")
         }
-        activeBeeCount = tag.getInt("ActiveBeeCount")
         beeInventory.deserializeNBT(registries, tag.getCompound("BeeInv"))
+        upgradeInventory.deserializeNBT(registries, tag.getCompound("UpgradeInv"))
 
         instructions.clear()
         val instList = tag.getList("Instructions", Tag.TAG_COMPOUND.toInt())
@@ -119,7 +162,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             // Base is usually 4 from context, we add based on RPM
             val extraRobots = (rpm / 8.0).toInt()
             context.maxActiveRobots += extraRobots
-            context.workRange = min((6 + rpm / 10).toDouble(), 32.0)
+            context.workRange = (6 + rpm.toDouble())
             context.maxContributedBees += extraRobots
         } else {
             context.maxActiveRobots = 0
@@ -173,31 +216,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return count
     }
 
-    override fun onBeeSpawned(bee: MechanicalBeeEntity) {
-        if (activeBees.add(bee.uuid)) {
-            activeBeeCount = activeBees.size
-            sendData()
-        }
-    }
-
-    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
-        if (activeBees.remove(bee.uuid)) {
-            activeBeeCount = activeBees.size
-            sendData()
-        }
-    }
-
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
         // Show kinetic stats (speed, stress) from KineticBlockEntity
         super<KineticBlockEntity>.addToGoggleTooltip(tooltip, isPlayerSneaking)
-        
+
         Lang.builder("ccr").translate("gui.goggles.beehive_stats")
             .forGoggles(tooltip)
-        
+
         // Flying Bees
         Lang.builder("ccr").translate("gui.goggles.beehive.flying")
             .style(ChatFormatting.GRAY)
-            .add(Lang.builder("ccr").text(ChatFormatting.GOLD, LangNumberFormat.format(activeBeeCount.toDouble())))
+            .add(Lang.builder("ccr").text(ChatFormatting.GOLD, LangNumberFormat.format(activeBees.count().toDouble())))
             .forGoggles(tooltip, 1)
 
         // Stored Bees
@@ -211,7 +240,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val context = getBeeContext()
         Lang.builder("ccr").translate("gui.goggles.beehive.capacity")
             .style(ChatFormatting.GRAY)
-            .add(Lang.builder("ccr").text(ChatFormatting.GOLD, LangNumberFormat.format(context.maxActiveRobots.toDouble())))
+            .add(
+                Lang.builder("ccr")
+                    .text(ChatFormatting.GOLD, LangNumberFormat.format(context.maxActiveRobots.toDouble()))
+            )
             .forGoggles(tooltip, 1)
 
         return true
@@ -222,6 +254,9 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     fun getMaterialSource(): MaterialSource {
-        return WirelessMaterialSource(world, listOf(position.below(), position.north(), position.south(), position.east(), position.west()))
+        return WirelessMaterialSource(
+            world,
+            listOf(position.below(), position.north(), position.south(), position.east(), position.west())
+        )
     }
 }

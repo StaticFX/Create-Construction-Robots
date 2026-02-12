@@ -2,6 +2,7 @@ package de.devin.ccr.content.domain.beehive
 
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.bee.MechanicalBeeTier
+import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
@@ -77,9 +78,25 @@ interface BeeHive {
      * Gets the maximum number of bees this source can contribute to a single job.
      * This is determined by upgrades and the source's capacity.
      */
-    fun getMaxContributedBees(): Int {
+    fun getMaxContributionBees(): Int {
         return getBeeContext().maxContributedBees
     }
+
+    /**
+     * Attempts to accept a task for processing by this BeeHive.
+     * The task will only be accepted if it meets the criteria determined by the hive,
+     * such as available resources, range constraints, and capacity.
+     *
+     * @param task The bee task to be evaluated and potentially accepted.
+     * @return True if the task was successfully accepted by the hive, false otherwise.
+     */
+    fun acceptTask(task: BeeTask): Boolean
+
+    /**
+     * Marks the given task as completed by the given bee.
+     * @return optionally next task to be processed, or null if all tasks are completed.
+     */
+    fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): BeeTask?
 
     /**
      * Called when a bee from this source is spawned.

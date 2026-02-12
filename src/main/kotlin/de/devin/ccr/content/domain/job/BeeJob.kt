@@ -1,8 +1,11 @@
 package de.devin.ccr.content.domain.job
 
+import de.devin.ccr.content.bee.MechanicalBeeEntity
+import de.devin.ccr.content.domain.beehive.BeeHive
 import de.devin.ccr.content.domain.task.BeeTask
 import de.devin.ccr.content.domain.task.TaskStatus
 import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import java.util.UUID
 
 /**
@@ -19,7 +22,7 @@ import java.util.UUID
 data class BeeJob(
     val jobId: UUID,
     val centerPos: BlockPos,
-    val requiredBeeCount: Int = 1,
+    val level: Level,
     var ownerId: UUID? = null,
     var uniquenessKey: Any? = null
 ) {
@@ -37,14 +40,7 @@ data class BeeJob(
     /**
      * Map of source IDs to the number of bees they've contributed.
      */
-    private val contributions: MutableMap<UUID, Int> = mutableMapOf()
-
-    /**
-     * Set of source IDs that are contributing to this job.
-     */
-    val contributingSources: Set<UUID>
-        get() = contributions.keys.toSet()
-
+    private val contributions: MutableMap<BeeHive, Int> = mutableMapOf()
 
     var status: JobStatus = JobStatus.WAITING_FOR_BEES
         private set
@@ -52,18 +48,18 @@ data class BeeJob(
     /**
      * Checks if this job has enough bees to start.
      */
-    fun canStart(): Boolean = contributedBees >= requiredBeeCount
+    fun canStart(): Boolean = contributedBees >= tasks.size
 
     /**
      * Adds a contribution of bees from a source.
      *
-     * @param sourceId The ID of the contributing source.
+     * @param beeHive the contributing source.
      * @param beeCount The number of bees being contributed.
      */
     @Synchronized
-    fun addContribution(sourceId: UUID, beeCount: Int) {
-        val currentContribution = contributions.getOrDefault(sourceId, 0)
-        contributions[sourceId] = currentContribution + beeCount
+    fun addContribution(beeHive: BeeHive, beeCount: Int) {
+        val currentContribution = contributions.getOrDefault(beeHive, 0)
+        contributions[beeHive] = currentContribution + beeCount
         contributedBees = contributions.values.sum()
 
         if (canStart() && status == JobStatus.WAITING_FOR_BEES) {
@@ -72,8 +68,8 @@ data class BeeJob(
     }
 
     @Synchronized
-    fun removeContribution(sourceId: UUID): Int {
-        val removed = contributions.remove(sourceId) ?: 0
+    fun removeContribution(beeHive: BeeHive): Int {
+        val removed = contributions.remove(beeHive) ?: 0
         contributedBees = contributions.values.sum()
         return removed
     }
@@ -81,13 +77,12 @@ data class BeeJob(
     /**
      * Gets the number of bees contributed by a specific source.
      */
-    fun getContribution(sourceId: UUID): Int = contributions.getOrDefault(sourceId, 0)
+    fun getContribution(beeHive: BeeHive): Int = contributions.getOrDefault(beeHive, 0)
 
     /**
      * Adds a task to this job.
      */
     fun addTask(task: BeeTask) {
-        task.jobId = jobId
         tasks.add(task)
     }
 
@@ -102,9 +97,9 @@ data class BeeJob(
      * Gets the next pending task and assigns it to a robot.
      */
     @Synchronized
-    fun claimNextTask(robotId: Int): BeeTask? {
-        val task = tasks.firstOrNull { it.status == TaskStatus.PENDING }
-        task?.assignToRobot(robotId)
+    fun claimNextTask(bee: MechanicalBeeEntity): BeeTask? {
+        val task = tasks.firstOrNull { it.status == TaskStatus.PENDING || it.status == TaskStatus.PICKED }
+        task?.assignToRobot(bee)
         return task
     }
 

@@ -9,6 +9,8 @@ import net.createmod.catnip.lang.FontHelper
 import de.devin.ccr.blocks.AllBlocks
 import de.devin.ccr.content.backpack.client.CCRClientEvents
 import de.devin.ccr.content.backpack.client.TaskProgressClientEvents
+import de.devin.ccr.content.bee.brain.BeeMemoryModules
+import de.devin.ccr.content.bee.brain.BeeSensors
 import de.devin.ccr.content.schematics.client.DeconstructionClientEvents
 import de.devin.ccr.datagen.CCRDatagen
 import de.devin.ccr.items.AllItems
@@ -68,11 +70,13 @@ object CreateCCR {
         AllEntityTypes.register()
         AllBlockEntityTypes.register()
         AllMenuTypes.register()
-
+        BeeMemoryModules.register()
+        BeeSensors.register()
+        
         MOD_BUS.addListener<RegisterPayloadHandlersEvent> {
             AllPackets.register(it)
         }
-        
+
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
@@ -81,10 +85,10 @@ object CreateCCR {
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
         }
-        
+
         MOD_BUS.addListener<GatherDataEvent> { CCRDatagen.gatherData(it) }
         MOD_BUS.addListener<FMLCommonSetupEvent> { onCommonSetup(it) }
-        
+
         // Register server-side event handlers on the NeoForge event bus
         NeoForge.EVENT_BUS.register(CCRServerEvents::class.java)
     }
@@ -100,7 +104,7 @@ object CreateCCR {
      */
     private fun onClientSetup(event: FMLClientSetupEvent) {
         LOGGER.log(Level.INFO, "Initializing client...")
-        
+
         // Register Ponder plugin
         PonderIndex.addPlugin(CCRPonderPlugin())
     }

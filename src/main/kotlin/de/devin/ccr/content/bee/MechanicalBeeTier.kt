@@ -16,27 +16,27 @@ data class BeeCapabilities(
 )
 
 enum class MechanicalBeeTier(
-    val id: String, 
+    val id: String,
     val readableName: String,
     val capabilities: BeeCapabilities,
     val item: () -> Item
 ) : StringRepresentable {
     ANDESITE(
-        "andesite", 
-        "Andesite Encased", 
-        BeeCapabilities(1.0f, 1.0f, 1.0),
+        "andesite",
+        "Andesite Encased",
+        BeeCapabilities(1.0f, 1.0f, 2.0),
         { AllItems.ANDESITE_BEE.get() }
     ),
     BRASS(
-        "brass", 
-        "Brass Encased", 
-        BeeCapabilities(1.4f, 2.0f, 1.5),
+        "brass",
+        "Brass Encased",
+        BeeCapabilities(1.4f, 2.0f, 2.5),
         { AllItems.BRASS_BEE.get() }
     ),
     STURDY(
-        "sturdy", 
-        "Sturdy", 
-        BeeCapabilities(1.8f, 4.0f, 2.0),
+        "sturdy",
+        "Sturdy",
+        BeeCapabilities(1.8f, 4.0f, 3.0),
         { AllItems.STURDY_BEE.get() }
     );
 

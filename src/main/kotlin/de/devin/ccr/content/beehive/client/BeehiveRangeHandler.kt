@@ -5,7 +5,6 @@ import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.ccr.content.beehive.MechanicalBeehiveBlockEntity
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
-import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.HitResult
 import net.neoforged.bus.api.SubscribeEvent
@@ -38,11 +37,11 @@ object BeehiveRangeHandler {
 
     private fun renderRange(be: MechanicalBeehiveBlockEntity) {
         // Get the maximum range from instructions
-        val maxRange = 32
+        val maxRange = be.getWorkRange()
         if (maxRange <= 0) return
 
         val center = be.blockPos
-        
+
         // Render on a 2D plane as requested
         // We create a very thin box at the bottom of the beehive
         val box = AABB(
@@ -53,7 +52,7 @@ object BeehiveRangeHandler {
             center.y.toDouble() + 0.05,
             (center.z + maxRange + 1).toDouble()
         )
-        
+
         Outliner.getInstance()
             .chaseAABB(outlineSlot, box)
             .colored(RANGE_COLOR)

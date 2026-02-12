@@ -1,5 +1,6 @@
 package de.devin.ccr.content.bee.brain.behavior
 
+import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.bee.brain.BeeMemoryModules
 import net.minecraft.server.level.ServerLevel
@@ -8,10 +9,12 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 import net.minecraft.world.entity.ai.memory.WalkTarget
 
-class MoveToTaskBehavior: Behavior<MechanicalBeeEntity>(mapOf(
-    BeeMemoryModules.CURRENT_TASK.get() to MemoryStatus.VALUE_PRESENT,
-    MemoryModuleType.WALK_TARGET to MemoryStatus.VALUE_ABSENT
-)) {
+class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
+    mapOf(
+        BeeMemoryModules.CURRENT_TASK.get() to MemoryStatus.VALUE_PRESENT,
+        MemoryModuleType.WALK_TARGET to MemoryStatus.VALUE_ABSENT
+    )
+) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
         val task = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
@@ -23,7 +26,11 @@ class MoveToTaskBehavior: Behavior<MechanicalBeeEntity>(mapOf(
         val task = entity.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val moveTo = task.targetPos
 
-        entity.brain.setMemory(MemoryModuleType.WALK_TARGET, WalkTarget(moveTo, entity.tier.capabilities.flySpeedModifier, 1))
-    }
+        CreateCCR.LOGGER.info("Moving to task target $moveTo")
 
+        entity.brain.setMemory(
+            MemoryModuleType.WALK_TARGET,
+            WalkTarget(moveTo, entity.tier.capabilities.flySpeedModifier, 1)
+        )
+    }
 }

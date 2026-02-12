@@ -9,4 +9,7 @@ object BeeSensors {
     val HIVE_SENSOR = CreateCCR.REGISTRATE.generic("hive_sensor", Registries.SENSOR_TYPE) {
         SensorType { BeeHiveSensor() }
     }.register()
+
+    fun register() {}
+
 }

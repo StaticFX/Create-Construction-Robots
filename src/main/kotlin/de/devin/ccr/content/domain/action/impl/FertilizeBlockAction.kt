@@ -26,7 +26,7 @@ class FertilizeAction : BeeAction {
         }
     }
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext) {
+    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         val state = level.getBlockState(pos)
         if (state.block is BonemealableBlock) {
             val bonemealable = state.block as BonemealableBlock
@@ -35,10 +35,12 @@ class FertilizeAction : BeeAction {
                     if (bonemealable.isBonemealSuccess(level, level.random, pos, state)) {
                         bonemealable.performBonemeal(level, level.random, pos, state)
                         level.levelEvent(2005, pos, 0)
+                        return true
                     }
                 }
             }
         }
+        return false
     }
 
     override fun getDescription(pos: BlockPos): String {

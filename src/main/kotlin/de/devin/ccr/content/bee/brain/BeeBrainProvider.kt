@@ -3,12 +3,7 @@ package de.devin.ccr.content.bee.brain
 import com.google.common.collect.ImmutableList
 import com.mojang.datafixers.util.Pair
 import de.devin.ccr.content.bee.MechanicalBeeEntity
-import de.devin.ccr.content.bee.brain.behavior.EnterBeeHiveBehavior
-import de.devin.ccr.content.bee.brain.behavior.ExecuteTaskBehavior
-import de.devin.ccr.content.bee.brain.behavior.MoveToHiveBehavior
-import de.devin.ccr.content.bee.brain.behavior.MoveToTaskBehavior
-import de.devin.ccr.content.bee.brain.behavior.StuckSafetyBehavior
-import de.devin.ccr.content.bee.brain.behavior.UpdateBeeStatusBehavior
+import de.devin.ccr.content.bee.brain.behavior.*
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.behavior.LookAtTargetSink
 import net.minecraft.world.entity.ai.behavior.MoveToTargetSink
@@ -46,9 +41,11 @@ object BeeBrainProvider {
                 Pair.of(2, UpdateBeeStatusBehavior()),
                 Pair.of(3, StuckSafetyBehavior()),
                 Pair.of(4, Swim(0.8f))
-        ))
+            )
+        )
 
-        brain.addActivityWithConditions(Activity.WORK,
+        brain.addActivityWithConditions(
+            Activity.WORK,
             ImmutableList.of(
                 Pair.of(0, MoveToTaskBehavior()),
                 Pair.of(1, ExecuteTaskBehavior())
@@ -56,21 +53,17 @@ object BeeBrainProvider {
             setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_PRESENT))
         )
 
-        brain.addActivityWithConditions(Activity.REST,
+        brain.addActivityWithConditions(
+            Activity.REST,
             ImmutableList.of(
-                Pair.of(0, EnterBeeHiveBehavior()),
-                Pair.of(1, MoveToHiveBehavior())
+                Pair.of(2, EnterBeeHiveBehavior()),
+                Pair.of(3, SetHiveWalkTargetBehavior())
             ),
             setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_ABSENT))
         )
 
-        //Fallback
-        brain.addActivity(Activity.IDLE, ImmutableList.of(
-            Pair.of(0, EnterBeeHiveBehavior())
-        ))
-
-        brain.setCoreActivities(setOf(Activity.CORE, Activity.WORK))
-        brain.setDefaultActivity(Activity.IDLE)
+        brain.setCoreActivities(setOf(Activity.CORE))
+        brain.setDefaultActivity(Activity.CORE)
         brain.useDefaultActivity()
 
         return brain

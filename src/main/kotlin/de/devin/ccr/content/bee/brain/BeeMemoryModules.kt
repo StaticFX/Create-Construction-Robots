@@ -21,4 +21,6 @@ object BeeMemoryModules {
     val HIVE_INSTANCE = CreateCCR.REGISTRATE.generic("hive_instance", Registries.MEMORY_MODULE_TYPE) {
         MemoryModuleType<BeeHive>(Optional.empty())
     }.register()
+
+    fun register() {}
 }

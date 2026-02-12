@@ -27,7 +27,7 @@ class RemoveBlockAction : BeeAction {
         }
     }
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext) {
+    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (context.pickupEnabled) {
             val state = level.getBlockState(pos)
             if (level is ServerLevel) {
@@ -40,11 +40,14 @@ class RemoveBlockAction : BeeAction {
 
                 level.destroyBlock(pos, false)
                 robot.carriedItems.addAll(drops)
+                return true
             }
         } else {
             // No pickup upgrade - just destroy the block (void it)
             level.destroyBlock(pos, true)
+            return true
         }
+        return false
     }
 
     override fun shouldReturnAfter(context: BeeContext): Boolean = context.pickupEnabled

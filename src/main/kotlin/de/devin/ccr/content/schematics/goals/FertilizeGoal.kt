@@ -1,7 +1,8 @@
 package de.devin.ccr.content.schematics.goals
 
+import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
-import de.devin.ccr.content.domain.FertilizeAction
+import de.devin.ccr.content.domain.action.impl.FertilizeAction
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.level.Level
@@ -13,8 +14,9 @@ class FertilizeGoal(private val center: BlockPos, private val range: Int) : BeeJ
     override fun getAlreadyActiveMessage(): Component = Component.empty()
     override fun getNoTasksMessage(): Component = Component.empty()
 
-    override fun generateTasks(jobId: UUID, level: Level): List<BeeTask> {
+    override fun generateTasks(job: BeeJob): List<BeeTask> {
         val tasks = mutableListOf<BeeTask>()
+        val level = job.level
         val radius = range.coerceAtMost(32)
         for (x in -radius..radius) {
             for (y in -radius..radius) {
@@ -24,7 +26,7 @@ class FertilizeGoal(private val center: BlockPos, private val range: Int) : BeeJ
                     if (state.block is net.minecraft.world.level.block.BonemealableBlock) {
                         val bonemealable = state.block as net.minecraft.world.level.block.BonemealableBlock
                         if (bonemealable.isValidBonemealTarget(level, pos, state)) {
-                            tasks.add(BeeTask(FertilizeAction(), pos, 0).apply { this.jobId = jobId })
+                            tasks.add(BeeTask(FertilizeAction(), pos, job, 0))
                         }
                     }
                 }

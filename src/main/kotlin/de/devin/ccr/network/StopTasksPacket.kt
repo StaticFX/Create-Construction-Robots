@@ -1,7 +1,7 @@
 package de.devin.ccr.network
 
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.domain.BeeWorkManager
+import de.devin.ccr.content.domain.GlobalJobPool
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -15,6 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 class StopTasksPacket private constructor() : CustomPacketPayload {
     companion object {
         val TYPE = CustomPacketPayload.Type<StopTasksPacket>(CreateCCR.asResource("stop_tasks"))
+
         @JvmStatic
         val INSTANCE = StopTasksPacket()
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, StopTasksPacket> = StreamCodec.unit(INSTANCE)
@@ -22,7 +23,7 @@ class StopTasksPacket private constructor() : CustomPacketPayload {
         fun handle(payload: StopTasksPacket, context: IPayloadContext) {
             context.enqueueWork {
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
-                BeeWorkManager.stopAllTasks(player)
+                GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }.forEach { it.cancel() }
             }
         }
     }
