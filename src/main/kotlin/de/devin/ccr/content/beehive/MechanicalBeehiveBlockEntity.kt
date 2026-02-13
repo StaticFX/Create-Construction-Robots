@@ -66,7 +66,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun setLevel(level: Level) {
         super.setLevel(level)
-        // Register with BeeContributionManager so we can contribute to jobs
         if (!level.isClientSide && !registeredAsSource) {
             GlobalJobPool.registerWorker(this)
             registeredAsSource = true
@@ -74,7 +73,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun destroy() {
-        // Unregister from BeeContributionManager when destroyed
         if (!getLevel()!!.isClientSide) {
             if (registeredAsSource) {
                 GlobalJobPool.unregisterWorker(this)

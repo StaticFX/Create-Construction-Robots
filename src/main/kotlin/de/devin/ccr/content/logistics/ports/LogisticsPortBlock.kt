@@ -6,6 +6,7 @@ import com.simibubi.create.content.equipment.wrench.IWrenchable
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
+import de.devin.ccr.content.domain.LogisticsManager
 import de.devin.ccr.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -63,36 +64,12 @@ class LogisticPortBlock(properties: Properties) :
         )
     }
 
-    override fun useWithoutItem(
-        state: BlockState,
-        level: Level,
-        pos: BlockPos,
-        player: Player,
-        hit: BlockHitResult
-    ): InteractionResult {
-        if (player.isShiftKeyDown) {
-            withBlockEntityDo(level, pos) { it.toggleMode(player) }
-            return InteractionResult.SUCCESS
-        }
-        return onBlockEntityUse(level, pos) { be ->
-            InteractionResult.SUCCESS
-        }
-    }
-
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
         builder.add(FACING, FACE, WATERLOGGED, PORT_STATE)
     }
 
     override fun codec(): MapCodec<out FaceAttachedHorizontalDirectionalBlock?> {
         TODO("Not yet implemented")
-    }
-
-    override fun onPlace(state: BlockState, level: Level, pos: BlockPos, oldState: BlockState, isMoving: Boolean) {
-        super.onPlace(state, level, pos, oldState, isMoving)
-        if (!level.isClientSide) {
-            // Register this port to the GlobalJobPool
-            updateNetwork(level, pos, true)
-        }
     }
 
     public override fun getFluidState(pState: BlockState): FluidState {
