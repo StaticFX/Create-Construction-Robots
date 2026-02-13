@@ -1,11 +1,12 @@
 package de.devin.ccr.blocks
 
 import com.simibubi.create.api.stress.BlockStressValues
+import com.simibubi.create.foundation.data.SharedProperties
 import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.beehive.MechanicalBeehiveBlock
+import de.devin.ccr.content.logistics.ports.LogisticPortBlock
 import net.minecraft.world.level.block.Blocks
-
 
 object AllBlocks {
     fun register() {}
@@ -27,6 +28,13 @@ object AllBlocks {
         .build()
         .register()
 
+    val LOGISTICS_PORT = CreateCCR.REGISTRATE.block("logistics_port", ::LogisticPortBlock)
+        .initialProperties(SharedProperties::softMetal)
+        .properties { it.noOcclusion() } // Important: so it doesn't "cull" the chest behind it
+        .item()
+        .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/logistics_port/block")) }
+        .build()
+        .register()
 
 }
 

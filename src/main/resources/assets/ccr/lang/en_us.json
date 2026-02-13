@@ -5,7 +5,6 @@
   "itemGroup.ccr.buzzy_bees": "Buzzy Bees",
   "itemGroup.ccr": "Create Addon",
   "itemGroup.ccr.base_creative_tab": "Buzzy Bees",
-  
   "item.ccr.portable_beehive": "Portable Beehive",
   "item.ccr.andesite_mechanical_bee": "Andesite Encased Mechanical Bee",
   "item.ccr.brass_mechanical_bee": "Brass Encased Mechanical Bee",
@@ -19,41 +18,35 @@
   "item.ccr.stinger_precision": "Stinger Precision",
   "item.ccr.soft_touch": "Soft Touch",
   "item.ccr.gathering_wings": "Gathering Wings",
-  
   "container.ccr.portable_beehive": "Portable Beehive",
   "item.ccr.portable_beehive.tooltip": "Mobile Construction Backpack",
   "item.ccr.portable_beehive.tooltip.summary": "Allows carrying Mechanical Bees and Upgrades. When equipped in the back slot, it enables coordinating construction tasks using the swarm.",
   "block.ccr.mechanical_beehive": "Mechanical Beehive",
+  "block.ccr.logistics_port": "Logistics Port",
+  "block.ccr.provider_gauge": "Provider Gauge",
   "item.ccr.mechanical_beehive.tooltip": "Industrial Workforce Base",
   "item.ccr.mechanical_beehive.tooltip.summary": "The Mechanical Beehive coordinates large-scale construction and maintenance tasks by deploying Mechanical Bees. Requires rotational power to operate.",
-  
   "gui.ccr.beehive.bees": "Bees",
   "gui.ccr.beehive.naturified": "Naturified",
   "gui.ccr.beehive.start": "Deploy Swarm",
   "gui.ccr.instruction.fertilize": "Fertilize Crops",
   "gui.ccr.instruction.deconstruct": "Deconstruct Area",
-  
   "ccr.gui.goggles.beehive_stats": "Beehive Swarm Statistics",
   "ccr.gui.goggles.beehive.flying": "Bees currently flying: ",
   "ccr.gui.goggles.beehive.stored": "Bees currently stored: ",
   "ccr.gui.goggles.beehive.capacity": "Max workforce capacity: ",
-
   "gui.ccr.schematic.start_construction": "Start Construction",
   "gui.ccr.schematic.start_construction_key": "[%s] Deploy Construction Swarm",
   "gui.ccr.schematic.construction_started": "Swarm deployed!",
   "gui.ccr.schematic.start_deconstruction": "[%s] Deploy Deconstruction Swarm",
-  
   "tooltip.ccr.beehive.bees": "Bees: %d/%d",
   "tooltip.ccr.beehive.naturified_header": "Installed Naturified Upgrades:",
   "tooltip.ccr.beehive.no_naturified": "No naturified upgrades installed",
-  
   "tooltip.ccr.bee.description": "Place in beehive to deploy for construction",
   "tooltip.ccr.bee.consumed_on_deploy": "Bees leave the hive to work, and return when done",
-  
   "tooltip.ccr.stinger_planner.line1": "Right-click to select corners",
   "tooltip.ccr.stinger_planner.line2": "Scroll (with CTRL) to resize",
   "tooltip.ccr.stinger_planner.line3": "Shift+Right-click to cancel",
-
   "tooltip.ccr.planner.pos1": "Corner 1: %d, %d, %d",
   "tooltip.ccr.planner.pos2": "Corner 2: %d, %d, %d",
   "tooltip.ccr.planner.description": "Right-click to set Corner 1. Shift+Right-click to set Corner 2.",
@@ -61,7 +54,6 @@
   "message.ccr.planner.pos2": "Corner 2 set to %d, %d, %d",
   "message.ccr.planner.started": "Deconstruction swarm deployed!",
   "message.ccr.planner.incomplete": "Please select two corners first!",
-  
   "tooltip.ccr.upgrade.rapid_wings": "+25% bee movement and work speed",
   "tooltip.ccr.upgrade.swarm_intelligence": "+2 bees can work simultaneously",
   "tooltip.ccr.upgrade.pollen_link": "Connect to nearby storage for materials",
@@ -70,10 +62,8 @@
   "tooltip.ccr.upgrade.stinger_precision": "Bees can place redstone components correctly",
   "tooltip.ccr.upgrade.soft_touch": "Deconstruction preserves blocks intact",
   "tooltip.ccr.upgrade.gathering_wings": "Bees collect and return broken blocks",
-
   "tooltip.ccr.upgrade.max_stack": "Max in hive: %d",
   "tooltip.ccr.upgrade.unique": "Only one can be installed",
-  
   "ccr.construction.stopped": "Swarm recalled!",
   "ccr.construction.already_active": "This area is already being worked on!",
   "ccr.construction.no_beehive": "No bee source found in range! (Equip a backpack or stand near a beehive)",
@@ -84,7 +74,6 @@
   "ccr.construction.started": "Swarm deployed with %d tasks!",
   "ccr.construction.no_tasks": "No blocks to place in schematic!",
   "ccr.construction.load_failed": "Failed to load schematic!",
-  
   "ccr.deconstruction.title": "Stinger Planner",
   "ccr.deconstruction.start": "Start Deconstruction",
   "ccr.deconstruction.area_info": "Area: %dx%dx%d (%d blocks)",
@@ -97,12 +86,10 @@
   "ccr.deconstruction.already_active": "This area is already being deconstructed!",
   "ccr.deconstruction.started": "Deconstruction swarm deployed with %d blocks!",
   "ccr.deconstruction.no_blocks": "No blocks to remove in selected area!",
-  
   "key.categories.ccr": "Buzzy Bees",
   "key.ccr.toggle_task_hud": "Toggle Swarm Progress HUD",
   "key.ccr.start_action": "Deploy Swarm",
   "key.ccr.stop_action": "Recall All Bees",
-  
   "ponder.ccr.buzzy_bees.title": "Buzzy Bees",
   "ponder.ccr.buzzy_bees.description": "Automated construction and deconstruction with mechanical bees",
   "ponder.ccr.mechanical_bee.title": "Introduction to Mechanical Bees",
