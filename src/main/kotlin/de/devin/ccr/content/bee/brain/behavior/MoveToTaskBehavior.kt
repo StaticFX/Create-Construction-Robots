@@ -17,13 +17,15 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
-        val task = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val task = batch.getCurrentTask() ?: return false
         val workRange = owner.tier.capabilities.workRange
         return !owner.blockPosition().closerThan(task.targetPos, workRange)
     }
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
-        val task = entity.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val batch = entity.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val task = batch.getCurrentTask() ?: return
         val moveTo = task.targetPos
 
         CreateCCR.LOGGER.info("Moving to task target $moveTo")

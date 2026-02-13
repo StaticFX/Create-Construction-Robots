@@ -3,6 +3,7 @@ package de.devin.ccr.content.domain
 import de.devin.ccr.content.domain.beehive.BeeHive
 import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskBatch
 import de.devin.ccr.content.domain.task.TaskStatus
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -35,18 +36,15 @@ object GlobalJobPool : SavedData() {
     }
 
     @Synchronized
-    fun workBacklog(beeHive: BeeHive): BeeTask? {
-        val task = jobBacklog.filter { beeHive.isInRange(it.centerPos) }
+    fun workBacklog(beeHive: BeeHive): TaskBatch? {
+        val job = jobBacklog.filter { beeHive.isInRange(it.centerPos) }
             .sortedBy { it.centerPos.distSqr(beeHive.sourcePosition) }
-            .flatMap { it.tasks }
-            .sortedByDescending { it.priority }
-            .firstOrNull { it.status == TaskStatus.PENDING }
+            .firstOrNull { it.getNextTask() != null } ?: return null
 
-        task?.let {
-            it.status = TaskStatus.PICKED
-            it
-        }
-        return task
+        val task = job.getNextTask() ?: return null
+
+        task.status = TaskStatus.PICKED
+        return TaskBatch(listOf(task), job)
     }
 
     @Synchronized
@@ -79,7 +77,8 @@ object GlobalJobPool : SavedData() {
                 val task = tasksToDistribute.first()
 
                 task.status = TaskStatus.PICKED
-                if (hive.acceptTask(task)) {
+                val batch = TaskBatch(listOf(task), job)
+                if (hive.acceptBatch(batch)) {
                     job.addContribution(hive, 1)
                     tasksToDistribute.removeAt(0)
                     contributedThisLoop++

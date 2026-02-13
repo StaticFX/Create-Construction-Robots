@@ -15,12 +15,13 @@ import net.minecraft.world.level.block.state.BlockState
  * Models an action to place a block at a given position
  */
 class PlaceBlockAction(
+    override val pos: BlockPos,
     val blockState: BlockState,
     val blockEntityTag: CompoundTag? = null,
     override val requiredItems: List<ItemStack> = emptyList()
 ) : BeeAction {
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         level.setBlock(pos, blockState, 3)
 
         if (context.precisionEnabled && blockEntityTag != null) {
@@ -41,7 +42,7 @@ class PlaceBlockAction(
         return true
     }
 
-    override fun getDescription(pos: BlockPos): String {
+    override fun getDescription(): String {
         val blockName = blockState.block.name.string
         return "Placing $blockName at (${pos.x}, ${pos.y}, ${pos.z})"
     }

@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.Block
 /**
  * Models an action to break a block at a given position
  */
-class RemoveBlockAction : BeeAction {
+class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     //TODO calculate how long it takes to break block
     override fun getWorkTicks(context: BeeContext): Int = 5 // BASE_BREAK_TICKS
 
@@ -27,7 +27,7 @@ class RemoveBlockAction : BeeAction {
         }
     }
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (context.pickupEnabled) {
             val state = level.getBlockState(pos)
             if (level is ServerLevel) {
@@ -52,7 +52,7 @@ class RemoveBlockAction : BeeAction {
 
     override fun shouldReturnAfter(context: BeeContext): Boolean = context.pickupEnabled
 
-    override fun getDescription(pos: BlockPos): String {
+    override fun getDescription(): String {
         return "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
     }
 }

@@ -3,13 +3,16 @@ package de.devin.ccr.network
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.domain.job.BeeJob
-import de.devin.ccr.content.schematics.goals.DeconstructionGoal
+import de.devin.ccr.content.schematics.SchematicCreateBridge
+import de.devin.ccr.content.schematics.SchematicJobKey
 import java.util.*
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.chat.Component
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.Level
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**
@@ -43,18 +46,21 @@ class StartDeconstructionPacket(
 
                 CreateCCR.LOGGER.info("Received deconstruction request from ${player.name.string} for area ${payload.pos1} to ${payload.pos2}")
 
-                // Start deconstruction with the provided positions
-                val goal = DeconstructionGoal(payload.pos1, payload.pos2)
                 val jobId = UUID.randomUUID()
-
                 val job = BeeJob(jobId, BlockPos.ZERO, player.level()).apply {
                     ownerId = player.uuid
-                    uniquenessKey = goal.createJobKey(player.uuid)
+                    uniquenessKey =
+                        SchematicJobKey(player.uuid, "deconstruct_area", payload.pos1.x, payload.pos1.y, payload.pos1.z)
                 }
 
-                val tasks = goal.generateTasks(job)
+                val tasks = SchematicCreateBridge(player.level()).generateRemovalTasks(payload.pos1, payload.pos2, job)
                 if (tasks.isNotEmpty()) {
-                    val center = goal.getCenterPos(player.level(), tasks)
+                    val center = BlockPos(
+                        (payload.pos1.x + payload.pos2.x) / 2,
+                        (payload.pos1.y + payload.pos2.y) / 2,
+                        (payload.pos1.z + payload.pos2.z) / 2
+                    )
+
                     val finalJob = job.copy(centerPos = center).apply {
                         ownerId = job.ownerId
                         uniquenessKey = job.uniquenessKey
@@ -62,10 +68,9 @@ class StartDeconstructionPacket(
                     }
 
                     GlobalJobPool.dispatchNewJob(finalJob)
-                    goal.onJobStarted(player)
-                    player.displayClientMessage(goal.getStartMessage(tasks.size), true)
+                    player.displayClientMessage(Component.translatable("ccr.deconstruction.started", tasks.size), true)
                 } else {
-                    player.displayClientMessage(goal.getNoTasksMessage(), true)
+                    player.displayClientMessage(Component.translatable("ccr.deconstruction.no_blocks"), true)
                 }
             }
         }

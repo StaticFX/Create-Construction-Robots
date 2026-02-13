@@ -3,6 +3,7 @@ package de.devin.ccr.content.domain.job
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.domain.beehive.BeeHive
 import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskBatch
 import de.devin.ccr.content.domain.task.TaskStatus
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
@@ -97,10 +98,10 @@ data class BeeJob(
      * Gets the next pending task and assigns it to a robot.
      */
     @Synchronized
-    fun claimNextTask(bee: MechanicalBeeEntity): BeeTask? {
+    fun claimNextTaskBatch(bee: MechanicalBeeEntity): TaskBatch? {
         val task = tasks.firstOrNull { it.status == TaskStatus.PENDING || it.status == TaskStatus.PICKED }
         task?.assignToRobot(bee)
-        return task
+        return task?.let { TaskBatch(listOf(it), this) }
     }
 
     /**

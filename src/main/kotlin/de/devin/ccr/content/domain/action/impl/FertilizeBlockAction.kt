@@ -11,7 +11,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.BonemealableBlock
 
-class FertilizeAction : BeeAction {
+class FertilizeAction(override val pos: BlockPos) : BeeAction {
     override fun getWorkTicks(context: BeeContext): Int = 20
 
     override val requiredItems: List<ItemStack> = listOf(ItemStack(Items.BONE_MEAL))
@@ -26,7 +26,7 @@ class FertilizeAction : BeeAction {
         }
     }
 
-    override fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
         val state = level.getBlockState(pos)
         if (state.block is BonemealableBlock) {
             val bonemealable = state.block as BonemealableBlock
@@ -43,7 +43,7 @@ class FertilizeAction : BeeAction {
         return false
     }
 
-    override fun getDescription(pos: BlockPos): String {
+    override fun getDescription(): String {
         return "Fertilizing crop at (${pos.x}, ${pos.y}, ${pos.z})"
     }
 }

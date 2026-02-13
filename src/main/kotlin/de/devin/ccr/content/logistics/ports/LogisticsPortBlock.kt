@@ -16,6 +16,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelReader
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -38,6 +39,7 @@ class LogisticPortBlock(properties: Properties) :
 
     companion object {
 
+        val CODEC: MapCodec<LogisticPortBlock> = simpleCodec(::LogisticPortBlock)
         val PORT_STATE = EnumProperty.create("port_state", PortState::class.java)
 
         /**
@@ -68,8 +70,20 @@ class LogisticPortBlock(properties: Properties) :
         builder.add(FACING, FACE, WATERLOGGED, PORT_STATE)
     }
 
-    override fun codec(): MapCodec<out FaceAttachedHorizontalDirectionalBlock?> {
-        TODO("Not yet implemented")
+    override fun codec(): MapCodec<LogisticPortBlock> {
+        return CODEC
+    }
+
+    override fun canSurvive(state: BlockState, level: LevelReader, pos: BlockPos): Boolean {
+        val direction = getConnectedDirection(state).opposite
+        val neighborPos = pos.relative(direction)
+        val neighborState = level.getBlockState(neighborPos)
+
+        return neighborState.isFaceSturdy(
+            level,
+            neighborPos,
+            direction.opposite
+        ) || level.getBlockEntity(neighborPos) != null
     }
 
     public override fun getFluidState(pState: BlockState): FluidState {

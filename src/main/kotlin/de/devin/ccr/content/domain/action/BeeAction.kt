@@ -10,12 +10,13 @@ import net.minecraft.world.level.Level
  * Interface for actions bees perform on blocks.
  */
 interface BeeAction {
+    val pos: BlockPos
     fun getWorkTicks(context: BeeContext): Int = 0
     val requiredItems: List<ItemStack> get() = emptyList()
 
     fun onStart(robot: MechanicalBeeEntity) {}
     fun onTick(robot: MechanicalBeeEntity, tick: Int) {}
-    fun execute(level: Level, pos: BlockPos, robot: MechanicalBeeEntity, context: BeeContext): Boolean
+    fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean
 
     /**
      * Whether the bee should return to home after performing this action.
@@ -30,5 +31,5 @@ interface BeeAction {
     /**
      * Gets a human-readable description of this action.
      */
-    fun getDescription(pos: BlockPos): String
+    fun getDescription(): String
 }

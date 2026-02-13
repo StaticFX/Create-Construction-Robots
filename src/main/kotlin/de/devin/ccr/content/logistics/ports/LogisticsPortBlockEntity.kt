@@ -35,7 +35,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     private var registeredAsSource = false
     private val homeId = UUID.randomUUID()
 
-    var filter: ItemStack = ItemStack.EMPTY
+    var filterStack: ItemStack = ItemStack.EMPTY
     var selectionMode = LogisticsPortMode.PICK_UP
 
     // This is what the bees will call
@@ -83,7 +83,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     }
 
     override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
-        filter = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
+        filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
         super.loadAdditional(tag, registries)
     }
 
@@ -92,7 +92,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     }
 
     override fun getFilter(): ItemStack {
-        return filter
+        return filterStack
     }
 
     override fun getItemHandler(level: Level): IItemHandler? {

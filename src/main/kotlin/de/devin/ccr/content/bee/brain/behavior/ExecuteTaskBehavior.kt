@@ -18,7 +18,8 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
-        val task = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val task = batch.getCurrentTask() ?: return false
 
         val workRange = owner.tier.capabilities.workRange
 
@@ -27,25 +28,31 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 
     override fun start(level: ServerLevel, owner: MechanicalBeeEntity, gameTime: Long) {
         CreateCCR.LOGGER.info("Bee now executing task")
-        val task = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
+        val task = batch.getCurrentTask() ?: return
         val hive = owner.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
 
-        val done = task.action.execute(level, task.targetPos, owner, owner.getBeeContext())
+        val done = task.action.execute(level, owner, owner.getBeeContext())
 
         if (done) {
-            val nextTask = hive.notifyTaskCompleted(task, owner)
+            if (!batch.advance()) {
+                val nextBatch = hive.notifyTaskCompleted(task, owner)
 
-            CreateCCR.LOGGER.info("Finished")
+                CreateCCR.LOGGER.info("Finished")
 
 
-            if (nextTask != null) {
-                CreateCCR.LOGGER.info("Found next task")
+                if (nextBatch != null) {
+                    CreateCCR.LOGGER.info("Found next task")
 
-                owner.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(nextTask))
-                owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
+                    owner.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), nextBatch)
+                    owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
+                } else {
+                    CreateCCR.LOGGER.info("No other task found")
+                    owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+                }
             } else {
-                CreateCCR.LOGGER.info("No other task found")
-                owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+                CreateCCR.LOGGER.info("Advancing to next sub-task in batch")
+                owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         }
     }

@@ -7,6 +7,7 @@ import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.content.bee.brain.BeeMemoryModules
 import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskBatch
 import de.devin.ccr.content.domain.task.TaskStatus
 import de.devin.ccr.content.upgrades.BeeContext
 import de.devin.ccr.registry.AllEntityTypes
@@ -30,29 +31,43 @@ class PortableBeeHive(val player: Player) : BeeHive {
         }
 
         val beeTier = consumeBee() ?: return false
+        val batch = TaskBatch(listOf(task), task.job)
+        return spawnBee(beeTier, batch)
+    }
+
+    override fun acceptBatch(batch: TaskBatch): Boolean {
+        if (getAvailableBeeCount() <= 0) {
+            return false
+        }
+
+        val beeTier = consumeBee() ?: return false
+        return spawnBee(beeTier, batch)
+    }
+
+    private fun spawnBee(tier: MechanicalBeeTier, batch: TaskBatch): Boolean {
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), player.level()).apply {
-            tier = beeTier
+            this.tier = tier
             setOwner(player.uuid)
             setPos(player.position().add(0.0, 1.0, 0.0))
         }
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
         bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
-        bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(task))
+        bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(batch))
 
-        task.status = TaskStatus.IN_PROGRESS
+        batch.primaryTask?.status = TaskStatus.IN_PROGRESS
 
         player.level().addFreshEntity(bee)
         return true
     }
 
-    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): BeeTask? {
+    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
         task.complete()
-        val nextTask = GlobalJobPool.workBacklog(this)
+        val nextBatch = GlobalJobPool.workBacklog(this)
 
-        nextTask?.assignToRobot(bee)
+        nextBatch?.primaryTask?.assignToRobot(bee)
 
-        return nextTask
+        return nextBatch
     }
 
     override val sourceId: UUID get() = player.uuid

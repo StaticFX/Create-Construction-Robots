@@ -4,8 +4,11 @@ import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.ccr.CreateCCR
+import de.devin.ccr.content.domain.LogisticsManager
+import de.devin.ccr.content.domain.action.impl.PickupItemAction
 import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskBatch
 import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
@@ -80,13 +83,13 @@ class SchematicCreateBridge(
      * @param job The job to assign the tasks to
      * @return List of RobotTasks for building the schematic
      */
-    fun generateBuildTasks(job: BeeJob): List<BeeTask> {
+    fun generateBuildTasks(job: BeeJob): List<TaskBatch> {
         if (!isLoaded) {
             CreateCCR.LOGGER.warn("No schematic loaded")
             return emptyList()
         }
 
-        val tasks = mutableListOf<BeeTask>()
+        val batches = mutableListOf<TaskBatch>()
 
         // Iterate through all blocks in the schematic
         while (printer.isLoaded && !printer.isErrored && printer.advanceCurrentPos()) {
@@ -98,25 +101,37 @@ class SchematicCreateBridge(
             // Get the block state and potential block entity data to place
             printer.handleCurrentTarget({ pos, state, blockEntity ->
                 if (state != null && !state.isAir) {
+
                     val tag = blockEntity?.saveWithFullMetadata(level.registryAccess())
-                    tasks.add(
-                        BeeTask.place(
-                            pos = pos,
-                            state = state,
-                            items = items,
-                            priority = calculatePriority(pos),
-                            tag = tag,
-                            job = job
-                        )
+                    val buildTask = BeeTask.place(
+                        pos = pos,
+                        state = state,
+                        items = items,
+                        priority = calculatePriority(pos),
+                        tag = tag,
+                        job = job
                     )
+
+                    val tasksInBatch = mutableListOf<BeeTask>()
+
+                    // Check if we need to pick up items
+                    if (items.isNotEmpty()) {
+                        val port = LogisticsManager.findProviderFor(level, items[0], pos)
+                        if (port != null) {
+                            val pickupAction = PickupItemAction(port.sourcePosition, items)
+                            tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
+                        }
+                    }
+
+                    tasksInBatch.add(buildTask)
+                    batches.add(TaskBatch(tasksInBatch, job))
                 }
             }, { _, _ ->
                 // TODO Add entity handling... somehow
             })
         }
 
-        // Sort tasks for optimal building order (bottom-up)
-        return tasks.sortedBy { it.targetPos.y }
+        return batches
     }
 
     /**
@@ -165,15 +180,6 @@ class SchematicCreateBridge(
      */
     fun getAnchor(): BlockPos? {
         return if (isLoaded) printer.anchor else null
-    }
-
-    /**
-     * Reset the handler
-     */
-    fun reset() {
-        printer.resetSchematic()
-        isLoaded = false
-        schematicStack = ItemStack.EMPTY
     }
 
     /**

@@ -3,6 +3,7 @@ package de.devin.ccr.content.domain.beehive
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.bee.MechanicalBeeTier
 import de.devin.ccr.content.domain.task.BeeTask
+import de.devin.ccr.content.domain.task.TaskBatch
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
@@ -94,15 +95,20 @@ interface BeeHive {
     fun acceptTask(task: BeeTask): Boolean
 
     /**
+     * Attempts to accept a task batch for processing by this BeeHive.
+     */
+    fun acceptBatch(batch: TaskBatch): Boolean
+
+    /**
      * Returns a walk target for this beehive.
      */
     fun walkTarget(): WalkTarget
 
     /**
      * Marks the given task as completed by the given bee.
-     * @return optionally next task to be processed, or null if all tasks are completed.
+     * @return optionally next task batch to be processed, or null if all tasks are completed.
      */
-    fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): BeeTask?
+    fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch?
 
     /**
      * Called when a bee from this source is spawned.

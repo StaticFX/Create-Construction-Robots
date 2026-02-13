@@ -15,17 +15,21 @@ import java.util.UUID
  * Represents a single task for a single bee.
  *
  * @property action The action to perform.
- * @property targetPos The world position where the task should be performed.
+ * @property job The job this task belongs to.
  * @property priority The priority of this task (higher values are processed first).
  */
 data class BeeTask(
     val action: BeeAction,
-    val targetPos: BlockPos,
     val job: BeeJob,
     val priority: Int = 0,
 ) {
     var status: TaskStatus = TaskStatus.PENDING
     var mechanicalBee: MechanicalBeeEntity? = null
+
+    /**
+     * The world position where the task should be performed.
+     */
+    val targetPos: BlockPos get() = action.pos
 
     /**
      * The unique identifier for the job this task belongs to.
@@ -83,15 +87,15 @@ data class BeeTask(
             tag: CompoundTag? = null,
             job: BeeJob
         ): BeeTask {
-            val action = PlaceBlockAction(state, tag, items)
-            return BeeTask(action, pos, job, priority)
+            val action = PlaceBlockAction(pos, state, tag, items)
+            return BeeTask(action, job, priority)
         }
 
         /**
          * Create a removal task
          */
         fun remove(pos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
-            return BeeTask(RemoveBlockAction(), pos, job, priority)
+            return BeeTask(RemoveBlockAction(pos), job, priority)
         }
     }
 }

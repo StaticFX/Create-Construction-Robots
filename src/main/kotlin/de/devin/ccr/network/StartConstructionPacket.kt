@@ -3,11 +3,12 @@ package de.devin.ccr.network
 import de.devin.ccr.CreateCCR
 import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.domain.job.BeeJob
-import de.devin.ccr.content.schematics.goals.ConstructionGoal
 import de.devin.ccr.content.schematics.SchematicCreateBridge
+import de.devin.ccr.content.schematics.SchematicJobKey
 import java.util.*
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.chat.Component
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
@@ -51,19 +52,27 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
                 }
 
                 if (!schematicStack.isEmpty) {
-                    val goal = ConstructionGoal(schematicStack)
-                    val jobId = UUID.randomUUID()
-
-                    // First create the job object with dummy center (we'll update it later or goal can use it)
-                    val job = BeeJob(jobId, BlockPos.ZERO, player.level()).apply {
-                        ownerId = player.uuid
-                        uniquenessKey = goal.createJobKey(player.uuid)
+                    val bridge = SchematicCreateBridge(player.level())
+                    if (!bridge.loadSchematic(schematicStack)) {
+                        player.displayClientMessage(Component.translatable("ccr.construction.load_failed"), true)
+                        return@enqueueWork
                     }
 
-                    val tasks = goal.generateTasks(job)
+                    val jobId = UUID.randomUUID()
+                    val job = BeeJob(jobId, BlockPos.ZERO, player.level()).apply {
+                        ownerId = player.uuid
+
+                        val schematicFile = schematicStack.get(com.simibubi.create.AllDataComponents.SCHEMATIC_FILE)
+                        val anchor = schematicStack.get(com.simibubi.create.AllDataComponents.SCHEMATIC_ANCHOR)
+                        if (schematicFile != null && anchor != null) {
+                            uniquenessKey = SchematicJobKey(player.uuid, schematicFile, anchor.x, anchor.y, anchor.z)
+                        }
+                    }
+
+                    val tasks = bridge.generateBuildTasks(job).flatMap { it.tasks }
                     if (tasks.isNotEmpty()) {
-                        val center = goal.getCenterPos(player.level(), tasks)
-                        // Update job with actual center and tasks
+                        val center = bridge.getAnchor() ?: tasks[0].targetPos
+
                         val finalJob = job.copy(centerPos = center).apply {
                             ownerId = job.ownerId
                             uniquenessKey = job.uniquenessKey
@@ -71,10 +80,17 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
                         }
 
                         GlobalJobPool.dispatchNewJob(finalJob)
-                        goal.onJobStarted(player)
-                        player.displayClientMessage(goal.getStartMessage(tasks.size), true)
+
+                        if (!player.isCreative) {
+                            schematicStack.shrink(1)
+                        }
+
+                        player.displayClientMessage(
+                            Component.translatable("ccr.construction.started", tasks.size),
+                            true
+                        )
                     } else {
-                        player.displayClientMessage(goal.getNoTasksMessage(), true)
+                        player.displayClientMessage(Component.translatable("ccr.construction.no_tasks"), true)
                     }
                 }
             }

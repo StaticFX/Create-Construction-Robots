@@ -28,8 +28,8 @@ interface LogisticsPort {
      */
     fun getMode(): LogisticsPortMode
 
-    /** * The specific item filter set in the ValueBox.
-     * Return ItemStack.EMPTY if no filter is set.
+    /** * The specific item filterStack set in the ValueBox.
+     * Return ItemStack.EMPTY if no filterStack is set.
      */
     fun getFilter(): ItemStack
 
