@@ -13,20 +13,25 @@ import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock
 import net.minecraft.world.level.block.state.properties.AttachFace
 import net.minecraft.world.phys.Vec3
 
-class LogisticsPortValueBox : ValueBoxTransform() {
+class LogisticsPortSelectionValueBox : ValueBoxTransform() {
 
     override fun getLocalOffset(level: LevelAccessor, pos: BlockPos, state: BlockState): Vec3 {
         val face = state.getValue(FaceAttachedHorizontalDirectionalBlock.FACE)
         val facing = state.getValue(FaceAttachedHorizontalDirectionalBlock.FACING)
         val horizontalAngle = AngleHelper.horizontalAngle(facing)
 
-        val floorZHeight = 3.5
+        val floorZHeight = 5.5
         val ceilingZHeight = 16.0 - floorZHeight
+        val xOffset = 11.0
 
         // If placed on FLOOR or CEILING
         if (face != AttachFace.WALL) {
             val isFloor = face == AttachFace.FLOOR
-            val verticalLocation = VecHelper.voxelSpace(8.0, if (isFloor) floorZHeight else ceilingZHeight, 5.0)
+
+            val y = if (isFloor) floorZHeight else ceilingZHeight
+            val x = if (isFloor) xOffset else 16.0 - xOffset
+
+            val verticalLocation = VecHelper.voxelSpace(x, y, 11.0)
             return VecHelper.rotateCentered(
                 verticalLocation,
                 (horizontalAngle + (if (isFloor) 0f else 180f)).toDouble(),
@@ -35,7 +40,7 @@ class LogisticsPortValueBox : ValueBoxTransform() {
         }
 
         // If placed on a WALL
-        val wallLocation = VecHelper.voxelSpace(8.0, 11.0, floorZHeight)
+        val wallLocation = VecHelper.voxelSpace(xOffset, 5.0, floorZHeight)
         return VecHelper.rotateCentered(wallLocation, horizontalAngle.toDouble(), Direction.Axis.Y)
     }
 
@@ -48,6 +53,7 @@ class LogisticsPortValueBox : ValueBoxTransform() {
             TransformStack.of(ms)
                 .rotateYDegrees(horizontalAngle)
                 .rotateXDegrees(180f)
+                .rotateZDegrees(180f)
             return
         }
 

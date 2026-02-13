@@ -19,7 +19,10 @@ class MechanicalBeehiveScreen(
     private val instructionButtons = mutableListOf<InstructionWidget>()
 
     override fun init() {
-        setWindowSize(AllGuiTextures.FILTER.width, AllGuiTextures.FILTER.height + AllGuiTextures.PLAYER_INVENTORY.height + 20)
+        setWindowSize(
+            AllGuiTextures.FILTER.width,
+            AllGuiTextures.FILTER.height + AllGuiTextures.PLAYER_INVENTORY.height + 20
+        )
         super.init()
 
         addInstructionButton = IconButton(leftPos + imageWidth - 25, topPos + 10, AllIcons.I_ADD)
@@ -31,7 +34,7 @@ class MechanicalBeehiveScreen(
             refreshInstructions()
         })
         addRenderableWidget(addInstructionButton)
-        
+
         refreshInstructions()
     }
 
@@ -42,7 +45,7 @@ class MechanicalBeehiveScreen(
 
         val startX = leftPos + 80
         val startY = topPos + 15
-        
+
         menu.content.instructions.forEachIndexed { index, instruction ->
             val widget = InstructionWidget(startX, startY + index * 22, instruction, index) {
                 menu.content.instructions.removeAt(index)
@@ -59,7 +62,11 @@ class MechanicalBeehiveScreen(
         val y = topPos
 
         AllGuiTextures.FILTER.render(guiGraphics, x, y)
-        renderPlayerInventory(guiGraphics, x + (imageWidth - AllGuiTextures.PLAYER_INVENTORY.width) / 2, y + AllGuiTextures.FILTER.height + 10)
+        renderPlayerInventory(
+            guiGraphics,
+            x + (imageWidth - AllGuiTextures.PLAYER_INVENTORY.width) / 2,
+            y + AllGuiTextures.FILTER.height + 10
+        )
 
         // Slots
         for (i in 0 until 18) {
@@ -71,7 +78,13 @@ class MechanicalBeehiveScreen(
         guiGraphics.drawString(font, title, x + 15, y + 4, 0x592424, false)
     }
 
-    inner class InstructionWidget(x: Int, y: Int, val instruction: BeeInstruction, val index: Int, val onDelete: () -> Unit) : IconButton(x, y, AllIcons.I_TRASH) {
+    inner class InstructionWidget(
+        x: Int,
+        y: Int,
+        val instruction: BeeInstruction,
+        val index: Int,
+        val onDelete: () -> Unit
+    ) : IconButton(x, y, AllIcons.I_TRASH) {
         private val beeUp = IconButton(x + 150, y, AllIcons.I_PRIORITY_HIGH)
         private val beeDown = IconButton(x + 130, y, AllIcons.I_PRIORITY_LOW)
         private val rangeUp = IconButton(x + 200, y, AllIcons.I_PRIORITY_HIGH)
@@ -79,7 +92,7 @@ class MechanicalBeehiveScreen(
 
         init {
             withCallback<IconButton>(Runnable { onDelete() })
-            
+
             beeUp.withCallback<IconButton>(Runnable {
                 instruction.beeCount = (instruction.beeCount + 1).coerceAtMost(32)
                 menu.content.sendData()

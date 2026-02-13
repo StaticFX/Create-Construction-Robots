@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Mixin for {@link SchematicEditScreen} to add "Start Construction" and "Start Deconstruction" buttons
  * that trigger the robot construction/deconstruction system.
- * 
+ *
  * <p>The construction button will build the schematic using robots.</p>
  * <p>The deconstruction button will remove all blocks within the schematic bounds using robots.</p>
  */
@@ -39,20 +39,20 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         System.out.println("Tailing init method of SchematicEditScreenMixin");
 
         SchematicHandler handler = CreateClient.SCHEMATIC_HANDLER;
-        
+
         // Only show the buttons if the schematic is deployed
         if (handler.isDeployed()) {
             // Position buttons at the bottom left of the screen
             int buttonX = guiLeft + 10;
             int buttonY = guiTop + 90;
-            
+
             // Construction button (green/play icon) - builds the schematic
             ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
             ccr$constructButton.setToolTip(Component.translatable("gui.ccr.schematic.start_construction"));
             ccr$constructButton.withCallback(() -> {
                 // Send packet to server to start construction (use singleton INSTANCE)
                 PacketDistributor.sendToServer(StartConstructionPacket.Companion.getINSTANCE());
-                
+
                 // Close the screen
                 if (Minecraft.getInstance().screen != null) {
                     Minecraft.getInstance().screen.onClose();

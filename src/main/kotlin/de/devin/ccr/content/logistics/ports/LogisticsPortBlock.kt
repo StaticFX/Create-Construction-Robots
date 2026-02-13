@@ -15,18 +15,18 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
-import net.minecraft.world.level.LevelReader
-import net.minecraft.world.level.block.AirBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.AttachFace
+import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
+import net.neoforged.neoforge.capabilities.Capabilities
 
 
 class LogisticPortBlock(properties: Properties) :
@@ -36,6 +36,9 @@ class LogisticPortBlock(properties: Properties) :
     IWrenchable {
 
     companion object {
+
+        val PORT_STATE = EnumProperty.create("port_state", PortState::class.java)
+
         /**
          * Determines which direction the Port is "pointing" into the attached inventory.
          * If placed on a wall, it's the opposite of its horizontal facing.
@@ -56,6 +59,7 @@ class LogisticPortBlock(properties: Properties) :
         registerDefaultState(
             defaultBlockState()
                 .setValue(WATERLOGGED, false)
+                .setValue(PORT_STATE, PortState.INVALID)
         )
     }
 
@@ -76,17 +80,11 @@ class LogisticPortBlock(properties: Properties) :
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
-        builder.add(FACING, FACE, WATERLOGGED)
+        builder.add(FACING, FACE, WATERLOGGED, PORT_STATE)
     }
 
     override fun codec(): MapCodec<out FaceAttachedHorizontalDirectionalBlock?> {
         TODO("Not yet implemented")
-    }
-
-    override fun canSurvive(state: BlockState, level: LevelReader, pos: BlockPos): Boolean {
-        // We only want to survive if attached to a block with an inventory (optional, but realistic)
-        val connectedPos = pos.relative(getConnectedDirection(state).opposite)
-        return level.getBlockState(connectedPos).block !is AirBlock
     }
 
     override fun onPlace(state: BlockState, level: Level, pos: BlockPos, oldState: BlockState, isMoving: Boolean) {
@@ -101,14 +99,6 @@ class LogisticPortBlock(properties: Properties) :
         return fluidState(pState)
     }
 
-    override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
-        var placed = super.getStateForPlacement(context) ?: return null
-        if (placed.getValue(FACE) == AttachFace.CEILING) placed = placed.setValue(
-            FACING, placed.getValue(FACING).opposite
-        )
-        return withWater(placed, context)
-    }
-
     public override fun getShape(
         pState: BlockState,
         pLevel: BlockGetter,
@@ -117,6 +107,50 @@ class LogisticPortBlock(properties: Properties) :
     ): VoxelShape {
         return AllShapes.STOCK_LINK.get(getConnectedDirection(pState))
     }
+
+    override fun neighborChanged(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        neighborBlock: Block,
+        neighborPos: BlockPos,
+        movedByPiston: Boolean
+    ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston)
+        if (level.isClientSide) return
+
+        val connectedPos = pos.relative(getConnectedDirection(state).opposite)
+
+        // Only check if the block that changed is the one we are attached to
+        if (neighborPos == connectedPos) {
+            val hasInventory =
+                level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+            val targetState = if (hasInventory) PortState.VALID else PortState.INVALID
+
+            if (state.getValue(PORT_STATE) != targetState) {
+                level.setBlock(pos, state.setValue(PORT_STATE, targetState), 3)
+            }
+        }
+    }
+
+    override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
+        var state = super.getStateForPlacement(context) ?: return null
+        if (state.getValue(FACE) == AttachFace.CEILING) {
+            state = state.setValue(FACING, state.getValue(FACING).opposite)
+        }
+
+        val level = context.level
+        val pos = context.clickedPos
+        val connectedPos = pos.relative(getConnectedDirection(state).opposite)
+
+        // Check for inventory on placement
+        val hasInventory =
+            level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+        state = state.setValue(PORT_STATE, if (hasInventory) PortState.VALID else PortState.INVALID)
+
+        return withWater(state, context)
+    }
+
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
