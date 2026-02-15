@@ -26,6 +26,8 @@ data class BeeTask(
     var status: TaskStatus = TaskStatus.PENDING
     var mechanicalBee: MechanicalBeeEntity? = null
 
+    var requirement: (task: BeeTask) -> Boolean = { true }
+
     /**
      * The world position where the task should be performed.
      */

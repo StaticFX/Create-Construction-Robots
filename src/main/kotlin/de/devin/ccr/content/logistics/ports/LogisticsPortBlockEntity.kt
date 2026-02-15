@@ -5,7 +5,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
 import de.devin.ccr.content.bee.MechanicalBeeEntity
-import de.devin.ccr.content.domain.LogisticsManager
+import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.domain.logistics.LogisticsPort
 import de.devin.ccr.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
 import net.minecraft.core.BlockPos
@@ -69,7 +69,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     override fun setLevel(level: Level) {
         super.setLevel(level)
         if (!level.isClientSide && !registeredAsSource) {
-            LogisticsManager.registerPort(this)
+            GlobalJobPool.registerPort(this)
             registeredAsSource = true
         }
     }
@@ -77,7 +77,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     override fun destroy() {
         super.destroy()
         if (!level?.isClientSide!! && registeredAsSource) {
-            LogisticsManager.unregisterPort(this)
+            GlobalJobPool.unregisterPort(this)
             registeredAsSource = false
         }
     }
@@ -159,18 +159,14 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         return false
     }
 
-    override fun addItemStack(stack: ItemStack): Boolean {
-        val level = level ?: return false
-        val handler = getItemHandler(level) ?: return false
+    override fun addItemStack(stack: ItemStack): ItemStack {
+        val level = level ?: return stack
+        val handler = getItemHandler(level) ?: return stack
 
         // ItemHandlerHelper.insertItemStacked handles:
         // 1. Finding existing stacks to merge with.
         // 2. Finding empty slots.
         // 3. Returning the "remainder" that didn't fit.
-        val remainder = ItemHandlerHelper.insertItemStacked(handler, stack, false)
-
-        // If the remainder is smaller than the input, at least some were added.
-        // If you want to return true ONLY if the whole stack was added:
-        return remainder.count < stack.count
+        return ItemHandlerHelper.insertItemStacked(handler, stack, false)
     }
 }

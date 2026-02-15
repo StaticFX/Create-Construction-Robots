@@ -87,6 +87,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
             this.tier = tier
             setPos(Vec3.atCenterOf(blockPos.above()))
+            this.network = GlobalJobPool.getNetworkAt(level!!, blockPos)
         }
 
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)

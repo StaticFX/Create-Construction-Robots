@@ -28,6 +28,16 @@ import java.util.Optional
 
 import net.minecraft.world.item.ArmorItem
 import net.minecraft.world.item.ArmorMaterials
+import software.bernie.geckolib.animatable.GeoItem
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
+import software.bernie.geckolib.animation.AnimatableManager
+import software.bernie.geckolib.animation.AnimationController
+import software.bernie.geckolib.animation.RawAnimation
+import software.bernie.geckolib.renderer.GeoArmorRenderer
+import software.bernie.geckolib.util.GeckoLibUtil
+import java.util.function.Consumer
+import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions
+import de.devin.ccr.content.backpack.client.PortableBeehiveRenderer
 import kotlin.math.roundToInt
 
 /**
@@ -45,8 +55,39 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  * The backpack acts as the central hub for the mod's automated building system, storing the state
  * of the workforce and providing the interface to initiate construction tasks.
  */
-class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.LEATHER, Type.CHESTPLATE, properties),
-    ICurioItem {
+class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRON, Type.CHESTPLATE, properties),
+    ICurioItem, GeoItem {
+
+    private val cache: AnimatableInstanceCache = GeckoLibUtil.createInstanceCache(this)
+
+    override fun initializeClient(consumer: Consumer<IClientItemExtensions>) {
+        consumer.accept(object : IClientItemExtensions {
+            private var renderer: PortableBeehiveRenderer? = null
+
+            override fun getHumanoidArmorModel(
+                livingEntity: net.minecraft.world.entity.LivingEntity,
+                itemStack: ItemStack,
+                armorSlot: net.minecraft.world.entity.EquipmentSlot,
+                original: net.minecraft.client.model.HumanoidModel<*>
+            ): net.minecraft.client.model.HumanoidModel<*> {
+                if (this.renderer == null) {
+                    this.renderer = PortableBeehiveRenderer()
+                }
+                this.renderer!!.prepForRender(livingEntity, itemStack, armorSlot, original)
+                return this.renderer!!
+            }
+        })
+    }
+
+    override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
+        controllers.add(AnimationController(this, "controller", 0) { event ->
+            event.setAndContinue(RawAnimation.begin().thenLoop("jorking"))
+        })
+    }
+
+    override fun getAnimatableInstanceCache(): AnimatableInstanceCache {
+        return this.cache
+    }
 
     companion object {
         const val ROBOT_SLOTS = 4

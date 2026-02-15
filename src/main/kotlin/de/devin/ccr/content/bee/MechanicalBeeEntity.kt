@@ -5,6 +5,7 @@ import de.devin.ccr.content.bee.brain.BeeBrainProvider
 import de.devin.ccr.content.bee.brain.BeeMemoryModules
 import de.devin.ccr.content.domain.bee.BeeInventoryManager
 import de.devin.ccr.content.domain.beehive.BeeHive
+import de.devin.ccr.content.domain.network.BeeNetwork
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
@@ -82,6 +83,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     val carriedItems: MutableList<ItemStack> = mutableListOf()
 
     val inventoryManager = BeeInventoryManager(this)
+
+    var network: BeeNetwork? = null
 
     init {
         this.moveControl = FlyingMoveControl(this, 20, true)

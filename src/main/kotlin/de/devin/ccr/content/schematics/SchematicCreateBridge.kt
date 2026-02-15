@@ -4,7 +4,7 @@ import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.ccr.CreateCCR
-import de.devin.ccr.content.domain.LogisticsManager
+import de.devin.ccr.content.domain.GlobalJobPool
 import de.devin.ccr.content.domain.action.impl.PickupItemAction
 import de.devin.ccr.content.domain.job.BeeJob
 import de.devin.ccr.content.domain.task.BeeTask
@@ -112,11 +112,13 @@ class SchematicCreateBridge(
                         job = job
                     )
 
+                    //buildTask.requirement = { it.mechanicalBee.inventoryManager }
+
                     val tasksInBatch = mutableListOf<BeeTask>()
 
                     // Check if we need to pick up items
                     if (items.isNotEmpty()) {
-                        val port = LogisticsManager.findProviderFor(level, items[0], pos)
+                        val port = GlobalJobPool.findProviderFor(level, items[0], pos)
                         if (port != null) {
                             val pickupAction = PickupItemAction(port.sourcePosition, items)
                             tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))

@@ -57,8 +57,6 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
-        // Handled by BeeHive implementations if needed, 
-        // but PlayerBeeHive should ideally be unregistered here if it's not a block entity
-        GlobalJobPool.workers.removeIf { it is PortableBeeHive && it.player.uuid == event.entity.uuid }
+        GlobalJobPool.unregisterWorker(event.entity.uuid)
     }
 }

@@ -53,5 +53,5 @@ interface LogisticsPort {
 
     fun removeItemStack(stack: ItemStack): Boolean
 
-    fun addItemStack(stack: ItemStack): Boolean
+    fun addItemStack(stack: ItemStack): ItemStack
 }

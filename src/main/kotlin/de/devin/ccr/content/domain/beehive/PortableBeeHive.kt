@@ -49,6 +49,7 @@ class PortableBeeHive(val player: Player) : BeeHive {
             this.tier = tier
             setOwner(player.uuid)
             setPos(player.position().add(0.0, 1.0, 0.0))
+            this.network = GlobalJobPool.getNetworkAt(player.level(), player.blockPosition())
         }
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())

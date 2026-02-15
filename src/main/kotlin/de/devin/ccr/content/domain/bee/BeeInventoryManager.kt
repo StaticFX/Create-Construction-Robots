@@ -5,6 +5,7 @@ import de.devin.ccr.content.bee.MaterialSource
 import de.devin.ccr.content.bee.MechanicalBeeEntity
 import de.devin.ccr.content.bee.PlayerMaterialSource
 import de.devin.ccr.content.bee.WirelessMaterialSource
+import de.devin.ccr.content.domain.network.NetworkMaterialSource
 import de.devin.ccr.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
@@ -27,17 +28,17 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
     fun pickUpItems(required: List<ItemStack>, context: BeeContext, carriedItems: MutableList<ItemStack>): Boolean {
         val ownerPlayer = robot.getOwnerPlayer() ?: return false
         if (ownerPlayer.isCreative) return true
-        
+
         val source = getMaterialSource(ownerPlayer, context)
         val carryCapacity = context.carryCapacity
         var itemsPickedUp = 0
-        
+
         carriedItems.clear()
-        
+
         for (req in required) {
             if (req.isEmpty) continue
             if (itemsPickedUp >= carryCapacity) break
-            
+
             val toPickUp = minOf(req.count, carryCapacity - itemsPickedUp)
             val extracted = source.extractItems(req, toPickUp)
             if (!extracted.isEmpty) {
@@ -45,7 +46,7 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
                 itemsPickedUp += extracted.count
             }
         }
-        
+
         val totalRequired = required.sumOf { it.count }
         return itemsPickedUp >= totalRequired
     }
@@ -62,14 +63,14 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
 
         val source = getMaterialSource(ownerPlayer, context)
         val remainingItems = mutableListOf<ItemStack>()
-        
+
         for (stack in carriedItems) {
             val remaining = source.insertItems(stack)
             if (!remaining.isEmpty) {
                 remainingItems.add(remaining)
             }
         }
-        
+
         carriedItems.clear()
         carriedItems.addAll(remainingItems)
     }
@@ -79,11 +80,16 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
      */
     private fun getMaterialSource(ownerPlayer: ServerPlayer, context: BeeContext): MaterialSource {
         val sources = mutableListOf<MaterialSource>()
-        
+
         // 1. Player inventory
         sources.add(PlayerMaterialSource(ownerPlayer))
-        
-        // 2. Wireless Link (if enabled)
+
+        // 2. Network inventory
+        robot.network?.let {
+            sources.add(NetworkMaterialSource(it, robot.level()))
+        }
+
+        // 3. Wireless Link (if enabled)
         if (context.wirelessLinkEnabled) {
             if (wirelessScanCooldown <= 0) {
                 scanForWirelessStorages(ownerPlayer)
@@ -93,7 +99,7 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
             }
             sources.add(WirelessMaterialSource(robot.level(), cachedWirelessStorages))
         }
-        
+
         return CompositeMaterialSource(sources)
     }
 
@@ -105,7 +111,7 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
         val range = 16
         val center = player.blockPosition()
         val level = robot.level()
-        
+
         for (x in -range..range) {
             for (y in -range..range) {
                 for (z in -range..range) {
