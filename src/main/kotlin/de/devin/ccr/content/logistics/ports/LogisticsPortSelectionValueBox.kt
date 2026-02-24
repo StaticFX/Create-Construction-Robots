@@ -20,7 +20,7 @@ class LogisticsPortSelectionValueBox : ValueBoxTransform() {
         val facing = state.getValue(FaceAttachedHorizontalDirectionalBlock.FACING)
         val horizontalAngle = AngleHelper.horizontalAngle(facing)
 
-        val floorZHeight = 5.5
+        val floorZHeight = 7.5
         val ceilingZHeight = 16.0 - floorZHeight
         val xOffset = 11.0
 

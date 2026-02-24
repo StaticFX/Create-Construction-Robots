@@ -1,364 +1,68 @@
 {
-  "variants": {
-    "face=floor,facing=north,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 180
-    },
-    "face=floor,facing=north,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 180
-    },
-    "face=floor,facing=north,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 180
-    },
-    "face=floor,facing=north,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 180
-    },
-    "face=floor,facing=north,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 180
-    },
-    "face=floor,facing=north,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 180
-    },
-    "face=floor,facing=south,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 0
-    },
-    "face=floor,facing=south,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 0
-    },
-    "face=floor,facing=south,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 0
-    },
-    "face=floor,facing=south,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 0
-    },
-    "face=floor,facing=south,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 0
-    },
-    "face=floor,facing=south,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 0
-    },
-    "face=floor,facing=east,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 270
-    },
-    "face=floor,facing=east,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 270
-    },
-    "face=floor,facing=east,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 270
-    },
-    "face=floor,facing=east,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 270
-    },
-    "face=floor,facing=east,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 270
-    },
-    "face=floor,facing=east,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 270
-    },
-    "face=floor,facing=west,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 90
-    },
-    "face=floor,facing=west,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "y": 90
-    },
-    "face=floor,facing=west,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 90
-    },
-    "face=floor,facing=west,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "y": 90
-    },
-    "face=floor,facing=west,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 90
-    },
-    "face=floor,facing=west,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "y": 90
-    },
-    "face=ceiling,facing=north,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=north,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=north,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=north,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=north,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=north,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 180
-    },
-    "face=ceiling,facing=south,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=south,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=south,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=south,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=south,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=south,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 0
-    },
-    "face=ceiling,facing=east,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=east,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=east,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=east,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=east,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=east,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 270
-    },
-    "face=ceiling,facing=west,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 90
-    },
-    "face=ceiling,facing=west,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 180,
-      "y": 90
-    },
-    "face=ceiling,facing=west,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 90
-    },
-    "face=ceiling,facing=west,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 180,
-      "y": 90
-    },
-    "face=ceiling,facing=west,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 90
-    },
-    "face=ceiling,facing=west,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 180,
-      "y": 90
-    },
-    "face=wall,facing=north,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=north,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=north,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=north,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=north,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=north,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 180,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=south,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 0,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=east,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 270,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=valid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=valid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=invalid,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=invalid,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_invalid",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=busy,waterlogged=false": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    },
-    "face=wall,facing=west,port_state=busy,waterlogged=true": {
-      "model": "ccr:block/logistics_port/block_busy",
-      "x": 270,
-      "y": 90,
-      "z": 90
-    }
-  }
+  "multipart": [
+    { "when": { "port_type": "insert", "face": "floor", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "y": 0 } },
+    { "when": { "port_type": "insert", "face": "floor", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "y": 180 } },
+    { "when": { "port_type": "insert", "face": "floor", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "y": 270 } },
+    { "when": { "port_type": "insert", "face": "floor", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "y": 90 } },
+    { "when": { "port_type": "insert", "face": "ceiling", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 180, "y": 0 } },
+    { "when": { "port_type": "insert", "face": "ceiling", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 180, "y": 180 } },
+    { "when": { "port_type": "insert", "face": "ceiling", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 180, "y": 270 } },
+    { "when": { "port_type": "insert", "face": "ceiling", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 180, "y": 90 } },
+    { "when": { "port_type": "insert", "face": "wall", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 270, "y": 0, "z": 90 } },
+    { "when": { "port_type": "insert", "face": "wall", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 270, "y": 180, "z": 90 } },
+    { "when": { "port_type": "insert", "face": "wall", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 270, "y": 270, "z": 90 } },
+    { "when": { "port_type": "insert", "face": "wall", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_insert", "x": 270, "y": 90, "z": 90 } },
+
+    { "when": { "port_type": "extract", "face": "floor", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "y": 0 } },
+    { "when": { "port_type": "extract", "face": "floor", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "y": 180 } },
+    { "when": { "port_type": "extract", "face": "floor", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "y": 270 } },
+    { "when": { "port_type": "extract", "face": "floor", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "y": 90 } },
+    { "when": { "port_type": "extract", "face": "ceiling", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 180, "y": 0 } },
+    { "when": { "port_type": "extract", "face": "ceiling", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 180, "y": 180 } },
+    { "when": { "port_type": "extract", "face": "ceiling", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 180, "y": 270 } },
+    { "when": { "port_type": "extract", "face": "ceiling", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 180, "y": 90 } },
+    { "when": { "port_type": "extract", "face": "wall", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 270, "y": 0, "z": 90 } },
+    { "when": { "port_type": "extract", "face": "wall", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 270, "y": 180, "z": 90 } },
+    { "when": { "port_type": "extract", "face": "wall", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 270, "y": 270, "z": 90 } },
+    { "when": { "port_type": "extract", "face": "wall", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/base_extract", "x": 270, "y": 90, "z": 90 } },
+
+    { "when": { "port_state": "valid", "face": "floor", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "y": 0 } },
+    { "when": { "port_state": "valid", "face": "floor", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "y": 180 } },
+    { "when": { "port_state": "valid", "face": "floor", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "y": 270 } },
+    { "when": { "port_state": "valid", "face": "floor", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "y": 90 } },
+    { "when": { "port_state": "valid", "face": "ceiling", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 180, "y": 0 } },
+    { "when": { "port_state": "valid", "face": "ceiling", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 180, "y": 180 } },
+    { "when": { "port_state": "valid", "face": "ceiling", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 180, "y": 270 } },
+    { "when": { "port_state": "valid", "face": "ceiling", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 180, "y": 90 } },
+    { "when": { "port_state": "valid", "face": "wall", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 270, "y": 0, "z": 90 } },
+    { "when": { "port_state": "valid", "face": "wall", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 270, "y": 180, "z": 90 } },
+    { "when": { "port_state": "valid", "face": "wall", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 270, "y": 270, "z": 90 } },
+    { "when": { "port_state": "valid", "face": "wall", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_valid", "x": 270, "y": 90, "z": 90 } },
+
+    { "when": { "port_state": "busy", "face": "floor", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "y": 0 } },
+    { "when": { "port_state": "busy", "face": "floor", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "y": 180 } },
+    { "when": { "port_state": "busy", "face": "floor", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "y": 270 } },
+    { "when": { "port_state": "busy", "face": "floor", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "y": 90 } },
+    { "when": { "port_state": "busy", "face": "ceiling", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 180, "y": 0 } },
+    { "when": { "port_state": "busy", "face": "ceiling", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 180, "y": 180 } },
+    { "when": { "port_state": "busy", "face": "ceiling", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 180, "y": 270 } },
+    { "when": { "port_state": "busy", "face": "ceiling", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 180, "y": 90 } },
+    { "when": { "port_state": "busy", "face": "wall", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 270, "y": 0, "z": 90 } },
+    { "when": { "port_state": "busy", "face": "wall", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 270, "y": 180, "z": 90 } },
+    { "when": { "port_state": "busy", "face": "wall", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 270, "y": 270, "z": 90 } },
+    { "when": { "port_state": "busy", "face": "wall", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_busy", "x": 270, "y": 90, "z": 90 } },
+
+    { "when": { "port_state": "invalid", "face": "floor", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "y": 0 } },
+    { "when": { "port_state": "invalid", "face": "floor", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "y": 180 } },
+    { "when": { "port_state": "invalid", "face": "floor", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "y": 270 } },
+    { "when": { "port_state": "invalid", "face": "floor", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "y": 90 } },
+    { "when": { "port_state": "invalid", "face": "ceiling", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 180, "y": 0 } },
+    { "when": { "port_state": "invalid", "face": "ceiling", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 180, "y": 180 } },
+    { "when": { "port_state": "invalid", "face": "ceiling", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 180, "y": 270 } },
+    { "when": { "port_state": "invalid", "face": "ceiling", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 180, "y": 90 } },
+    { "when": { "port_state": "invalid", "face": "wall", "facing": "south" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 270, "y": 0, "z": 90 } },
+    { "when": { "port_state": "invalid", "face": "wall", "facing": "north" }, "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 270, "y": 180, "z": 90 } },
+    { "when": { "port_state": "invalid", "face": "wall", "facing": "east" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 270, "y": 270, "z": 90 } },
+    { "when": { "port_state": "invalid", "face": "wall", "facing": "west" },  "apply": { "model": "ccr:block/logistics_port/bulb_invalid", "x": 270, "y": 90, "z": 90 } }
+  ]
 }

@@ -7,3 +7,9 @@ enum class PortState : StringRepresentable {
 
     override fun getSerializedName(): String = name.lowercase()
 }
+
+enum class PortType : StringRepresentable {
+    INSERT, EXTRACT;
+
+    override fun getSerializedName(): String = name.lowercase()
+}

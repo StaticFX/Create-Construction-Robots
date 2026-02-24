@@ -11,8 +11,8 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.InteractionResult
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
@@ -24,7 +24,6 @@ import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.AttachFace
 import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.level.material.FluidState
-import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 import net.neoforged.neoforge.capabilities.Capabilities
@@ -40,6 +39,7 @@ class LogisticPortBlock(properties: Properties) :
 
         val CODEC: MapCodec<LogisticPortBlock> = simpleCodec(::LogisticPortBlock)
         val PORT_STATE = EnumProperty.create("port_state", PortState::class.java)
+        val PORT_TYPE = EnumProperty.create("port_type", PortType::class.java)
 
         /**
          * Determines which direction the Port is "pointing" into the attached inventory.
@@ -62,11 +62,12 @@ class LogisticPortBlock(properties: Properties) :
             defaultBlockState()
                 .setValue(WATERLOGGED, false)
                 .setValue(PORT_STATE, PortState.INVALID)
+                .setValue(PORT_TYPE, PortType.EXTRACT)
         )
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
-        builder.add(FACING, FACE, WATERLOGGED, PORT_STATE)
+        builder.add(FACING, FACE, WATERLOGGED, PORT_STATE, PORT_TYPE)
     }
 
     override fun codec(): MapCodec<LogisticPortBlock> {
@@ -95,7 +96,7 @@ class LogisticPortBlock(properties: Properties) :
         pPos: BlockPos,
         pContext: CollisionContext
     ): VoxelShape {
-        return AllShapes.STOCK_LINK.get(getConnectedDirection(pState))
+        return de.devin.ccr.shapes.AllShapes.LOGISTICS_PORT.get(getConnectedDirection(pState))
     }
 
     override fun neighborChanged(
@@ -155,6 +156,21 @@ class LogisticPortBlock(properties: Properties) :
 
     override fun getBlockEntityType(): BlockEntityType<out LogisticPortBlockEntity> {
         return AllBlockEntityTypes.LOGISTICS_PORT.get()
+    }
+
+    override fun onWrenched(state: BlockState?, context: UseOnContext?): InteractionResult? {
+        if (state == null || context == null) return InteractionResult.PASS
+
+        val level = context.level
+        val pos = context.clickedPos
+
+        // Toggle between EXTRACT and INSERT
+        val currentType = state.getValue(PORT_TYPE)
+        val newType = if (currentType == PortType.EXTRACT) PortType.INSERT else PortType.EXTRACT
+
+        level.setBlock(pos, state.setValue(PORT_TYPE, newType), 3)
+
+        return InteractionResult.SUCCESS
     }
 
     private fun updateNetwork(level: Level, pos: BlockPos, isAdding: Boolean) {
