@@ -1,0 +1,25 @@
+package de.devin.cbbees.content.bee.brain.behavior
+
+import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.ai.behavior.Behavior
+import net.minecraft.world.entity.schedule.Activity
+import kotlin.jvm.optionals.getOrNull
+
+class UpdateBeeStatusBehavior : Behavior<MechanicalBeeEntity>(mapOf()) {
+
+    override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
+        val brain = entity.brain
+
+        val hasTask = brain.hasMemoryValue(BeeMemoryModules.CURRENT_TASK.get())
+
+        when {
+            hasTask -> brain.setActiveActivityIfPossible(Activity.WORK)
+            else -> brain.setActiveActivityIfPossible(Activity.REST)
+        }
+
+        CreateBuzzyBeez.LOGGER.info("Bee status updated to ${brain.activeNonCoreActivity.getOrNull()}")
+    }
+}

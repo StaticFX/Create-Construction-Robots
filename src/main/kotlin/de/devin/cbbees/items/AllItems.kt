@@ -1,0 +1,128 @@
+package de.devin.cbbees.items
+
+import com.tterrag.registrate.util.entry.ItemEntry
+import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.backpack.PortableBeehiveItem
+import de.devin.cbbees.content.bee.MechanicalBeeItem
+import de.devin.cbbees.content.bee.MechanicalBeeTier
+import de.devin.cbbees.content.schematics.StingerPlannerItem
+import de.devin.cbbees.content.upgrades.*
+import net.minecraft.world.item.Rarity
+
+
+object AllItems {
+    fun register() {}
+
+    // Portable Beehive - wearable in Curios "back" slot
+    val PORTABLE_BEEHIVE: ItemEntry<PortableBeehiveItem> = CreateBuzzyBeez.REGISTRATE
+        .item("portable_beehive") { props ->
+            PortableBeehiveItem(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+    
+    // Mechanical Bees - goes in backpack robot slots (stackable, consumed on deploy)
+    val ANDESITE_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
+        .item("andesite_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.ANDESITE, props)
+        }
+        .properties {
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+              .rarity(Rarity.UNCOMMON)
+        }
+        .register()
+
+    val BRASS_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
+        .item("brass_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.BRASS, props)
+        }
+        .properties {
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+              .rarity(Rarity.UNCOMMON)
+        }
+        .register()
+
+    val STURDY_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
+        .item("sturdy_mechanical_bee") { props ->
+            MechanicalBeeItem(MechanicalBeeTier.STURDY, props)
+        }
+        .properties {
+            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+              .rarity(Rarity.UNCOMMON)
+        }
+        .register()
+
+    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
+    val STINGER_PLANNER: ItemEntry<StingerPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("stinger_planner") { props ->
+            StingerPlannerItem(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+    
+    // ===== Backpack Upgrades =====
+    
+    // Rapid Wings - +25% bee speed (max 4)
+    val RAPID_WINGS: ItemEntry<RapidWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("rapid_wings") { props ->
+            RapidWingsUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+    
+    // Swarm Intelligence - +2 concurrent bees (max 3)
+    val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("swarm_intelligence") { props ->
+            SwarmIntelligenceUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+    
+    // Pollen Link - connect to nearby storage
+    val POLLEN_LINK: ItemEntry<PollenLinkUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("pollen_link") { props ->
+            PollenLinkUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Long-Range Scout - +16 blocks work radius
+    val LONG_RANGE_SCOUT: ItemEntry<LongRangeScoutUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("long_range_scout") { props ->
+            LongRangeScoutUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Honey Efficiency - Higher capacity and break speed
+    val HONEY_EFFICIENCY: ItemEntry<HoneyEfficiencyUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("honey_efficiency") { props ->
+            HoneyEfficiencyUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Stinger Precision - Bees can place redstone/rails correctly
+    val STINGER_PRECISION: ItemEntry<StingerPrecisionUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("stinger_precision") { props ->
+            StingerPrecisionUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Soft Touch - Deconstruction preserves blocks
+    val SOFT_TOUCH: ItemEntry<SoftTouchUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("soft_touch") { props ->
+            SoftTouchUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Gathering Wings - Bees pick up broken blocks
+    val GATHERING_WINGS: ItemEntry<GatheringWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("gathering_wings") { props ->
+            GatheringWingsUpgrade(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+}

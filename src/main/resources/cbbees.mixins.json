@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.devin.cbbees.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cbbees.refmap.json",
+  "mixins": [
+  ],
+  "client": [
+    "SchematicEditScreenMixin",
+    "SchematicHandlerHudMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
