@@ -7,6 +7,9 @@ import net.minecraft.world.item.ItemStack
 import java.util.*
 
 class BeeNetwork(val id: UUID = UUID.randomUUID()) {
+    val name: String = id.toString().substring(0, 4).uppercase()
+    val color: Int = (id.hashCode() and 0x7F7F7F) or 0x808080
+
     val hives = mutableSetOf<BeeHive>()
     val ports = mutableSetOf<LogisticsPort>()
 
@@ -24,6 +27,7 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
         return ports.filter { it.isValidForPickup() && it.hasItemStack(stack) }
+            .sortedByDescending { it.priority() }
             .minByOrNull { port ->
                 // We could use distance to some reference point, 
                 // but usually we want to find the best port in the whole network.

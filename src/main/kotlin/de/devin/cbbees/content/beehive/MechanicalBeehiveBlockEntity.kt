@@ -2,9 +2,11 @@ package de.devin.cbbees.content.beehive
 
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -67,18 +69,16 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun setLevel(level: Level) {
         super.setLevel(level)
-        if (!level.isClientSide && !registeredAsSource) {
-            GlobalJobPool.registerWorker(this)
+        if (!registeredAsSource) {
+            BeeNetworkManager.registerWorker(this)
             registeredAsSource = true
         }
     }
 
     override fun destroy() {
-        if (!getLevel()!!.isClientSide) {
-            if (registeredAsSource) {
-                GlobalJobPool.unregisterWorker(this)
-                registeredAsSource = false
-            }
+        if (registeredAsSource) {
+            BeeNetworkManager.unregisterWorker(this)
+            registeredAsSource = false
         }
         super.destroy()
     }
@@ -87,7 +87,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
             this.tier = tier
             setPos(Vec3.atCenterOf(blockPos.above()))
-            this.network = GlobalJobPool.getNetworkAt(level!!, blockPos)
+            this.networkId = BeeNetworkManager.getNetworkAt(level!!, blockPos)?.id
         }
 
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
@@ -142,9 +142,24 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return blockPos
     }
 
+    var networkId: UUID? = null
+        set(value) {
+            val old = field
+            field = value
+            if (level?.isClientSide == true && old != value) {
+                BeeNetworkManager.registerWorker(this)
+            }
+        }
+
+    override fun onSpeedChanged(previousSpeed: Float) {
+        super.onSpeedChanged(previousSpeed)
+        BeeNetworkManager.registerWorker(this)
+    }
+
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("HomeId", homeId)
+        networkId?.let { tag.putUUID("NetworkId", it) }
         tag.putInt("ActiveBeeCount", activeBees.size)
         tag.put("BeeInv", beeInventory.serializeNBT(registries))
         tag.put("UpgradeInv", upgradeInventory.serializeNBT(registries))
@@ -162,6 +177,9 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         super.read(tag, registries, clientPacket)
         if (tag.hasUUID("HomeId")) {
             homeId = tag.getUUID("HomeId")
+        }
+        if (tag.hasUUID("NetworkId")) {
+            networkId = tag.getUUID("NetworkId")
         }
         beeInventory.deserializeNBT(registries, tag.getCompound("BeeInv"))
         upgradeInventory.deserializeNBT(registries, tag.getCompound("UpgradeInv"))
@@ -241,28 +259,40 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         // Show kinetic stats (speed, stress) from KineticBlockEntity
         super<KineticBlockEntity>.addToGoggleTooltip(tooltip, isPlayerSneaking)
 
-        Lang.builder("ccr").translate("gui.goggles.beehive_stats")
+        Lang.builder("cbbees").translate("gui.goggles.beehive_stats")
             .forGoggles(tooltip)
 
+        // Network Info
+        networkId?.let { id ->
+            BeeNetworkManager.getNetwork(id)?.let { net ->
+                Lang.builder("cbbees").translate("gui.goggles.beehive.network")
+                    .style(ChatFormatting.GRAY)
+                    .add(Lang.builder("cbbees").text(net.name).style(ChatFormatting.GOLD))
+                    .forGoggles(tooltip, 1)
+            }
+        }
+
         // Flying Bees
-        Lang.builder("ccr").translate("gui.goggles.beehive.flying")
+        Lang.builder("cbbees").translate("gui.goggles.beehive.flying")
             .style(ChatFormatting.GRAY)
-            .add(Lang.builder("ccr").text(ChatFormatting.GOLD, LangNumberFormat.format(activeBees.count().toDouble())))
+            .add(
+                Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(activeBees.count().toDouble()))
+            )
             .forGoggles(tooltip, 1)
 
         // Stored Bees
         val storedBees = (0 until beeInventory.slots).sumOf { beeInventory.getStackInSlot(it).count }
-        Lang.builder("ccr").translate("gui.goggles.beehive.stored")
+        Lang.builder("cbbees").translate("gui.goggles.beehive.stored")
             .style(ChatFormatting.GRAY)
-            .add(Lang.builder("ccr").text(ChatFormatting.GOLD, LangNumberFormat.format(storedBees.toDouble())))
+            .add(Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(storedBees.toDouble())))
             .forGoggles(tooltip, 1)
 
         // Capacity
         val context = getBeeContext()
-        Lang.builder("ccr").translate("gui.goggles.beehive.capacity")
+        Lang.builder("cbbees").translate("gui.goggles.beehive.capacity")
             .style(ChatFormatting.GRAY)
             .add(
-                Lang.builder("ccr")
+                Lang.builder("cbbees")
                     .text(ChatFormatting.GOLD, LangNumberFormat.format(context.maxActiveRobots.toDouble()))
             )
             .forGoggles(tooltip, 1)

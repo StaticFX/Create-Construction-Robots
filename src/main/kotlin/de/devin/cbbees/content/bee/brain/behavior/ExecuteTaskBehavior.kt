@@ -19,6 +19,12 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val task = batch.getCurrentTask() ?: return false
 
+        // Check if task is within the bee's current network range
+        val network = owner.getNetwork()
+        if (network != null && !network.isInRange(task.targetPos)) {
+            return false
+        }
+
         val workRange = owner.tier.capabilities.workRange
 
         return owner.blockPosition().closerThan(task.targetPos, workRange)

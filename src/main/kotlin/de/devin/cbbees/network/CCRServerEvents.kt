@@ -1,6 +1,7 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.neoforged.bus.api.SubscribeEvent
@@ -57,6 +58,6 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
-        GlobalJobPool.unregisterWorker(event.entity.uuid)
+        BeeNetworkManager.unregisterWorker(event.entity.uuid)
     }
 }

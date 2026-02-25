@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.events
 
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.PlayerTickEvent
@@ -14,7 +15,7 @@ class PlayerTickEvent {
         val player = event.entity
         if (player.level().isClientSide || player.tickCount % 40 != 0) return
 
-        val pool = GlobalJobPool
+        val pool = BeeNetworkManager
 
         val hasPortableHive = player.inventory.items.any { it.item is PortableBeehiveItem } ||
                 CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }.isPresent

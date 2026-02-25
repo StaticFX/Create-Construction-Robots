@@ -3,6 +3,8 @@ package de.devin.cbbees.content.bee
 import com.mojang.serialization.Dynamic
 import de.devin.cbbees.content.bee.brain.BeeBrainProvider
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.bee.BeeInventoryManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -84,7 +86,12 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     val inventoryManager = BeeInventoryManager(this)
 
-    var network: BeeNetwork? = null
+    var networkId: UUID? = null
+
+    fun getNetwork(): BeeNetwork? {
+        val id = networkId ?: beehive()?.let { BeeNetworkManager.getNetworkFor(it) }?.id ?: return null
+        return BeeNetworkManager.getNetwork(id)
+    }
 
     init {
         this.moveControl = FlyingMoveControl(this, 20, true)
@@ -196,6 +203,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         super.addAdditionalSaveData(compound)
         getOwnerUUID()?.let { compound.putUUID("Owner", it) }
         entityData.get(BEEHIVE_ID).ifPresent { compound.putUUID("HomeId", it) }
+        networkId?.let { compound.putUUID("NetworkId", it) }
         compound.putString("Tier", tier.name)
     }
 
@@ -207,6 +215,9 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (compound.hasUUID("HomeId")) {
             //TODO receive beehive instance from global registry and add it here to bee
             entityData.set(BEEHIVE_ID, Optional.of(compound.getUUID("HomeId")))
+        }
+        if (compound.hasUUID("NetworkId")) {
+            networkId = compound.getUUID("NetworkId")
         }
         if (compound.contains("Tier")) {
             tier = MechanicalBeeTier.valueOf(compound.getString("Tier"))

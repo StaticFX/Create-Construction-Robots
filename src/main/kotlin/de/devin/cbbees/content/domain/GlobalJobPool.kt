@@ -1,9 +1,11 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -20,146 +22,15 @@ import java.util.UUID
  *
  */
 object GlobalJobPool : SavedData() {
-    private val networks = mutableListOf<BeeNetwork>()
-    private val allPorts = mutableSetOf<LogisticsPort>()
     private val jobBacklog = mutableListOf<BeeJob>()
 
-    val workers: Set<BeeHive> get() = networks.flatMap { it.hives }.toSet()
+    val workers: Set<BeeHive> get() = BeeNetworkManager.workers
 
     fun getAllJobs(): List<BeeJob> = jobBacklog
 
-    fun registerWorker(worker: BeeHive) {
-        // 1. Find all networks that overlap with this hive's range
-        val overlappingNetworks = networks.filter { network ->
-            network.hives.any { existingHive ->
-                areHivesConnected(worker, existingHive)
-            }
-        }
-
-        if (overlappingNetworks.isEmpty()) {
-            val newNetwork = BeeNetwork()
-            newNetwork.addHive(worker)
-            networks.add(newNetwork)
-        } else {
-            val primaryNetwork = overlappingNetworks.first()
-            primaryNetwork.addHive(worker)
-
-            // Merge other overlapping networks into the primary one
-            if (overlappingNetworks.size > 1) {
-                for (i in 1 until overlappingNetworks.size) {
-                    val other = overlappingNetworks[i]
-                    primaryNetwork.hives.addAll(other.hives)
-                    primaryNetwork.ports.addAll(other.ports)
-                    networks.remove(other)
-                }
-            }
-        }
-
-        updatePortsForNetworks()
-        this.setDirty()
-    }
-
-    fun unregisterWorker(worker: BeeHive) {
-        unregisterWorker(worker.sourceId)
-    }
-
-    fun unregisterWorker(sourceId: UUID) {
-        for (network in networks.toList()) {
-            network.hives.removeIf { it.sourceId == sourceId }
-            if (network.hives.isEmpty()) {
-                networks.remove(network)
-            }
-        }
-        // After removing a hive, networks might need to be split.
-        // For simplicity, we could re-calculate all networks, 
-        // but that might be expensive if done frequently.
-        // For now, let's just re-calculate.
-        recalculateNetworks()
-        this.setDirty()
-    }
-
-    private fun recalculateNetworks() {
-        val hives = networks.flatMap { it.hives }.toList()
-
-        networks.clear()
-
-        val unassignedHives = hives.toMutableList()
-
-        while (unassignedHives.isNotEmpty()) {
-            val startHive = unassignedHives.removeAt(0)
-            val network = BeeNetwork()
-            network.addHive(startHive)
-            networks.add(network)
-
-            val toProcess = mutableListOf(startHive)
-            while (toProcess.isNotEmpty()) {
-                val current = toProcess.removeAt(0)
-                val neighbors = unassignedHives.filter { areHivesConnected(current, it) }
-                for (neighbor in neighbors) {
-                    network.addHive(neighbor)
-                    unassignedHives.remove(neighbor)
-                    toProcess.add(neighbor)
-                }
-            }
-        }
-
-        updatePortsForNetworks()
-    }
-
-    fun registerPort(port: LogisticsPort) {
-        allPorts.add(port)
-        updatePortsForNetworks()
-        this.setDirty()
-    }
-
-    fun unregisterPort(port: LogisticsPort) {
-        allPorts.remove(port)
-        for (network in networks) {
-            network.removePort(port)
-        }
-        this.setDirty()
-    }
-
-    private fun updatePortsForNetworks() {
-        for (network in networks) {
-            network.ports.clear()
-            for (port in allPorts) {
-                if (port.sourceWorld == network.hives.firstOrNull()?.sourceWorld &&
-                    network.isInLogisticsRange(port.sourcePosition)
-                ) {
-                    network.addPort(port)
-                }
-            }
-        }
-    }
-
-    private fun areHivesConnected(h1: BeeHive, h2: BeeHive): Boolean {
-        if (h1.sourceWorld != h2.sourceWorld) return false
-        val distSq = h1.sourcePosition.distSqr(h2.sourcePosition)
-        val range1 = h1.getWorkRange()
-        val range2 = h2.getWorkRange()
-        val combinedRange = range1 + range2
-        return distSq <= combinedRange * combinedRange
-    }
-
-    fun getNetworkAt(level: Level, pos: BlockPos): BeeNetwork? {
-        return networks.find { it.hives.firstOrNull()?.sourceWorld == level && it.isInRange(pos) }
-    }
-
-    fun findProviderFor(level: Level, stack: ItemStack, startPos: BlockPos): LogisticsPort? {
-        val network = getNetworkAt(level, startPos)
-        if (network != null) {
-            return network.findProvider(stack)
-        }
-
-        // Fallback to searching all ports if not in a network (though usually it should be)
-        return allPorts.filter { it.sourceWorld == level && it.isValidForPickup() && it.hasItemStack(stack) }
-            .minByOrNull { it.sourcePosition.distSqr(startPos) }
-    }
-
     @Synchronized
     fun workBacklog(beeHive: BeeHive): TaskBatch? {
-        val network = networks.find { it.hives.contains(beeHive) } ?: return null
+        val network = BeeNetworkManager.getNetworkFor(beeHive) ?: return null
 
         val job = jobBacklog.filter { network.isInRange(it.centerPos) }
             .sortedBy { it.centerPos.distSqr(beeHive.sourcePosition) }
@@ -167,13 +38,16 @@ object GlobalJobPool : SavedData() {
 
         val task = job.getNextTask() ?: return null
 
+        // Verification: double check task is in range (already filtered by job center but good to be sure)
+        if (!network.isInRange(task.targetPos)) return null
+
         task.status = TaskStatus.PICKED
         return TaskBatch(listOf(task), job)
     }
 
     @Synchronized
     fun dispatchNewJob(job: BeeJob) {
-        val availableNetworks = networks.filter { network ->
+        val availableNetworks = BeeNetworkManager.getNetworks().filter { network ->
             network.hives.firstOrNull()?.sourceWorld == job.level &&
                     network.isInRange(job.centerPos)
         }.sortedBy { network ->
@@ -181,15 +55,15 @@ object GlobalJobPool : SavedData() {
             network.hives.minOf { it.sourcePosition.distSqr(job.centerPos) }
         }
 
-        if (availableNetworks.isEmpty()) {
-            jobBacklog.add(job)
-            return
-        }
-
         val tasksToDistribute = job.tasks
             .filter { it.status == TaskStatus.PENDING }
             .sortedByDescending { it.priority }
             .toMutableList()
+
+        if (availableNetworks.isEmpty()) {
+            if (!jobBacklog.contains(job)) jobBacklog.add(job)
+            return
+        }
 
         for (network in availableNetworks) {
             if (tasksToDistribute.isEmpty()) break
@@ -206,6 +80,15 @@ object GlobalJobPool : SavedData() {
 
                 while (contributedThisLoop < capacity && tasksToDistribute.isNotEmpty()) {
                     val task = tasksToDistribute.first()
+
+                    // Only assign if task is within network range
+                    if (!network.isInRange(task.targetPos)) {
+                        // This task cannot be done by this network, move to next task
+                        // (Usually job.centerPos being in range means tasks should be too, 
+                        // but individual tasks might be outside if the job covers a large area)
+                        tasksToDistribute.removeAt(0)
+                        continue
+                    }
 
                     task.status = TaskStatus.PICKED
                     val batch = TaskBatch(listOf(task), job)

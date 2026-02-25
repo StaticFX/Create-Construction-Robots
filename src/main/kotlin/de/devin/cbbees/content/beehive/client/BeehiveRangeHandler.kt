@@ -3,6 +3,8 @@ package de.devin.cbbees.content.beehive.client
 import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
+import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
 import net.minecraft.world.phys.AABB
@@ -36,11 +38,27 @@ object BeehiveRangeHandler {
     }
 
     private fun renderRange(be: MechanicalBeehiveBlockEntity) {
-        // Get the maximum range from instructions
-        val maxRange = be.getWorkRange()
-        if (maxRange <= 0) return
+        val networkId = be.networkId
+        if (networkId == null) {
+            renderSingleHiveRange(be)
+        } else {
+            val network = BeeNetworkManager.getNetwork(networkId)
+            if (network == null) {
+                renderSingleHiveRange(be)
+            } else {
+                network.hives.forEachIndexed { index, hive ->
+                    renderHiveRange(hive.sourcePosition, hive.getWorkRange(), "network_$index", network.color)
+                }
+            }
+        }
+    }
 
-        val center = be.blockPos
+    private fun renderSingleHiveRange(be: MechanicalBeehiveBlockEntity) {
+        renderHiveRange(be.blockPos, be.getWorkRange(), outlineSlot, RANGE_COLOR)
+    }
+
+    private fun renderHiveRange(center: net.minecraft.core.BlockPos, maxRange: Double, slot: Any, color: Int) {
+        if (maxRange <= 0) return
 
         // Render on a 2D plane as requested
         // We create a very thin box at the bottom of the beehive
@@ -54,8 +72,8 @@ object BeehiveRangeHandler {
         )
 
         Outliner.getInstance()
-            .chaseAABB(outlineSlot, box)
-            .colored(RANGE_COLOR)
+            .chaseAABB(slot, box)
+            .colored(color)
             .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
             .lineWidth(1 / 16f)
     }

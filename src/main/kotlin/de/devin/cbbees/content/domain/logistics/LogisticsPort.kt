@@ -3,6 +3,7 @@ package de.devin.cbbees.content.domain.logistics
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortMode
+import de.devin.cbbees.content.logistics.ports.PortType
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
@@ -26,7 +27,7 @@ interface LogisticsPort {
     /** * Is this port providing items to the network,
      * or looking to receive them?
      */
-    fun getMode(): LogisticsPortMode
+    fun getPortType(): PortType
 
     /** * The specific item filterStack set in the ValueBox.
      * Return ItemStack.EMPTY if no filterStack is set.
@@ -36,6 +37,12 @@ interface LogisticsPort {
     fun isValidForPickup(): Boolean
 
     fun isValidForDropOff(): Boolean
+
+    /**
+     * Priority of this port.
+     * Higher is more important.
+     */
+    fun priority(): Int
 
     /**
      * Access to the inventory attached to the port.

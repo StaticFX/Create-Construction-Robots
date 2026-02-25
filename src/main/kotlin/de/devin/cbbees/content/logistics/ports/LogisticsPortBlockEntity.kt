@@ -1,13 +1,16 @@
 package de.devin.cbbees.content.logistics.ports
 
+import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
-import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
+import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
+import net.createmod.catnip.lang.Lang
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -23,10 +26,11 @@ import net.neoforged.neoforge.items.ItemHandlerHelper
 import java.util.*
 
 class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) :
-    SmartBlockEntity(type, pos, state), LogisticsPort {
+    SmartBlockEntity(type, pos, state), LogisticsPort, IHaveGoggleInformation {
 
     lateinit var filteringBehavior: FilteringBehaviour
-    lateinit var scrollOptionBehavior: ScrollOptionBehaviour<LogisticsPortMode>
+
+    lateinit var priorityBehavior: ScrollValueBehaviour
 
     override val sourceId: UUID get() = homeId
     override val sourceWorld: Level get() = getLevel()!!
@@ -36,7 +40,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     private val homeId = UUID.randomUUID()
 
     var filterStack: ItemStack = ItemStack.EMPTY
-    var selectionMode = LogisticsPortMode.PICK_UP
+    var priority = 0
 
     // This is what the bees will call
     fun getInventory(level: Level): IItemHandler? {
@@ -47,15 +51,17 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         filteringBehavior = FilteringBehaviour(this, LogisticsPortFilterValueBox()).withCallback { onFilterChanged() }
-        scrollOptionBehavior = ScrollOptionBehaviour(
-            LogisticsPortMode::class.java,
-            Component.translatable("gui.cbbees.logistics.port_mode.title"),
+        priorityBehavior = ScrollValueBehaviour(
+            Component.translatable("gui.cbbees.logistics.priority.title"),
             this,
             LogisticsPortSelectionValueBox()
         )
-        scrollOptionBehavior.withCallback { selectionMode = LogisticsPortMode.entries[it] }
+            .between(0, 256)
+            .withCallback {
+                priority = it
+            }
 
-        behaviours.add(scrollOptionBehavior)
+        behaviours.add(priorityBehavior)
         behaviours.add(filteringBehavior)
     }
 
@@ -68,16 +74,18 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     override fun setLevel(level: Level) {
         super.setLevel(level)
-        if (!level.isClientSide && !registeredAsSource) {
-            GlobalJobPool.registerPort(this)
+        if (!registeredAsSource) {
+            BeeNetworkManager.registerPort(this)
             registeredAsSource = true
         }
     }
 
+    override fun priority(): Int = priority
+
     override fun destroy() {
         super.destroy()
-        if (!level?.isClientSide!! && registeredAsSource) {
-            GlobalJobPool.unregisterPort(this)
+        if (registeredAsSource) {
+            BeeNetworkManager.unregisterPort(this)
             registeredAsSource = false
         }
     }
@@ -85,10 +93,6 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
         super.loadAdditional(tag, registries)
-    }
-
-    override fun getMode(): LogisticsPortMode {
-        return scrollOptionBehavior.get()
     }
 
     override fun getFilter(): ItemStack {
@@ -99,16 +103,20 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         return getInventory(level)
     }
 
+    override fun getPortType(): PortType = portType()
+
     override fun isValidForDropOff(): Boolean {
-        if (selectionMode != LogisticsPortMode.DROP_OFF) return false
+        if (portType() != PortType.INSERT) return false
         if (portState() == PortState.INVALID) return false
         return true
     }
 
     private fun portState() = blockState.getValue(PORT_STATE)
 
+    private fun portType() = blockState.getValue(LogisticPortBlock.PORT_TYPE)
+
     override fun isValidForPickup(): Boolean {
-        if (selectionMode == LogisticsPortMode.DROP_OFF) return false
+        if (portType() == PortType.EXTRACT) return false
         if (portState() == PortState.INVALID) return false
         return true
     }
@@ -168,5 +176,16 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         // 2. Finding empty slots.
         // 3. Returning the "remainder" that didn't fit.
         return ItemHandlerHelper.insertItemStacked(handler, stack, false)
+    }
+
+    override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
+        val network = BeeNetworkManager.getNetworks().find { it.ports.contains(this) }
+        if (network != null) {
+            Lang.builder("cbbees").translate("gui.goggles.beehive.network")
+                .style(ChatFormatting.GRAY)
+                .add(Lang.builder("cbbees").text(network.name).style(ChatFormatting.GOLD))
+                .forGoggles(tooltip)
+        }
+        return true
     }
 }

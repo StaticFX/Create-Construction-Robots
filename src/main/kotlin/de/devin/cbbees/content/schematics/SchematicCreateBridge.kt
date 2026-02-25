@@ -5,6 +5,7 @@ import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.action.impl.PickupItemAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -117,7 +118,7 @@ class SchematicCreateBridge(
 
                     // Check if we need to pick up items
                     if (items.isNotEmpty()) {
-                        val port = GlobalJobPool.findProviderFor(level, items[0], pos)
+                        val port = BeeNetworkManager.findProviderFor(level, items[0], pos)
                         if (port != null) {
                             val pickupAction = PickupItemAction(port.sourcePosition, items)
                             tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))

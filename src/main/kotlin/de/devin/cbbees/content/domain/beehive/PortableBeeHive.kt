@@ -6,6 +6,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.MechanicalBeeTier
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.BeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -49,7 +50,7 @@ class PortableBeeHive(val player: Player) : BeeHive {
             this.tier = tier
             setOwner(player.uuid)
             setPos(player.position().add(0.0, 1.0, 0.0))
-            this.network = GlobalJobPool.getNetworkAt(player.level(), player.blockPosition())
+            this.networkId = BeeNetworkManager.getNetworkAt(player.level(), player.blockPosition())?.id
         }
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())

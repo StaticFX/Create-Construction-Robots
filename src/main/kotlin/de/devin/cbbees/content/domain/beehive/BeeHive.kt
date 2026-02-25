@@ -68,12 +68,10 @@ interface BeeHive {
      * Checks if a position is within the work range of this source.
      */
     fun isInRange(pos: BlockPos): Boolean {
-        val dx = pos.x - sourcePosition.x
-        val dy = pos.y - sourcePosition.y
-        val dz = pos.z - sourcePosition.z
-        val distSq = dx * dx + dy * dy + dz * dz
-        val range = getWorkRange()
-        return distSq <= range * range
+        val dx = Math.abs(pos.x - sourcePosition.x)
+        val dz = Math.abs(pos.z - sourcePosition.z)
+        val range = getWorkRange().toInt()
+        return dx <= range && dz <= range
     }
 
     /**

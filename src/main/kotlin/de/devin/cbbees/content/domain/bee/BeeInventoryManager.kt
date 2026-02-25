@@ -85,7 +85,7 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
         sources.add(PlayerMaterialSource(ownerPlayer))
 
         // 2. Network inventory
-        robot.network?.let {
+        robot.getNetwork()?.let {
             sources.add(NetworkMaterialSource(it, robot.level()))
         }
 
