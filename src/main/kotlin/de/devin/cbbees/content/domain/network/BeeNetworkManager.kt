@@ -3,6 +3,8 @@ package de.devin.cbbees.content.domain.network
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
+import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
+import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -14,6 +16,13 @@ import de.devin.cbbees.util.ClientSide
 object ServerBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
     private var isScanning = false
+
+    /** Topology used for creating new networks on the server. */
+    private var topology: NetworkTopology = DefaultAnchorTopology
+
+    fun setTopology(topology: NetworkTopology) {
+        this.topology = topology
+    }
 
     fun getNetworks(): List<BeeNetwork> = networks
 
@@ -44,7 +53,7 @@ object ServerBeeNetworkManager {
         val targetNetwork: BeeNetwork
 
         if (nearbyNetworks.isEmpty()) {
-            targetNetwork = BeeNetwork(component.networkId)
+            targetNetwork = BeeNetwork(component.networkId, topology)
             networks.add(targetNetwork)
             CreateBuzzyBeez.LOGGER.info("Created new network with ${component.javaClass.simpleName} id: ${component.networkId}")
         } else {

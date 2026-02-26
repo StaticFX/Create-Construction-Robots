@@ -25,6 +25,8 @@ import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.registry.AllKeys
 import de.devin.cbbees.registry.AllMenuTypes
 import de.devin.cbbees.tabs.AllCreativeModeTabs
+import net.neoforged.neoforge.capabilities.Capabilities
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.resources.ResourceLocation
@@ -90,6 +92,19 @@ object CreateBuzzyBeez {
 
         MOD_BUS.addListener<GatherDataEvent> { CCRDatagen.gatherData(it) }
         MOD_BUS.addListener<FMLCommonSetupEvent> { onCommonSetup(it) }
+
+        MOD_BUS.addListener<RegisterCapabilitiesEvent> { event ->
+            event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                AllBlockEntityTypes.MECHANICAL_BEEHIVE.get(),
+                { be, side -> be.inventory }
+            )
+            event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                AllBlockEntityTypes.LOGISTICS_PORT.get(),
+                { be, side -> be.getItemHandler(be.world) }
+            )
+        }
 
         // Register server-side event handlers on the NeoForge event bus
         NeoForge.EVENT_BUS.register(CCRServerEvents::class.java)

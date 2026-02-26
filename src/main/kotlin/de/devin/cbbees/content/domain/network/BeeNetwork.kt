@@ -2,14 +2,17 @@ package de.devin.cbbees.content.domain.network
 
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
-import de.devin.cbbees.content.domain.task.BeeTask
+import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
+import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import java.util.*
-import kotlin.math.abs
 
-class BeeNetwork(val id: UUID = UUID.randomUUID()) {
+class BeeNetwork(
+    val id: UUID = UUID.randomUUID(),
+    private val topology: NetworkTopology = DefaultAnchorTopology
+) {
     val name: String = id.toString().substring(0, 4).uppercase()
     val color: Int = (id.hashCode() and 0x7F7F7F) or 0x808080
 
@@ -21,14 +24,17 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
     val ports: List<LogisticsPort> get() = components.filterIsInstance<LogisticsPort>()
 
     /**
-     * The aggregate range of all hives in this network.
+     * The aggregate operational range of all anchors in this network.
      */
-    fun isInRange(pos: BlockPos): Boolean = components.any { it.isAnchor() && it.isInWorkRange(pos) }
+    fun isInRange(pos: BlockPos): Boolean =
+        components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
 
     /**
-     * Checks if any hive in the network covers this position for logistics.
+     * Checks if any anchor is within networking range for logistics attachment.
+     * Uses topology to allow custom reconnection semantics (e.g., min radius when unpowered).
      */
-    fun isInLogisticsRange(pos: BlockPos): Boolean = components.any { it.isAnchor() && it.isInWorkRange(pos) }
+    fun isInLogisticsRange(pos: BlockPos): Boolean =
+        components.any { c -> topology.isAnchor(c) && topology.isLogisticsRange(c, pos) }
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
         return ports.filter { it.isValidForPickup() && it.hasItemStack(stack) }
@@ -43,7 +49,7 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
     }
 
     fun dispatchBatch(batch: TaskBatch) {
-        val hive = hives.firstOrNull { it.isInWorkRange(batch.targetPosition) } ?: return
+        val hive = hives.firstOrNull { topology.isOperationalRange(it, batch.targetPosition) } ?: return
         hive.acceptBatch(batch)
     }
 
@@ -52,27 +58,20 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
         val firstComp = components.first()
         if (component.world != firstComp.world) return false
 
-        // If component is an anchor, check if it connects to any existing anchor
-        if (component.isAnchor()) {
-            // Special case: if there are no anchors in the network yet, it can connect if it's the first anchor
-            if (hives.isEmpty()) return true
-
-            return components.any { other ->
-                other.isAnchor() && areComponentsConnected(component, other)
-            }
+        val isAnchor = topology.isAnchor(component)
+        if (isAnchor) {
+            // No anchors yet? Accept the first one regardless
+            if (components.none { topology.isAnchor(it) }) return true
+            // Connect to any existing anchor via topology rule
+            return components.any { other -> topology.isAnchor(other) && topology.canConnectAnchors(component, other) }
         }
 
-        // If component is a port, check if it's within range of any anchor
-        // If there are no anchors, ports can only connect if we explicitly allow it during load (handled in manager)
+        // Non-anchors (e.g. logistics ports) must be within logistics range of any anchor
         return isInLogisticsRange(component.pos)
     }
 
-    private fun areComponentsConnected(c1: INetworkComponent, c2: INetworkComponent): Boolean {
-        val dx = abs(c1.pos.x - c2.pos.x)
-        val dz = abs(c1.pos.z - c2.pos.z)
-        val combinedRange = c1.getNetworkingRange() + c2.getNetworkingRange()
-        return dx <= combinedRange && dz <= combinedRange
-    }
+    private fun anchorsConnected(c1: INetworkComponent, c2: INetworkComponent): Boolean =
+        topology.canConnectAnchors(c1, c2)
 
     fun addComponent(component: INetworkComponent) {
         if (components.add(component)) {
@@ -95,7 +94,7 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
      * Performs a graph traversal to detect if the network has split.
      */
     fun split(): List<BeeNetwork> {
-        val anchors = components.filter { it.isAnchor() }.toMutableList()
+        val anchors = components.filter { topology.isAnchor(it) }.toMutableList()
         if (anchors.isEmpty()) return emptyList()
 
         val newNetworks = mutableListOf<BeeNetwork>()
@@ -107,7 +106,7 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
 
             while (toProcess.isNotEmpty()) {
                 val current = toProcess.removeAt(0)
-                val neighbors = anchors.filter { areComponentsConnected(current, it) }
+                val neighbors = anchors.filter { anchorsConnected(current, it) }
                 for (neighbor in neighbors) {
                     group.add(neighbor)
                     anchors.remove(neighbor)
@@ -116,14 +115,14 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
             }
 
             // If this group is the whole network (and it's the first group), no split happened
-            if (newNetworks.isEmpty() && group.size == components.count { it.isAnchor() }) {
-                // We still need to re-assign ports to this group
-                val ports = components.filter { !it.isAnchor() }
-                for (port in ports) {
-                    if (!group.any { it.isInWorkRange(port.pos) }) {
-                        components.remove(port)
-                        port.networkId = UUID.randomUUID()
-                        port.sync()
+            if (newNetworks.isEmpty() && group.size == components.count { topology.isAnchor(it) }) {
+                // We still need to re-assign non-anchors to this group
+                val nonAnchors = components.filter { !topology.isAnchor(it) }
+                for (c in nonAnchors) {
+                    if (!group.any { topology.isOperationalRange(it, c.pos) }) {
+                        components.remove(c)
+                        c.networkId = UUID.randomUUID()
+                        c.sync()
                     }
                 }
                 // For simplicity, we'll let the Manager handle full recalculation if any split is detected
@@ -134,11 +133,11 @@ class BeeNetwork(val id: UUID = UUID.randomUUID()) {
             newNetwork.components.clear()
             group.forEach { newNetwork.addComponent(it) }
 
-            // Re-assign ports that are in range of this new group
-            val remainingPorts = components.filter { !it.isAnchor() && !newNetwork.components.contains(it) }
-            for (port in remainingPorts) {
-                if (group.any { it.isInWorkRange(port.pos) }) {
-                    newNetwork.addComponent(port)
+            // Re-assign non-anchors that are in range of this new group
+            val remaining = components.filter { !topology.isAnchor(it) && !newNetwork.components.contains(it) }
+            for (c in remaining) {
+                if (group.any { topology.isOperationalRange(it, c.pos) }) {
+                    newNetwork.addComponent(c)
                 }
             }
 
