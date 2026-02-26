@@ -4,7 +4,8 @@ import com.mojang.serialization.Dynamic
 import de.devin.cbbees.content.bee.brain.BeeBrainProvider
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.bee.BeeInventoryManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -86,11 +87,14 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     val inventoryManager = BeeInventoryManager(this)
 
-    var networkId: UUID? = null
+    var networkId: UUID = UUID.randomUUID()
 
-    fun getNetwork(): BeeNetwork? {
-        val id = networkId ?: beehive()?.let { BeeNetworkManager.getNetworkFor(it) }?.id ?: return null
-        return BeeNetworkManager.getNetwork(id)
+    fun network(): BeeNetwork? {
+        return if (level().isClientSide) {
+            ClientBeeNetworkManager.getNetwork(networkId)
+        } else {
+            ServerBeeNetworkManager.getNetwork(networkId, level()) ?: beehive()?.network()
+        }
     }
 
     init {
@@ -170,7 +174,18 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     fun beehive(): BeeHive? {
-        return this.getBrain().getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).getOrNull()
+        val brain = this.getBrain()
+        val fromMemory = brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).getOrNull()
+        if (fromMemory != null) return fromMemory
+
+        if (level().isClientSide) return null
+
+        val hiveId = this.entityData.get(BEEHIVE_ID).getOrNull() ?: return null
+        val hive = ServerBeeNetworkManager.findHive(hiveId)
+        if (hive != null) {
+            brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(hive))
+        }
+        return hive
     }
 
     override fun remove(reason: RemovalReason) {
@@ -203,7 +218,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         super.addAdditionalSaveData(compound)
         getOwnerUUID()?.let { compound.putUUID("Owner", it) }
         entityData.get(BEEHIVE_ID).ifPresent { compound.putUUID("HomeId", it) }
-        networkId?.let { compound.putUUID("NetworkId", it) }
+        compound.putUUID("NetworkId", networkId)
         compound.putString("Tier", tier.name)
     }
 

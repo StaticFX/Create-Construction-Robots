@@ -6,7 +6,9 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
 import net.createmod.catnip.lang.Lang
@@ -32,12 +34,17 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     lateinit var priorityBehavior: ScrollValueBehaviour
 
-    override val sourceId: UUID get() = homeId
-    override val sourceWorld: Level get() = getLevel()!!
-    override val sourcePosition: BlockPos get() = blockPos
+    override var id: UUID = UUID.randomUUID()
+    override val world: Level get() = getLevel()!!
+    override val pos: BlockPos get() = blockPos
 
-    private var registeredAsSource = false
-    private val homeId = UUID.randomUUID()
+    override var networkId: UUID = UUID.randomUUID()
+        set(value) {
+            if (field == value) return
+            val old = field
+            field = value
+            onNetworkIdChanged(old, value)
+        }
 
     var filterStack: ItemStack = ItemStack.EMPTY
     var priority = 0
@@ -72,27 +79,45 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         }
     }
 
-    override fun setLevel(level: Level) {
-        super.setLevel(level)
-        if (!registeredAsSource) {
-            BeeNetworkManager.registerPort(this)
-            registeredAsSource = true
+    override fun onLoad() {
+        super.onLoad()
+        if (level != null) {
+            addToNetwork(level!!)
         }
     }
 
     override fun priority(): Int = priority
 
+    override fun remove() {
+        removeFromNetwork(level!!)
+        super.remove()
+    }
+
     override fun destroy() {
+        removeFromNetwork(level!!)
         super.destroy()
-        if (registeredAsSource) {
-            BeeNetworkManager.unregisterPort(this)
-            registeredAsSource = false
+    }
+
+    override fun read(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
+        super.read(tag, registries, clientPacket)
+        if (tag.hasUUID("lp_id")) {
+            id = tag.getUUID("lp_id")
+        }
+        if (tag.hasUUID("NetworkId")) {
+            networkId = tag.getUUID("NetworkId")
+        }
+        if (tag.contains("Filter")) {
+            filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
         }
     }
 
-    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
-        filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
-        super.loadAdditional(tag, registries)
+    override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
+        super.write(tag, registries, clientPacket)
+        tag.putUUID("lp_id", id)
+        tag.putUUID("NetworkId", networkId)
+        if (!filterStack.isEmpty) {
+            tag.put("Filter", filterStack.save(registries))
+        }
     }
 
     override fun getFilter(): ItemStack {
@@ -116,7 +141,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     private fun portType() = blockState.getValue(LogisticPortBlock.PORT_TYPE)
 
     override fun isValidForPickup(): Boolean {
-        if (portType() == PortType.EXTRACT) return false
+        if (portType() != PortType.EXTRACT) return false
         if (portState() == PortState.INVALID) return false
         return true
     }
@@ -175,17 +200,20 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         // 1. Finding existing stacks to merge with.
         // 2. Finding empty slots.
         // 3. Returning the "remainder" that didn't fit.
-        return ItemHandlerHelper.insertItemStacked(handler, stack, false)
+        return net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(handler, stack, false)
+    }
+
+    override fun sync() {
+        setChanged()
+        sendData()
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        val network = BeeNetworkManager.getNetworks().find { it.ports.contains(this) }
-        if (network != null) {
-            Lang.builder("cbbees").translate("gui.goggles.beehive.network")
-                .style(ChatFormatting.GRAY)
-                .add(Lang.builder("cbbees").text(network.name).style(ChatFormatting.GOLD))
-                .forGoggles(tooltip)
-        }
+        val network = network()
+        Lang.builder("cbbees").translate("gui.goggles.beehive.network")
+            .style(ChatFormatting.GRAY)
+            .add(Lang.builder("cbbees").text(network.name).style(ChatFormatting.GOLD))
+            .forGoggles(tooltip)
         return true
     }
 }

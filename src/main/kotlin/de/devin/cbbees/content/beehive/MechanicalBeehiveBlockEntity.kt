@@ -6,7 +6,9 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -30,6 +32,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.client.ClientNeoForgeMod
 import net.neoforged.neoforge.items.ItemStackHandler
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 import java.util.*
@@ -38,17 +41,16 @@ import kotlin.math.abs
 class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) :
     KineticBlockEntity(type, pos, state), IHaveGoggleInformation, BeeHive {
 
-    val world: Level get() = getLevel()!!
-    val position: BlockPos get() = blockPos
-
-    override val sourceId: UUID get() = homeId
-    override val sourceWorld: Level get() = getLevel()!!
-    override val sourcePosition: BlockPos get() = blockPos
+    override val id: UUID get() = homeId
+    override val world: Level get() = getLevel()!!
+    override val pos: BlockPos get() = blockPos
 
     private var homeId = UUID.randomUUID()
 
     /** Set of active bee UUIDs (server side only) */
     private val activeBees = mutableSetOf<UUID>()
+
+    override fun getActiveBeeCount(): Int = activeBees.size
 
     val beeInventory = object : ItemStackHandler(9) {
         override fun onContentsChanged(slot: Int) = setChanged()
@@ -64,22 +66,15 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     val instructions = mutableListOf<BeeInstruction>()
 
-    /** Flag to track if we've registered with BeeContributionManager */
-    private var registeredAsSource = false
-
-    override fun setLevel(level: Level) {
-        super.setLevel(level)
-        if (!registeredAsSource) {
-            BeeNetworkManager.registerWorker(this)
-            registeredAsSource = true
+    override fun onLoad() {
+        super.onLoad()
+        if (level != null) {
+            addToNetwork(level!!)
         }
     }
 
     override fun destroy() {
-        if (registeredAsSource) {
-            BeeNetworkManager.unregisterWorker(this)
-            registeredAsSource = false
-        }
+        removeFromNetwork(level!!)
         super.destroy()
     }
 
@@ -87,31 +82,19 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
             this.tier = tier
             setPos(Vec3.atCenterOf(blockPos.above()))
-            this.networkId = BeeNetworkManager.getNetworkAt(level!!, blockPos)?.id
+            this.networkId = this@MechanicalBeehiveBlockEntity.network().id
         }
 
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
         bee.getBrain().setMemory(BeeMemoryModules.CURRENT_TASK.get(), batch)
 
-        batch.primaryTask?.status = TaskStatus.IN_PROGRESS
+        batch.assignToRobot(bee)
 
         level!!.addFreshEntity(bee)
         activeBees.add(bee.uuid)
 
         return true
-    }
-
-    override fun acceptTask(task: BeeTask): Boolean {
-        if (getAvailableBeeCount() <= 0) {
-            return false // Safety check
-        }
-
-        this.setChanged()
-
-        val beeTier = consumeBee() ?: return false
-        val batch = TaskBatch(listOf(task), task.job)
-        return spawnBee(beeTier, batch)
     }
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
@@ -126,40 +109,57 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
-        task.complete()
         val nextBatch = GlobalJobPool.workBacklog(this)
 
-        nextBatch?.primaryTask?.assignToRobot(bee)
+        nextBatch?.assignToRobot(bee)
 
         return nextBatch
+    }
+
+    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
+        if (activeBees.remove(bee.uuid)) {
+            setChanged()
+        }
     }
 
     override fun walkTarget(): WalkTarget {
         return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 0)
     }
 
-    override fun currentLocation(): BlockPos {
-        return blockPos
-    }
 
-    var networkId: UUID? = null
+    override var networkId: UUID = UUID.randomUUID()
         set(value) {
+            if (field == value) return
             val old = field
             field = value
-            if (level?.isClientSide == true && old != value) {
-                BeeNetworkManager.registerWorker(this)
-            }
+            onNetworkIdChanged(old, value)
         }
+
+    override fun sync() {
+        setChanged()
+        sendData()
+    }
 
     override fun onSpeedChanged(previousSpeed: Float) {
         super.onSpeedChanged(previousSpeed)
-        BeeNetworkManager.registerWorker(this)
+        if (level != null && !level!!.isClientSide) {
+            ServerBeeNetworkManager.registerWorker(this)
+        }
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("HomeId", homeId)
-        networkId?.let { tag.putUUID("NetworkId", it) }
+        tag.putUUID("NetworkId", networkId)
+
+        val activeBeesList = ListTag()
+        activeBees.forEach { uuid ->
+            val comp = CompoundTag()
+            comp.putUUID("Id", uuid)
+            activeBeesList.add(comp)
+        }
+        tag.put("ActiveBees", activeBeesList)
+
         tag.putInt("ActiveBeeCount", activeBees.size)
         tag.put("BeeInv", beeInventory.serializeNBT(registries))
         tag.put("UpgradeInv", upgradeInventory.serializeNBT(registries))
@@ -180,6 +180,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         }
         if (tag.hasUUID("NetworkId")) {
             networkId = tag.getUUID("NetworkId")
+        }
+
+        activeBees.clear()
+        if (tag.contains("ActiveBees", Tag.TAG_LIST.toInt())) {
+            val list = tag.getList("ActiveBees", Tag.TAG_COMPOUND.toInt())
+            for (i in 0 until list.size) {
+                val comp = list.getCompound(i)
+                if (comp.hasUUID("Id")) {
+                    activeBees.add(comp.getUUID("Id"))
+                }
+            }
         }
         beeInventory.deserializeNBT(registries, tag.getCompound("BeeInv"))
         upgradeInventory.deserializeNBT(registries, tag.getCompound("UpgradeInv"))
@@ -263,13 +274,12 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             .forGoggles(tooltip)
 
         // Network Info
-        networkId?.let { id ->
-            BeeNetworkManager.getNetwork(id)?.let { net ->
-                Lang.builder("cbbees").translate("gui.goggles.beehive.network")
-                    .style(ChatFormatting.GRAY)
-                    .add(Lang.builder("cbbees").text(net.name).style(ChatFormatting.GOLD))
-                    .forGoggles(tooltip, 1)
-            }
+        val net = network()
+        net?.let { n ->
+            Lang.builder("cbbees").translate("gui.goggles.beehive.network")
+                .style(ChatFormatting.GRAY)
+                .add(Lang.builder("cbbees").text(n.name).style(ChatFormatting.GOLD))
+                .forGoggles(tooltip, 1)
         }
 
         // Flying Bees
@@ -307,7 +317,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     fun getMaterialSource(): MaterialSource {
         return WirelessMaterialSource(
             world,
-            listOf(position.below(), position.north(), position.south(), position.east(), position.west())
+            listOf(pos.below(), pos.north(), pos.south(), pos.east(), pos.west())
         )
     }
 }

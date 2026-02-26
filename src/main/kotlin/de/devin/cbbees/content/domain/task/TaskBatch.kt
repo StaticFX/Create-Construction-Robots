@@ -1,11 +1,20 @@
 package de.devin.cbbees.content.domain.task
 
+import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.job.BeeJob
+import net.minecraft.core.BlockPos
+import java.util.UUID
 
 class TaskBatch(
     val tasks: List<BeeTask>,
-    val job: BeeJob
+    val job: BeeJob,
+    val targetPosition: BlockPos
 ) {
+    var status: TaskStatus = TaskStatus.PENDING
+    var assignedNetworkId: UUID? = null
+
+    val priority: Int get() = tasks.maxOfOrNull { it.priority } ?: 0
+
     private var currentIndex = 0
 
     val primaryTask: BeeTask? get() = tasks.firstOrNull()
@@ -14,8 +23,17 @@ class TaskBatch(
 
     fun advance(): Boolean {
         currentIndex++
-        return currentIndex < tasks.size
+        if (currentIndex >= tasks.size) {
+            status = TaskStatus.COMPLETED
+            return false
+        }
+        return true
     }
 
     fun isComplete(): Boolean = currentIndex >= tasks.size
+
+    fun assignToRobot(bee: MechanicalBeeEntity) {
+        status = TaskStatus.IN_PROGRESS
+        tasks.forEach { it.assignToRobot(bee) }
+    }
 }

@@ -1,7 +1,10 @@
 package de.devin.cbbees.content.domain.beehive
 
+import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.MechanicalBeeTier
+import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -17,21 +20,21 @@ import java.util.UUID
  * Multiple BeeSource instances can contribute bees to the same job, allowing for
  * cooperative work between beehives and backpacks.
  */
-interface BeeHive {
+interface BeeHive : INetworkComponent {
     /**
      * Unique identifier for this bee source.
      */
-    val sourceId: UUID
+    override val id: UUID
 
     /**
      * The world/level this source exists in.
      */
-    val sourceWorld: Level
+    override val world: Level
 
     /**
      * The position of this source in the world.
      */
-    val sourcePosition: BlockPos
+    override val pos: BlockPos
 
     /**
      * Gets the number of bees currently available in this source.
@@ -68,8 +71,8 @@ interface BeeHive {
      * Checks if a position is within the work range of this source.
      */
     fun isInRange(pos: BlockPos): Boolean {
-        val dx = Math.abs(pos.x - sourcePosition.x)
-        val dz = Math.abs(pos.z - sourcePosition.z)
+        val dx = Math.abs(pos.x - this.pos.x)
+        val dz = Math.abs(pos.z - this.pos.z)
         val range = getWorkRange().toInt()
         return dx <= range && dz <= range
     }
@@ -83,16 +86,6 @@ interface BeeHive {
     }
 
     /**
-     * Attempts to accept a task for processing by this BeeHive.
-     * The task will only be accepted if it meets the criteria determined by the hive,
-     * such as available resources, range constraints, and capacity.
-     *
-     * @param task The bee task to be evaluated and potentially accepted.
-     * @return True if the task was successfully accepted by the hive, false otherwise.
-     */
-    fun acceptTask(task: BeeTask): Boolean
-
-    /**
      * Attempts to accept a task batch for processing by this BeeHive.
      */
     fun acceptBatch(batch: TaskBatch): Boolean
@@ -101,6 +94,11 @@ interface BeeHive {
      * Returns a walk target for this beehive.
      */
     fun walkTarget(): WalkTarget
+
+    /**
+     * Gets the number of bees currently active from this source.
+     */
+    fun getActiveBeeCount(): Int
 
     /**
      * Marks the given task as completed by the given bee.
@@ -118,6 +116,9 @@ interface BeeHive {
      */
     fun onBeeRemoved(bee: MechanicalBeeEntity) {}
 
+    override fun isAnchor(): Boolean = true
 
-    fun currentLocation(): BlockPos
+    override fun getNetworkingRange(): Double = Math.max(getWorkRange(), 8.0)
+
+    override fun isInWorkRange(pos: BlockPos): Boolean = isInRange(pos)
 }

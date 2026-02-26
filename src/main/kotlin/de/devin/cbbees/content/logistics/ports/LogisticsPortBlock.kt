@@ -145,7 +145,6 @@ class LogisticPortBlock(properties: Properties) :
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
-            updateNetwork(level, pos, false)
             super.onRemove(state, level, pos, newState, isMoving)
         }
     }
@@ -171,14 +170,5 @@ class LogisticPortBlock(properties: Properties) :
         level.setBlock(pos, state.setValue(PORT_TYPE, newType), 3)
 
         return InteractionResult.SUCCESS
-    }
-
-    private fun updateNetwork(level: Level, pos: BlockPos, isAdding: Boolean) {
-        if (level is ServerLevel) {
-            //TODO Add later
-            //val pool = GlobalJobPool.get(level)
-            //if (isAdding) pool.logisticNetwork.addNode(pos)
-            //else pool.logisticNetwork.removeNode(pos)
-        }
     }
 }

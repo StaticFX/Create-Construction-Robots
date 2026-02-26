@@ -1,186 +1,211 @@
 package de.devin.cbbees.content.domain.network
 
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.*
+import de.devin.cbbees.util.ServerSide
+import de.devin.cbbees.util.ClientSide
 
-object BeeNetworkManager {
+@ServerSide
+object ServerBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
-    private val allPorts = mutableSetOf<LogisticsPort>()
-
-    val workers: Set<BeeHive> get() = networks.flatMap { it.hives }.toSet()
+    private var isScanning = false
 
     fun getNetworks(): List<BeeNetwork> = networks
 
-    fun registerWorker(worker: BeeHive) {
-        // If already registered in some network, remove it first
-        networks.forEach { it.hives.remove(worker) }
-        networks.removeIf { it.hives.isEmpty() }
+    fun clear() {
+        val size = networks.size
+        networks.clear()
+        CreateBuzzyBeez.LOGGER.info("Cleared $size networks")
+    }
 
-        if (worker.sourceWorld.isClientSide) {
-            val id = (worker as? MechanicalBeehiveBlockEntity)?.networkId ?: return
-            val network = getNetwork(id) ?: BeeNetwork(id).also { networks.add(it) }
-            network.addHive(worker)
-            updatePortsForNetworks()
-            return
-        }
+    fun registerComponent(component: INetworkComponent) {
+        if (component.world.isClientSide) return
 
-        // 1. Find all networks that overlap with this hive's range
-        val overlappingNetworks = networks.filter { network ->
-            network.hives.any { existingHive ->
-                areHivesConnected(worker, existingHive)
+        // Prevent recursive registration if we're already in a network
+        if (getNetworkFor(component) != null) return
+
+        val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()
+
+        // Also merge with any network that shares the same networkId, even if it has no anchors yet.
+        // This is crucial for correctly reconstructing networks during world load from NBT.
+        val idNetwork = networks.find { it.id == component.networkId }
+        if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
+            // Only merge by ID if it's the same level
+            if (idNetwork.level == null || idNetwork.level == component.world) {
+                nearbyNetworks.add(idNetwork)
             }
         }
 
-        val network: BeeNetwork
-        if (overlappingNetworks.isEmpty()) {
-            val preferredId = (worker as? MechanicalBeehiveBlockEntity)?.networkId ?: UUID.randomUUID()
-            network = BeeNetwork(preferredId)
-            network.addHive(worker)
-            networks.add(network)
-        } else {
-            network = overlappingNetworks.first()
-            network.addHive(worker)
+        val targetNetwork: BeeNetwork
 
-            // Merge other overlapping networks into the primary one
-            if (overlappingNetworks.size > 1) {
-                for (i in 1 until overlappingNetworks.size) {
-                    val other = overlappingNetworks[i]
-                    network.hives.addAll(other.hives)
-                    network.ports.addAll(other.ports)
+        if (nearbyNetworks.isEmpty()) {
+            targetNetwork = BeeNetwork(component.networkId)
+            networks.add(targetNetwork)
+            CreateBuzzyBeez.LOGGER.info("Created new network with ${component.javaClass.simpleName} id: ${component.networkId}")
+        } else {
+            targetNetwork = nearbyNetworks.first()
+            if (nearbyNetworks.size > 1) {
+                nearbyNetworks.drop(1).forEach { other ->
+                    targetNetwork.merge(other)
                     networks.remove(other)
                 }
+                CreateBuzzyBeez.LOGGER.info("Merged ${nearbyNetworks.size} networks into main network id: ${targetNetwork.id}")
+            } else {
+                CreateBuzzyBeez.LOGGER.info("Added ${component.javaClass.simpleName} to existing network id: ${targetNetwork.id}")
             }
         }
 
-        // Update networkId in block entities
-        network.hives.forEach { hive ->
-            if (hive is MechanicalBeehiveBlockEntity) {
-                if (hive.networkId != network.id) {
-                    hive.networkId = network.id
-                    hive.setChanged()
-                    hive.sendData()
-                }
+        targetNetwork.addComponent(component)
+
+        // If the registered component is an anchor, it might pick up nearby orphaned components
+        if (component.isAnchor() && !isScanning) {
+            isScanning = true
+            try {
+                scanAndJoinNearbyComponents(
+                    targetNetwork,
+                    component.world,
+                    component.pos,
+                    component.getNetworkingRange()
+                )
+            } finally {
+                isScanning = false
             }
         }
-
-        updatePortsForNetworks()
     }
 
-    fun unregisterWorker(worker: BeeHive) {
-        unregisterWorker(worker.sourceId)
-    }
+    private fun scanAndJoinNearbyComponents(network: BeeNetwork, level: Level, pos: BlockPos, range: Double) {
+        val r = range.toInt()
+        val minX = (pos.x - r) shr 4
+        val maxX = (pos.x + r) shr 4
+        val minZ = (pos.z - r) shr 4
+        val maxZ = (pos.z + r) shr 4
 
-    fun unregisterWorker(sourceId: UUID) {
-        for (network in networks.toList()) {
-            network.hives.removeIf { it.sourceId == sourceId }
-            if (network.hives.isEmpty()) {
-                networks.remove(network)
-            }
-        }
-        recalculateNetworks()
-    }
-
-    private fun recalculateNetworks() {
-        val hives = networks.flatMap { it.hives }.toList()
-
-        networks.clear()
-
-        val unassignedHives = hives.toMutableList()
-
-        while (unassignedHives.isNotEmpty()) {
-            val startHive = unassignedHives.removeAt(0)
-
-            // Collect all hives that belong to this new network group
-            val groupedHives = mutableListOf(startHive)
-            val toProcess = mutableListOf(startHive)
-            while (toProcess.isNotEmpty()) {
-                val current = toProcess.removeAt(0)
-                val neighbors = unassignedHives.filter { areHivesConnected(current, it) }
-                for (neighbor in neighbors) {
-                    groupedHives.add(neighbor)
-                    unassignedHives.remove(neighbor)
-                    toProcess.add(neighbor)
-                }
-            }
-
-            // Try to preserve an existing network ID if possible
-            val preferredId = groupedHives.mapNotNull { (it as? MechanicalBeehiveBlockEntity)?.networkId }
-                .firstOrNull() ?: UUID.randomUUID()
-
-            val network = BeeNetwork(preferredId)
-            groupedHives.forEach { network.addHive(it) }
-            networks.add(network)
-
-            // Update networkId in block entities for this new network
-            network.hives.forEach { hive ->
-                if (hive is MechanicalBeehiveBlockEntity) {
-                    if (hive.networkId != network.id) {
-                        hive.networkId = network.id
-                        hive.setChanged()
-                        hive.sendData()
+        for (cx in minX..maxX) {
+            for (cz in minZ..maxZ) {
+                val chunk = level.getChunkSource().getChunk(cx, cz, false) ?: continue
+                for (be in chunk.blockEntities.values) {
+                    if (be is INetworkComponent && be !in network.components) {
+                        if (network.canConnect(be)) {
+                            val other = getNetworkFor(be)
+                            if (other != null && other != network) {
+                                network.merge(other)
+                                networks.remove(other)
+                            } else {
+                                network.addComponent(be)
+                            }
+                        }
                     }
                 }
             }
         }
-
-        updatePortsForNetworks()
     }
 
-    fun registerPort(port: LogisticsPort) {
-        allPorts.add(port)
-        updatePortsForNetworks()
-    }
+    fun unregisterComponent(component: INetworkComponent) {
+        if (component.world.isClientSide) return
 
-    fun unregisterPort(port: LogisticsPort) {
-        allPorts.remove(port)
-        for (network in networks) {
-            network.removePort(port)
+        val network = getNetworkFor(component) ?: return
+        network.removeComponent(component)
+
+        // If network is now empty, remove it
+        if (network.components.isEmpty()) {
+            networks.remove(network)
+            return
         }
-    }
 
-    private fun updatePortsForNetworks() {
-        for (network in networks) {
-            network.ports.clear()
-            for (port in allPorts) {
-                if (port.sourceWorld == network.hives.firstOrNull()?.sourceWorld &&
-                    network.isInLogisticsRange(port.sourcePosition)
-                ) {
-                    network.addPort(port)
+        // Handle potential split
+        val splitResults = network.split()
+        if (splitResults.isEmpty()) {
+            // No anchors left, disband the network
+            val remaining = network.components.toList()
+            remaining.forEach {
+                it.networkId = UUID.randomUUID()
+                it.sync()
+            }
+            networks.remove(network)
+        } else if (splitResults.size > 1) {
+            // Original network might have been modified or replaced by new ones
+            // For now, let's just make sure all splitResults are in the list
+            splitResults.forEach { result ->
+                if (!networks.contains(result)) {
+                    networks.add(result)
                 }
             }
         }
     }
 
-    private fun areHivesConnected(h1: BeeHive, h2: BeeHive): Boolean {
-        if (h1.sourceWorld != h2.sourceWorld) return false
-        val dx = Math.abs(h1.sourcePosition.x - h2.sourcePosition.x)
-        val dz = Math.abs(h1.sourcePosition.z - h2.sourcePosition.z)
-        // Use a minimum range of 6.0 for networking, even if unpowered, to allow initial connection
-        val range1 = Math.max(6.0, h1.getWorkRange()).toInt()
-        val range2 = Math.max(6.0, h2.getWorkRange()).toInt()
-        val combinedRange = range1 + range2
-        return dx <= combinedRange && dz <= combinedRange
+    // Simplified delegating methods
+    fun registerWorker(worker: BeeHive) = registerComponent(worker)
+
+    fun unregisterWorker(worker: BeeHive) = unregisterComponent(worker)
+
+    fun unregisterWorker(id: UUID) {
+        // Create a copy to avoid ConcurrentModificationException if networks are removed
+        networks.toList().forEach { net ->
+            net.components.find { it.id == id }?.let { unregisterComponent(it) }
+        }
     }
+
+    fun registerPort(port: LogisticsPort) = registerComponent(port)
+
+    fun unregisterPort(port: LogisticsPort) = unregisterComponent(port)
 
     fun getNetworkAt(level: Level, pos: BlockPos): BeeNetwork? {
-        return networks.find { it.hives.firstOrNull()?.sourceWorld == level && it.isInRange(pos) }
+        return networks.find { it.level == level && it.isInRange(pos) }
     }
 
-    fun getNetworkFor(hive: BeeHive): BeeNetwork? {
-        return networks.find { it.hives.contains(hive) }
+    fun getNetworkFor(component: INetworkComponent): BeeNetwork? {
+        return networks.find { it.components.contains(component) }
     }
 
     fun getNetwork(id: UUID): BeeNetwork? {
         return networks.find { it.id == id }
     }
 
+    fun findHive(id: UUID): BeeHive? {
+        return networks.flatMap { it.hives }.find { it.id == id }
+    }
+
+    fun getNetwork(id: UUID, level: Level): BeeNetwork? {
+        return networks.find { it.id == id && (it.level == null || it.level == level) }
+    }
+
     fun findProviderFor(level: Level, stack: ItemStack, startPos: BlockPos): LogisticsPort? {
         val network = getNetworkAt(level, startPos)
         return network?.findProvider(stack)
+    }
+}
+
+@ClientSide
+object ClientBeeNetworkManager {
+    private val networks = mutableListOf<BeeNetwork>()
+
+    fun getNetworks(): List<BeeNetwork> = networks
+
+    fun clear() {
+        val size = networks.size
+        networks.clear()
+        CreateBuzzyBeez.LOGGER.info("Cleared $size client networks")
+    }
+
+    fun getNetwork(id: UUID): BeeNetwork {
+        return networks.find { it.id == id } ?: run {
+            // Lazy-create proxy network on client if it's missing
+            // This allows the client to group hives/ports by ID even without full topology
+            val net = BeeNetwork(id)
+            networks.add(net)
+            net
+        }
+    }
+
+    fun removeComponent(component: INetworkComponent) {
+        component.network().removeComponent(component)
+        if (component.network().components.isEmpty()) {
+            networks.remove(component.network())
+        }
     }
 }

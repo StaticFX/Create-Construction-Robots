@@ -1,19 +1,22 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
+import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.util.ServerSide
 
 /**
  * Server-side event handler for cbbees.
  *
  * Handles periodic task progress sync to clients.
  */
+@ServerSide
 object CCRServerEvents {
 
     private var tickCounter = 0
@@ -31,8 +34,12 @@ object CCRServerEvents {
         if (tickCounter < 10) return
         tickCounter = 0
 
+        GlobalJobPool.tick()
+
         val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
         for (player in server.playerList.players) {
+            HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
+
             val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
             if (jobs.isNotEmpty()) {
                 val totalTasks = jobs.sumOf { it.tasks.size }
@@ -58,6 +65,16 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
-        BeeNetworkManager.unregisterWorker(event.entity.uuid)
+        ServerBeeNetworkManager.unregisterWorker(event.entity.uuid)
+    }
+
+    /**
+     * Clears networks on server stop to prevent stale data between world loads.
+     */
+    @SubscribeEvent
+    @JvmStatic
+    fun onServerStopping(event: ServerStoppingEvent) {
+        ServerBeeNetworkManager.clear()
+        GlobalJobPool.clear()
     }
 }

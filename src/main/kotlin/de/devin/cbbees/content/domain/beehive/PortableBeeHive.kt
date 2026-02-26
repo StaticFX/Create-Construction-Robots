@@ -6,7 +6,9 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.MechanicalBeeTier
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -25,16 +27,9 @@ import java.util.*
  * Also implements BeeSource to allow contributing bees to jobs from multiple sources.
  */
 class PortableBeeHive(val player: Player) : BeeHive {
+    private val activeBees = mutableSetOf<UUID>()
 
-    override fun acceptTask(task: BeeTask): Boolean {
-        if (getAvailableBeeCount() <= 0) {
-            return false
-        }
-
-        val beeTier = consumeBee() ?: return false
-        val batch = TaskBatch(listOf(task), task.job)
-        return spawnBee(beeTier, batch)
-    }
+    override fun getActiveBeeCount(): Int = activeBees.size
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getAvailableBeeCount() <= 0) {
@@ -50,31 +45,42 @@ class PortableBeeHive(val player: Player) : BeeHive {
             this.tier = tier
             setOwner(player.uuid)
             setPos(player.position().add(0.0, 1.0, 0.0))
-            this.networkId = BeeNetworkManager.getNetworkAt(player.level(), player.blockPosition())?.id
+            this.networkId = this@PortableBeeHive.network().id
         }
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
         bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
         bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(batch))
 
-        batch.primaryTask?.status = TaskStatus.IN_PROGRESS
+        batch.assignToRobot(bee)
 
         player.level().addFreshEntity(bee)
+        activeBees.add(bee.uuid)
         return true
     }
 
+    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
+        activeBees.remove(bee.uuid)
+    }
+
     override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
-        task.complete()
         val nextBatch = GlobalJobPool.workBacklog(this)
 
-        nextBatch?.primaryTask?.assignToRobot(bee)
+        nextBatch?.assignToRobot(bee)
 
         return nextBatch
     }
 
-    override val sourceId: UUID get() = player.uuid
-    override val sourceWorld: Level get() = player.level()
-    override val sourcePosition: BlockPos get() = player.blockPosition()
+    override val id: UUID get() = player.uuid
+    override val world: Level get() = player.level()
+    override val pos: BlockPos get() = player.blockPosition()
+    override var networkId: UUID = UUID.randomUUID()
+        set(value) {
+            if (field == value) return
+            val old = field
+            field = value
+            onNetworkIdChanged(old, value)
+        }
 
     override fun getBeeContext(): BeeContext {
         val backpack = getBackpackStack()
@@ -136,9 +142,8 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return WalkTarget(player, 1.0f, 0)
     }
 
-    override fun currentLocation(): BlockPos {
-        return player.blockPosition()
-    }
+    override fun sync() {}
+
 
     private fun getBackpackStack(): ItemStack {
         // 1. Check Curios slots for backpack

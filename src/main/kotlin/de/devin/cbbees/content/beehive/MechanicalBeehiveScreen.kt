@@ -1,13 +1,21 @@
 package de.devin.cbbees.content.beehive
 
-import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen
 import com.simibubi.create.foundation.gui.widget.IconButton
+import de.devin.cbbees.content.beehive.client.ClientJobCache
+import de.devin.cbbees.content.domain.job.ClientJobInfo
+import de.devin.cbbees.content.domain.job.HiveSnapshot
+import de.devin.cbbees.content.domain.network.client.JobHighlightHandler
+import de.devin.cbbees.network.CancelJobPacket
+import de.devin.cbbees.network.RequestHiveJobsPacket
+import net.createmod.catnip.lang.Lang
+import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
+import net.neoforged.neoforge.network.PacketDistributor
 
 class MechanicalBeehiveScreen(
     menu: MechanicalBeehiveMenu,
@@ -15,45 +23,39 @@ class MechanicalBeehiveScreen(
     title: Component
 ) : AbstractSimiContainerScreen<MechanicalBeehiveMenu>(menu, playerInventory, title) {
 
-    private lateinit var addInstructionButton: IconButton
-    private val instructionButtons = mutableListOf<InstructionWidget>()
+    private var snapshot: HiveSnapshot? = null
+    private var refreshTicks = 0
 
     override fun init() {
-        setWindowSize(
-            AllGuiTextures.FILTER.width,
-            AllGuiTextures.FILTER.height + AllGuiTextures.PLAYER_INVENTORY.height + 20
-        )
+        setWindowSize(256, 180)
         super.init()
-
-        addInstructionButton = IconButton(leftPos + imageWidth - 25, topPos + 10, AllIcons.I_ADD)
-        addInstructionButton.withCallback<IconButton>(Runnable {
-            // Open a sub-menu to select instruction type? 
-            // For now just add a default fertilize instruction
-            menu.content.instructions.add(BeeInstruction())
-            menu.content.sendData()
-            refreshInstructions()
-        })
-        addRenderableWidget(addInstructionButton)
-
-        refreshInstructions()
+        // Ask server for the latest snapshot
+        PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+        refreshFromCache()
     }
 
-    private fun refreshInstructions() {
-        // Clear old widgets
-        instructionButtons.forEach { removeWidget(it) }
-        instructionButtons.clear()
+    private fun refreshFromCache() {
+        snapshot = ClientJobCache.get(menu.content.blockPos)
+        clearWidgets()
 
-        val startX = leftPos + 80
-        val startY = topPos + 15
+        val x = leftPos
+        val y = topPos
 
-        menu.content.instructions.forEachIndexed { index, instruction ->
-            val widget = InstructionWidget(startX, startY + index * 22, instruction, index) {
-                menu.content.instructions.removeAt(index)
-                menu.content.sendData()
-                refreshInstructions()
-            }
-            instructionButtons.add(widget)
-            addRenderableWidget(widget)
+        // Refresh Button
+        addRenderableWidget(IconButton(x + imageWidth - 25, y + 20, AllIcons.I_REFRESH).apply {
+            setToolTip(Component.literal("Manual Refresh"))
+            withCallback<IconButton>(Runnable {
+                PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+            })
+        })
+
+        val snapshot = snapshot ?: return
+        var rowY = topPos + 40
+        val startX = leftPos + 12
+
+        snapshot.jobs.forEach { job ->
+            addRenderableWidget(JobRow(startX, rowY, job).apply { setRowWidth(imageWidth - 24) })
+            rowY += 26
         }
     }
 
@@ -61,90 +63,100 @@ class MechanicalBeehiveScreen(
         val x = leftPos
         val y = topPos
 
-        AllGuiTextures.FILTER.render(guiGraphics, x, y)
-        renderPlayerInventory(
-            guiGraphics,
-            x + (imageWidth - AllGuiTextures.PLAYER_INVENTORY.width) / 2,
-            y + AllGuiTextures.FILTER.height + 10
-        )
+        // Main Background (Darker Create gray)
+        guiGraphics.fill(x, y, x + imageWidth, y + imageHeight, 0xFF707070.toInt())
+        guiGraphics.fill(x + 2, y + 2, x + imageWidth - 2, y + imageHeight - 2, 0xFFC6C6C6.toInt())
 
-        // Slots
-        for (i in 0 until 18) {
-            val slot = menu.slots[i]
-            AllGuiTextures.TOOLBELT_SLOT.render(guiGraphics, x + slot.x - 3, y + slot.y - 3)
+        // Title & Network Stats (on top of FILTER)
+        guiGraphics.drawString(font, title, x + 10, y + 6, 0x592424, false)
+
+        snapshot?.networkInfo?.let { ni ->
+            val netName = "Network: ${ni.name}"
+            guiGraphics.drawString(font, netName, x + 130, y + 6, 0x592424, false)
+
+            val beeStats = "Bees: ${ni.activeBees}/${ni.maxBees} Active, ${ni.storedBees} Stored"
+            guiGraphics.drawString(font, beeStats, x + 10, y + 24, 0x404040, false)
         }
 
-        // Title
-        guiGraphics.drawString(font, title, x + 15, y + 4, 0x592424, false)
+        // Terminal area background
+        guiGraphics.fill(x + 10, y + 38, x + imageWidth - 10, y + imageHeight - 10, 0xCC000000.toInt())
+
+        if (snapshot?.jobs?.isEmpty() == true) {
+            guiGraphics.drawCenteredString(
+                font,
+                "No ongoing jobs found in network",
+                x + imageWidth / 2,
+                y + 80,
+                0x909090
+            )
+        }
     }
 
-    inner class InstructionWidget(
+    override fun containerTick() {
+        super.containerTick()
+        refreshTicks++
+        if (refreshTicks >= 10) {
+            refreshTicks = 0
+            PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+        }
+        val latest = ClientJobCache.get(menu.content.blockPos)
+        if (latest != snapshot) refreshFromCache()
+    }
+
+    inner class JobRow(
         x: Int,
         y: Int,
-        val instruction: BeeInstruction,
-        val index: Int,
-        val onDelete: () -> Unit
-    ) : IconButton(x, y, AllIcons.I_TRASH) {
-        private val beeUp = IconButton(x + 150, y, AllIcons.I_PRIORITY_HIGH)
-        private val beeDown = IconButton(x + 130, y, AllIcons.I_PRIORITY_LOW)
-        private val rangeUp = IconButton(x + 200, y, AllIcons.I_PRIORITY_HIGH)
-        private val rangeDown = IconButton(x + 180, y, AllIcons.I_PRIORITY_LOW)
+        private val job: ClientJobInfo
+    ) : IconButton(x, y, AllIcons.I_NONE) {
+        private val cancelBtn = IconButton(x + 215, y - 2, AllIcons.I_TRASH)
+        private val hiliteBtn = IconButton(x + 195, y - 2, AllIcons.I_CONFIRM)
+        private var w = 230
 
         init {
-            withCallback<IconButton>(Runnable { onDelete() })
-
-            beeUp.withCallback<IconButton>(Runnable {
-                instruction.beeCount = (instruction.beeCount + 1).coerceAtMost(32)
-                menu.content.sendData()
+            cancelBtn.withCallback<IconButton>(Runnable {
+                PacketDistributor.sendToServer(CancelJobPacket(job.jobId))
             })
-            beeDown.withCallback<IconButton>(Runnable {
-                instruction.beeCount = (instruction.beeCount - 1).coerceAtLeast(1)
-                menu.content.sendData()
+            hiliteBtn.withCallback<IconButton>(Runnable {
+                val beeIds = job.batches.flatMap { it.assignedBeeIds }.distinct()
+                JobHighlightHandler.toggle(menu.content.networkId, job.jobId, beeIds, true)
             })
-            rangeUp.withCallback<IconButton>(Runnable {
-                instruction.range = (instruction.range + 1).coerceAtMost(64)
-                menu.content.sendData()
-            })
-            rangeDown.withCallback<IconButton>(Runnable {
-                instruction.range = (instruction.range - 1).coerceAtLeast(1)
-                menu.content.sendData()
-            })
+            addRenderableWidget(cancelBtn)
+            addRenderableWidget(hiliteBtn)
         }
 
-        override fun setX(x: Int) {
-            super.setX(x)
-            beeUp.setX(x + 150)
-            beeDown.setX(x + 130)
-            rangeUp.setX(x + 200)
-            rangeDown.setX(x + 180)
+        fun setRowWidth(width: Int) {
+            this.w = width
         }
 
-        override fun setY(y: Int) {
-            super.setY(y)
-            beeUp.setY(y)
-            beeDown.setY(y)
-            rangeUp.setY(y)
-            rangeDown.setY(y)
-        }
+        override fun renderWidget(gg: GuiGraphics, mouseX: Int, mouseY: Int, pt: Float) {
+            // Job Name - Terminal Green
+            val name = "> Job ${job.name}"
+            gg.drawString(font, name, x + 4, y - 2, 0xFF44FF44.toInt(), false)
 
-        override fun renderWidget(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
-            super.renderWidget(guiGraphics, mouseX, mouseY, partialTicks)
-            beeUp.render(guiGraphics, mouseX, mouseY, partialTicks)
-            beeDown.render(guiGraphics, mouseX, mouseY, partialTicks)
-            rangeUp.render(guiGraphics, mouseX, mouseY, partialTicks)
-            rangeDown.render(guiGraphics, mouseX, mouseY, partialTicks)
+            // Progress Bar
+            val pct = if (job.total == 0) 1f else job.completed.toFloat() / job.total
+            val barW = w - 100
+            val barX = x + 10
+            val barY = y + 10
 
-            guiGraphics.drawString(font, "${instruction.type.displayName.string}", x + 25, y + 5, 0xEEEEEE, false)
-            guiGraphics.drawString(font, "${instruction.beeCount}", x + 142, y + 5, 0xFFFFFF, false)
-            guiGraphics.drawString(font, "${instruction.range}", x + 192, y + 5, 0xFFFFFF, false)
-        }
+            // Bar border
+            gg.fill(barX - 1, barY - 1, barX + barW + 1, barY + 5, 0xFFAAAAAA.toInt())
+            gg.fill(barX, barY, barX + barW, barY + 4, 0xFF000000.toInt())
+            // Bar fill (Terminal Green)
+            val filled = (barW * pct).toInt()
+            gg.fill(barX, barY, barX + filled, barY + 4, 0xFF00FF00.toInt())
 
-        override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-            if (beeUp.mouseClicked(mouseX, mouseY, button)) return true
-            if (beeDown.mouseClicked(mouseX, mouseY, button)) return true
-            if (rangeUp.mouseClicked(mouseX, mouseY, button)) return true
-            if (rangeDown.mouseClicked(mouseX, mouseY, button)) return true
-            return super.mouseClicked(mouseX, mouseY, button)
+            // Progress Text
+            val progressText = "[${job.completed}/${job.total}]"
+            gg.drawString(font, progressText, barX + barW + 8, barY - 2, 0xFF44FF44.toInt(), false)
+
+            // Status & Reason
+            val statusColor = if (job.reason != null) 0xFFFF5555.toInt() else 0xFFAAAAAA.toInt()
+            val statusText = if (job.reason != null) "! STUCK: ${job.reason}" else "  Status: ${job.status}"
+            gg.drawString(font, statusText, x + 4, y + 15, statusColor, false)
+
+            cancelBtn.render(gg, mouseX, mouseY, pt)
+            hiliteBtn.render(gg, mouseX, mouseY, pt)
         }
     }
 }

@@ -13,6 +13,7 @@ import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
+import de.devin.cbbees.util.ServerSide
 
 class StartConstructionPacket private constructor() : CustomPacketPayload {
     companion object {
@@ -23,6 +24,7 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
 
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, StartConstructionPacket> = StreamCodec.unit(INSTANCE)
 
+        @ServerSide
         fun handle(payload: StartConstructionPacket, context: IPayloadContext) {
             context.enqueueWork {
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
@@ -69,24 +71,22 @@ class StartConstructionPacket private constructor() : CustomPacketPayload {
                         }
                     }
 
-                    val tasks = bridge.generateBuildTasks(job).flatMap { it.tasks }
-                    if (tasks.isNotEmpty()) {
-                        val center = bridge.getAnchor() ?: tasks[0].targetPos
+                    val batches = bridge.generateBuildTasks(job)
+                    if (batches.isNotEmpty()) {
+                        job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
+                        job.batches.addAll(batches)
 
-                        val finalJob = job.copy(centerPos = center).apply {
-                            ownerId = job.ownerId
-                            uniquenessKey = job.uniquenessKey
-                            addTasks(tasks)
-                        }
+                        GlobalJobPool.dispatchNewJob(job)
 
-                        GlobalJobPool.dispatchNewJob(finalJob)
+                        // Requirement 1: Unanchor schematic instead of shrinking
+                        schematicStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_DEPLOYED, false)
+                        schematicStack.remove(com.simibubi.create.AllDataComponents.SCHEMATIC_ANCHOR)
 
-                        if (!player.isCreative) {
-                            schematicStack.shrink(1)
-                        }
+                        // Requirement 2: Immediate sync for ghosts
+                        HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
 
                         player.displayClientMessage(
-                            Component.translatable("cbbees.construction.started", tasks.size),
+                            Component.translatable("cbbees.construction.started", batches.size),
                             true
                         )
                     } else {

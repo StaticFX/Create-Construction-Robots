@@ -5,7 +5,7 @@ import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.action.impl.PickupItemAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -13,6 +13,7 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import de.devin.cbbees.util.ServerSide
 
 /**
  * Handler that bridges Create's schematic system with our robot task system.
@@ -24,6 +25,7 @@ import net.minecraft.world.level.Level
  * - Identifying item requirements for each block using Create's [ItemRequirement] API.
  * - Providing utilities for area deconstruction task generation.
  */
+@ServerSide
 class SchematicCreateBridge(
     private val level: Level
 ) {
@@ -118,15 +120,15 @@ class SchematicCreateBridge(
 
                     // Check if we need to pick up items
                     if (items.isNotEmpty()) {
-                        val port = BeeNetworkManager.findProviderFor(level, items[0], pos)
+                        val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
                         if (port != null) {
-                            val pickupAction = PickupItemAction(port.sourcePosition, items)
+                            val pickupAction = PickupItemAction(port.pos, items)
                             tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
                         }
                     }
 
                     tasksInBatch.add(buildTask)
-                    batches.add(TaskBatch(tasksInBatch, job))
+                    batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
                 }
             }, { _, _ ->
                 // TODO Add entity handling... somehow
@@ -143,8 +145,8 @@ class SchematicCreateBridge(
      * @param job The job to assign the tasks to
      * @return List of RobotTasks for removing blocks in the area
      */
-    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, job: BeeJob): List<BeeTask> {
-        val tasks = mutableListOf<BeeTask>()
+    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, job: BeeJob): List<TaskBatch> {
+        val batches = mutableListOf<TaskBatch>()
 
         val minX = minOf(corner1.x, corner2.x)
         val minY = minOf(corner1.y, corner2.y)
@@ -162,19 +164,18 @@ class SchematicCreateBridge(
 
                     // Skip air and unbreakable blocks
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        tasks.add(
-                            BeeTask.remove(
-                                pos = pos,
-                                priority = calculateRemovalPriority(pos, maxY),
-                                job = job
-                            )
+                        val task = BeeTask.remove(
+                            pos = pos,
+                            priority = calculateRemovalPriority(pos, maxY),
+                            job = job
                         )
+                        batches.add(TaskBatch(listOf(task), job, pos))
                     }
                 }
             }
         }
 
-        return tasks
+        return batches
     }
 
     /**

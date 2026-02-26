@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.logistics
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortMode
 import de.devin.cbbees.content.logistics.ports.PortType
@@ -11,18 +12,18 @@ import net.minecraft.world.level.Level
 import net.neoforged.neoforge.items.IItemHandler
 import java.util.UUID
 
-interface LogisticsPort {
-    val sourceId: UUID
+interface LogisticsPort : INetworkComponent {
+    override val id: UUID
 
     /**
      * The world/level this source exists in.
      */
-    val sourceWorld: Level
+    override val world: Level
 
     /**
      * The position of this source in the world.
      */
-    val sourcePosition: BlockPos
+    override val pos: BlockPos
 
     /** * Is this port providing items to the network,
      * or looking to receive them?
@@ -61,4 +62,10 @@ interface LogisticsPort {
     fun removeItemStack(stack: ItemStack): Boolean
 
     fun addItemStack(stack: ItemStack): ItemStack
+
+    override fun isAnchor(): Boolean = false
+
+    override fun getNetworkingRange(): Double = 0.0
+
+    override fun isInWorkRange(pos: BlockPos): Boolean = false // Ports don't provide range
 }

@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.job
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -22,15 +23,17 @@ import java.util.UUID
  */
 data class BeeJob(
     val jobId: UUID,
-    val centerPos: BlockPos,
+    var centerPos: BlockPos,
     val level: Level,
     var ownerId: UUID? = null,
     var uniquenessKey: Any? = null
 ) {
     /**
-     * The tasks associated with this job.
+     * The batches associated with this job.
      */
-    val tasks: MutableList<BeeTask> = mutableListOf()
+    val batches: MutableList<TaskBatch> = mutableListOf()
+
+    val tasks: List<BeeTask> get() = batches.flatMap { it.tasks }
 
     /**
      * Current number of bees contributed to this job.
@@ -49,7 +52,7 @@ data class BeeJob(
     /**
      * Checks if this job has enough bees to start.
      */
-    fun canStart(): Boolean = contributedBees >= tasks.size
+    fun canStart(): Boolean = contributedBees >= batches.size
 
     /**
      * Adds a contribution of bees from a source.
@@ -84,7 +87,7 @@ data class BeeJob(
      * Adds a task to this job.
      */
     fun addTask(task: BeeTask) {
-        tasks.add(task)
+        batches.add(TaskBatch(listOf(task), this, task.targetPos))
     }
 
     /**
@@ -95,13 +98,20 @@ data class BeeJob(
     }
 
     /**
+     * Adds multiple batches to this job.
+     */
+    fun addBatches(newBatches: List<TaskBatch>) {
+        batches.addAll(newBatches)
+    }
+
+    /**
      * Gets the next pending task and assigns it to a robot.
      */
     @Synchronized
     fun claimNextTaskBatch(bee: MechanicalBeeEntity): TaskBatch? {
-        val task = tasks.firstOrNull { it.status == TaskStatus.PENDING || it.status == TaskStatus.PICKED }
-        task?.assignToRobot(bee)
-        return task?.let { TaskBatch(listOf(it), this) }
+        val batch = batches.firstOrNull { it.status == TaskStatus.PENDING }
+        batch?.assignToRobot(bee)
+        return batch
     }
 
     /**
@@ -126,12 +136,22 @@ data class BeeJob(
     }
 
     /**
+     * Checks if this job should be completed.
+     */
+    fun checkCompletion() {
+        if ((status == JobStatus.IN_PROGRESS || status == JobStatus.WAITING_FOR_BEES) && isComplete()) {
+            complete()
+        }
+    }
+
+    /**
      * Cancels this job and all its tasks.
      */
     fun cancel() {
         status = JobStatus.CANCELLED
         tasks.forEach {
             if (it.status == TaskStatus.PENDING || it.status == TaskStatus.IN_PROGRESS) {
+                it.mechanicalBee?.brain?.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
                 it.cancel()
             }
         }

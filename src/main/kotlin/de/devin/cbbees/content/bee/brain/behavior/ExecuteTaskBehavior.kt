@@ -20,7 +20,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         val task = batch.getCurrentTask() ?: return false
 
         // Check if task is within the bee's current network range
-        val network = owner.getNetwork()
+        val network = owner.network()
         if (network != null && !network.isInRange(task.targetPos)) {
             return false
         }
@@ -39,6 +39,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         val done = task.action.execute(level, owner, owner.getBeeContext())
 
         if (done) {
+            task.complete()
             if (!batch.advance()) {
                 val nextBatch = hive.notifyTaskCompleted(task, owner)
 

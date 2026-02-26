@@ -6,10 +6,13 @@ import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.blocks.AllBlocks
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
+import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.backpack.client.TaskProgressClientEvents
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.brain.BeeSensors
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
+import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
+import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
 import de.devin.cbbees.datagen.CCRDatagen
@@ -75,9 +78,12 @@ object CreateBuzzyBeez {
 
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
             MOD_BUS.register(CCRClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
+            NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
+            NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
         }

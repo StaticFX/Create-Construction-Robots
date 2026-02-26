@@ -3,9 +3,10 @@ package de.devin.cbbees.content.domain
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.content.domain.network.BeeNetworkManager
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -16,103 +17,115 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.saveddata.SavedData
 import java.util.UUID
+import de.devin.cbbees.util.ServerSide
 
 /**
  * Global Bee Job distribution pool.
  *
  */
+@ServerSide
 object GlobalJobPool : SavedData() {
     private val jobBacklog = mutableListOf<BeeJob>()
 
-    val workers: Set<BeeHive> get() = BeeNetworkManager.workers
+    fun clear() {
+        jobBacklog.clear()
+    }
+
+    fun tick() {
+        if (jobBacklog.removeIf { it.status == JobStatus.COMPLETED || it.status == JobStatus.CANCELLED }) {
+            this.setDirty()
+        }
+    }
+
+    val workers: Set<BeeHive> get() = ServerBeeNetworkManager.getNetworks().flatMap { it.hives }.toSet()
 
     fun getAllJobs(): List<BeeJob> = jobBacklog
 
     @Synchronized
     fun workBacklog(beeHive: BeeHive): TaskBatch? {
-        val network = BeeNetworkManager.getNetworkFor(beeHive) ?: return null
+        val network = beeHive.network()
 
+        // 1. Find batches already assigned to this network
+        val assignedBatch = jobBacklog.flatMap { it.batches }
+            .filter { it.status == TaskStatus.PENDING && it.assignedNetworkId == network.id }
+            .minByOrNull { it.targetPosition.distSqr(beeHive.pos) }
+
+        if (assignedBatch != null) {
+            assignedBatch.status = TaskStatus.PICKED
+            return assignedBatch
+        }
+
+        // 2. Fallback: try to find any unassigned batch that this network can do
+        // This handles cases where a job was dispatched before the network was fully ready or split/merge events
         val job = jobBacklog.filter { network.isInRange(it.centerPos) }
-            .sortedBy { it.centerPos.distSqr(beeHive.sourcePosition) }
-            .firstOrNull { it.getNextTask() != null } ?: return null
+            .sortedBy { it.centerPos.distSqr(beeHive.pos) }
+            .firstOrNull { j -> j.batches.any { it.status == TaskStatus.PENDING && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) } }
+            ?: return null
 
-        val task = job.getNextTask() ?: return null
+        val batch =
+            job.batches.firstOrNull { it.status == TaskStatus.PENDING && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) }
+                ?: return null
 
-        // Verification: double check task is in range (already filtered by job center but good to be sure)
-        if (!network.isInRange(task.targetPos)) return null
+        // Verification
+        if (!network.isInRange(batch.targetPosition)) return null
 
-        task.status = TaskStatus.PICKED
-        return TaskBatch(listOf(task), job)
+        batch.assignedNetworkId = network.id
+        batch.status = TaskStatus.PICKED
+        return batch
     }
 
     @Synchronized
     fun dispatchNewJob(job: BeeJob) {
-        val availableNetworks = BeeNetworkManager.getNetworks().filter { network ->
-            network.hives.firstOrNull()?.sourceWorld == job.level &&
-                    network.isInRange(job.centerPos)
-        }.sortedBy { network ->
-            // Sort by distance of closest hive in network to job center
-            network.hives.minOf { it.sourcePosition.distSqr(job.centerPos) }
-        }
-
-        val tasksToDistribute = job.tasks
-            .filter { it.status == TaskStatus.PENDING }
-            .sortedByDescending { it.priority }
-            .toMutableList()
-
-        if (availableNetworks.isEmpty()) {
-            if (!jobBacklog.contains(job)) jobBacklog.add(job)
+        // Prevent duplicate active jobs with same uniqueness key
+        if (job.uniquenessKey != null && jobBacklog.any { it.uniquenessKey == job.uniquenessKey && it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }) {
             return
         }
 
-        for (network in availableNetworks) {
-            if (tasksToDistribute.isEmpty()) break
+        val batchesToDistribute = job.batches
+            .filter { it.status == TaskStatus.PENDING }
+            .sortedByDescending { it.priority }
 
-            // Try to distribute to hives in this network
-            val hivesInNetwork = network.hives.filter { it.getAvailableBeeCount() > 0 }
-                .sortedBy { it.sourcePosition.distSqr(job.centerPos) }
+        if (batchesToDistribute.isEmpty()) return
 
-            for (hive in hivesInNetwork) {
-                if (tasksToDistribute.isEmpty()) break
+        val allNetworks = ServerBeeNetworkManager.getNetworks()
 
-                val capacity = minOf(hive.getAvailableBeeCount(), hive.getMaxContributionBees())
-                var contributedThisLoop = 0
+        for (batch in batchesToDistribute) {
+            // Find networks that can do this batch
+            val candidateNetworks = allNetworks.filter { network ->
+                val firstComp = network.components.firstOrNull()
+                firstComp != null && firstComp.world == job.level &&
+                        network.isInRange(batch.targetPosition) &&
+                        canNetworkProvideResources(network, batch)
+            }.sortedBy { network ->
+                // Prefer network with closest hive
+                network.hives.minOf { it.pos.distSqr(batch.targetPosition) }
+            }
 
-                while (contributedThisLoop < capacity && tasksToDistribute.isNotEmpty()) {
-                    val task = tasksToDistribute.first()
-
-                    // Only assign if task is within network range
-                    if (!network.isInRange(task.targetPos)) {
-                        // This task cannot be done by this network, move to next task
-                        // (Usually job.centerPos being in range means tasks should be too, 
-                        // but individual tasks might be outside if the job covers a large area)
-                        tasksToDistribute.removeAt(0)
-                        continue
-                    }
-
-                    task.status = TaskStatus.PICKED
-                    val batch = TaskBatch(listOf(task), job)
-                    if (hive.acceptBatch(batch)) {
-                        job.addContribution(hive, 1)
-                        tasksToDistribute.removeAt(0)
-                        contributedThisLoop++
-                    } else {
-                        task.status = TaskStatus.PENDING
-                        break
-                    }
-                }
+            val targetNetwork = candidateNetworks.firstOrNull()
+            if (targetNetwork != null) {
+                batch.assignedNetworkId = targetNetwork.id
+                targetNetwork.dispatchBatch(batch)
             }
         }
 
-        if (tasksToDistribute.isNotEmpty()) jobBacklog.add(job)
-
+        if (!jobBacklog.contains(job)) jobBacklog.add(job)
         this.setDirty()
     }
 
+    private fun canNetworkProvideResources(network: BeeNetwork, batch: TaskBatch): Boolean {
+        val requiredItems = batch.tasks.flatMap { it.action.requiredItems }
+        if (requiredItems.isEmpty()) return true
+
+        return requiredItems.all { req ->
+            val provider = network.findProvider(req)
+            provider != null
+        }
+    }
+
     override fun save(
-        p0: CompoundTag,
-        p1: HolderLookup.Provider
+        tag: CompoundTag,
+        registries: HolderLookup.Provider
     ): CompoundTag {
-        TODO("Not yet implemented")
+        return tag
     }
 }

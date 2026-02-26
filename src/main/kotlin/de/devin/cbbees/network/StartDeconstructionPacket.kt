@@ -31,7 +31,8 @@ class StartDeconstructionPacket(
 ) : CustomPacketPayload {
 
     companion object {
-        val TYPE = CustomPacketPayload.Type<StartDeconstructionPacket>(CreateBuzzyBeez.asResource("start_deconstruction"))
+        val TYPE =
+            CustomPacketPayload.Type<StartDeconstructionPacket>(CreateBuzzyBeez.asResource("start_deconstruction"))
 
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, StartDeconstructionPacket> = StreamCodec.composite(
             BlockPos.STREAM_CODEC, StartDeconstructionPacket::pos1,
@@ -54,20 +55,18 @@ class StartDeconstructionPacket(
 
                 val tasks = SchematicCreateBridge(player.level()).generateRemovalTasks(payload.pos1, payload.pos2, job)
                 if (tasks.isNotEmpty()) {
-                    val center = BlockPos(
+                    job.centerPos = BlockPos(
                         (payload.pos1.x + payload.pos2.x) / 2,
                         (payload.pos1.y + payload.pos2.y) / 2,
                         (payload.pos1.z + payload.pos2.z) / 2
                     )
+                    job.addBatches(tasks)
 
-                    val finalJob = job.copy(centerPos = center).apply {
-                        ownerId = job.ownerId
-                        uniquenessKey = job.uniquenessKey
-                        addTasks(tasks)
-                    }
-
-                    GlobalJobPool.dispatchNewJob(finalJob)
-                    player.displayClientMessage(Component.translatable("cbbees.deconstruction.started", tasks.size), true)
+                    GlobalJobPool.dispatchNewJob(job)
+                    player.displayClientMessage(
+                        Component.translatable("cbbees.deconstruction.started", tasks.size),
+                        true
+                    )
                 } else {
                     player.displayClientMessage(Component.translatable("cbbees.deconstruction.no_blocks"), true)
                 }

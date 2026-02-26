@@ -25,6 +25,7 @@ data class BeeTask(
 ) {
     var status: TaskStatus = TaskStatus.PENDING
     var mechanicalBee: MechanicalBeeEntity? = null
+    var assignedNetworkId: UUID? = null
 
     var requirement: (task: BeeTask) -> Boolean = { true }
 
@@ -51,6 +52,7 @@ data class BeeTask(
      */
     fun complete() {
         status = TaskStatus.COMPLETED
+        job.checkCompletion()
     }
 
     /**
@@ -75,6 +77,7 @@ data class BeeTask(
     fun cancel() {
         status = TaskStatus.CANCELLED
         mechanicalBee = null
+        job.checkCompletion()
     }
 
     companion object {
