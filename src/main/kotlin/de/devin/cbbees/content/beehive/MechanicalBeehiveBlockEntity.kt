@@ -53,16 +53,12 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     override fun getActiveBeeCount(): Int = activeBees.size
 
     val beeInventory = object : ItemStackHandler(9) {
-        override fun onContentsChanged(slot: Int) = setChanged()
+        override fun onContentsChanged(slot: Int) = sync()
         override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is MechanicalBeeItem
     }
 
-    val upgradeInventory = object : ItemStackHandler(9) {
-        override fun onContentsChanged(slot: Int) = setChanged()
-        override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is BeeUpgradeItem
-    }
 
-    val inventory = CombinedInvWrapper(beeInventory, upgradeInventory)
+    val inventory = CombinedInvWrapper(beeInventory)
 
     val instructions = mutableListOf<BeeInstruction>()
 
@@ -93,6 +89,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         level!!.addFreshEntity(bee)
         activeBees.add(bee.uuid)
+        sync()
 
         return true
     }
@@ -118,7 +115,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun onBeeRemoved(bee: MechanicalBeeEntity) {
         if (activeBees.remove(bee.uuid)) {
-            setChanged()
+            sync()
         }
     }
 
@@ -162,7 +159,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         tag.putInt("ActiveBeeCount", activeBees.size)
         tag.put("BeeInv", beeInventory.serializeNBT(registries))
-        tag.put("UpgradeInv", upgradeInventory.serializeNBT(registries))
 
         val instList = ListTag()
         instructions.forEach {
@@ -193,7 +189,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             }
         }
         beeInventory.deserializeNBT(registries, tag.getCompound("BeeInv"))
-        upgradeInventory.deserializeNBT(registries, tag.getCompound("UpgradeInv"))
 
         instructions.clear()
         val instList = tag.getList("Instructions", Tag.TAG_COMPOUND.toInt())
@@ -232,6 +227,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
                 return true
             } else if (stack.item == item && stack.count < stack.maxStackSize) {
                 stack.grow(1)
+                sync()
                 return true
             }
         }
@@ -244,6 +240,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             if (!stack.isEmpty && stack.item is MechanicalBeeItem) {
                 val tier = (stack.item as MechanicalBeeItem).tier
                 stack.shrink(1)
+                sync()
                 return tier
             }
         }
@@ -275,7 +272,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         // Network Info
         val net = network()
-        net?.let { n ->
+        net.let { n ->
             Lang.builder("cbbees").translate("gui.goggles.beehive.network")
                 .style(ChatFormatting.GRAY)
                 .add(Lang.builder("cbbees").text(n.name).style(ChatFormatting.GOLD))
@@ -291,7 +288,8 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             .forGoggles(tooltip, 1)
 
         // Stored Bees
-        val storedBees = (0 until beeInventory.slots).sumOf { beeInventory.getStackInSlot(it).count }
+        val storedBees = getAvailableBeeCount()
+
         Lang.builder("cbbees").translate("gui.goggles.beehive.stored")
             .style(ChatFormatting.GRAY)
             .add(Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(storedBees.toDouble())))

@@ -3,8 +3,8 @@ package de.devin.cbbees.content.schematics
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
+import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.action.impl.PickupItemAction
 import de.devin.cbbees.content.domain.job.BeeJob
@@ -13,6 +13,8 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
 import de.devin.cbbees.util.ServerSide
 
 /**
@@ -81,9 +83,20 @@ class SchematicCreateBridge(
     }
 
     /**
-     * Generate all placement tasks from the loaded schematic
+     * Generate all placement tasks from the loaded schematic.
+     *
+     * Uses a two-pass priority system mirroring Create's SchematiCannon:
+     * 1. **Normal blocks** (high priority): Solid support blocks placed bottom-up.
+     * 2. **Deferred blocks** (low priority): Brittle/dependent blocks placed after supports.
+     *
+     * Special handling:
+     * - Multi-block duplicates (upper door halves, bed heads) are skipped.
+     * - Belt blocks are deferred and placed individually via [BlockHelper.placeSchematicBlock]
+     *   which uses flag 2 (no neighbor updates). The schematic's block entity data provides
+     *   controller/beltLength/index so no special belt reconstruction is needed.
+     *
      * @param job The job to assign the tasks to
-     * @return List of RobotTasks for building the schematic
+     * @return List of TaskBatches for building the schematic
      */
     fun generateBuildTasks(job: BeeJob): List<TaskBatch> {
         if (!isLoaded) {
@@ -93,49 +106,61 @@ class SchematicCreateBridge(
 
         val batches = mutableListOf<TaskBatch>()
 
-        // Iterate through all blocks in the schematic
+        // Iterate through all blocks in the schematic using Create's three-pass printer
+        // (BLOCKS -> DEFERRED_BLOCKS -> ENTITIES)
         while (printer.isLoaded && !printer.isErrored && printer.advanceCurrentPos()) {
             if (!printer.shouldPlaceCurrent(level)) continue
 
             val requirement = printer.currentRequirement
             val items = getItemsFromRequirement(requirement)
 
-            // Get the block state and potential block entity data to place
             printer.handleCurrentTarget({ pos, state, blockEntity ->
-                if (state != null && !state.isAir) {
+                if (state == null || state.isAir) return@handleCurrentTarget
 
-                    val tag = blockEntity?.saveWithFullMetadata(level.registryAccess())
-                    val buildTask = BeeTask.place(
-                        pos = pos,
-                        state = state,
-                        items = items,
-                        priority = calculatePriority(pos),
-                        tag = tag,
-                        job = job
-                    )
+                // Skip secondary parts of multi-block structures
+                if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
 
-                    //buildTask.requirement = { it.mechanicalBee.inventoryManager }
+                // All blocks (including belts) use the two-pass priority system.
+                // Belts are classified as deferred, so they're placed after their support shafts.
+                // BlockHelper.placeSchematicBlock() uses flag 2 for belts (no neighbor updates),
+                // and the schematic's block entity data already contains controller/beltLength/index.
+                val priority = BlockPlacementClassifier.calculatePriority(pos, state)
+                val tag = prepareBlockEntityData(state, blockEntity)
+                val buildTask = BeeTask.place(
+                    pos = pos,
+                    state = state,
+                    items = items,
+                    priority = priority,
+                    tag = tag,
+                    job = job
+                )
 
-                    val tasksInBatch = mutableListOf<BeeTask>()
+                val tasksInBatch = mutableListOf<BeeTask>()
 
-                    // Check if we need to pick up items
-                    if (items.isNotEmpty()) {
-                        val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
-                        if (port != null) {
-                            val pickupAction = PickupItemAction(port.pos, items)
-                            tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
-                        }
+                if (items.isNotEmpty()) {
+                    val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
+                    if (port != null) {
+                        val pickupAction = PickupItemAction(port.pos, items)
+                        tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
                     }
-
-                    tasksInBatch.add(buildTask)
-                    batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
                 }
+
+                tasksInBatch.add(buildTask)
+                batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
             }, { _, _ ->
-                // TODO Add entity handling... somehow
+                // TODO Add entity handling (armor stands, item frames, etc.)
             })
         }
 
         return batches
+    }
+
+    /**
+     * Prepares block entity data for placement using Create's safe NBT processing.
+     */
+    private fun prepareBlockEntityData(state: BlockState, blockEntity: BlockEntity?): net.minecraft.nbt.CompoundTag? {
+        if (blockEntity == null) return null
+        return BlockHelper.prepareBlockEntityData(blockEntity.level ?: level, state, blockEntity)
     }
 
     /**
@@ -200,14 +225,6 @@ class SchematicCreateBridge(
         }
 
         return items
-    }
-
-    /**
-     * Calculate priority for placement (lower Y = higher priority for bottom-up building)
-     */
-    private fun calculatePriority(pos: BlockPos): Int {
-        // Invert Y so lower blocks have higher priority
-        return 256 - pos.y
     }
 
     /**
