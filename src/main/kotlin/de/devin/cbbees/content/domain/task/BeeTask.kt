@@ -2,9 +2,11 @@ package de.devin.cbbees.content.domain.task
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
@@ -93,6 +95,23 @@ data class BeeTask(
             job: BeeJob
         ): BeeTask {
             val action = PlaceBlockAction(pos, state, tag, items)
+            return BeeTask(action, job, priority)
+        }
+
+        /**
+         * Create a belt placement task using Create's BeltConnector flow.
+         */
+        fun belt(
+            controllerPos: BlockPos,
+            endPos: BlockPos,
+            chain: List<BlockPos>,
+            casings: List<BeltBlockEntity.CasingType>,
+            covers: List<Boolean>,
+            items: List<ItemStack>,
+            priority: Int = 0,
+            job: BeeJob
+        ): BeeTask {
+            val action = PlaceBeltAction(controllerPos, endPos, chain, casings, covers, items)
             return BeeTask(action, job, priority)
         }
 

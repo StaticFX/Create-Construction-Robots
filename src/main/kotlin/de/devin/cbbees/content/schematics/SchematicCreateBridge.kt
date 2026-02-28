@@ -1,9 +1,12 @@
 package de.devin.cbbees.content.schematics
 
 import com.simibubi.create.AllDataComponents
+import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import com.simibubi.create.foundation.utility.BlockHelper
+import com.simibubi.create.content.kinetics.belt.BeltBlock
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.action.impl.PickupItemAction
@@ -91,9 +94,9 @@ class SchematicCreateBridge(
      *
      * Special handling:
      * - Multi-block duplicates (upper door halves, bed heads) are skipped.
-     * - Belt blocks are deferred and placed individually via [BlockHelper.placeSchematicBlock]
-     *   which uses flag 2 (no neighbor updates). The schematic's block entity data provides
-     *   controller/beltLength/index so no special belt reconstruction is needed.
+     * - Belt placement mirrors SchematiCannon: middle segments are ignored, and the controller
+     *   segment triggers a single belt-placement action that uses [BeltConnectorItem.createBelts]
+     *   and reapplies casing/cover data from the schematic.
      *
      * @param job The job to assign the tasks to
      * @return List of TaskBatches for building the schematic
@@ -120,10 +123,53 @@ class SchematicCreateBridge(
                 // Skip secondary parts of multi-block structures
                 if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
 
-                // All blocks (including belts) use the two-pass priority system.
-                // Belts are classified as deferred, so they're placed after their support shafts.
-                // BlockHelper.placeSchematicBlock() uses flag 2 for belts (no neighbor updates),
-                // and the schematic's block entity data already contains controller/beltLength/index.
+                // Belt handling: only the controller segment spawns a task; middle segments are ignored.
+                if (AllBlocks.BELT.has(state)) {
+                    val beltBE = blockEntity as? BeltBlockEntity ?: return@handleCurrentTarget
+                    if (!beltBE.isController) return@handleCurrentTarget
+
+                    val beltWorld = beltBE.level ?: level
+                    val controllerPos = beltBE.controller ?: pos
+                    val chain = BeltBlock.getBeltChain(beltWorld, controllerPos)
+                    if (chain.isEmpty()) return@handleCurrentTarget
+
+                    val casings = mutableListOf<BeltBlockEntity.CasingType>()
+                    val covers = mutableListOf<Boolean>()
+                    chain.forEach { chainPos ->
+                        val segment = beltWorld.getBlockEntity(chainPos) as? BeltBlockEntity
+                        casings.add(segment?.casing ?: BeltBlockEntity.CasingType.NONE)
+                        covers.add(segment?.covered ?: false)
+                    }
+
+                    val priority = BlockPlacementClassifier.calculatePriority(pos, state)
+                    val buildTask = BeeTask.belt(
+                        controllerPos = chain.first(),
+                        endPos = chain.last(),
+                        chain = chain,
+                        casings = casings,
+                        covers = covers,
+                        items = items,
+                        priority = priority,
+                        job = job
+                    )
+
+                    val tasksInBatch = mutableListOf<BeeTask>()
+
+                    if (items.isNotEmpty()) {
+                        val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
+                        if (port != null) {
+                            val pickupAction = PickupItemAction(port.pos, items)
+                            tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
+                        }
+                    }
+
+                    tasksInBatch.add(buildTask)
+                    batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
+                    return@handleCurrentTarget
+                }
+
+                // Non-belt blocks use the two-pass priority system. Deferred blocks are placed
+                // after supports to mirror SchematiCannon ordering.
                 val priority = BlockPlacementClassifier.calculatePriority(pos, state)
                 val tag = prepareBlockEntityData(state, blockEntity)
                 val buildTask = BeeTask.place(

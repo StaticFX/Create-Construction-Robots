@@ -18,6 +18,30 @@ interface BeeAction {
     fun onTick(robot: MechanicalBeeEntity, tick: Int) {}
     fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean
 
+    fun hasItems(bee: MechanicalBeeEntity): Boolean =
+        requiredItems.all { bee.carriedItems.any { ItemStack.isSameItemSameComponents(it, it) } }
+
+
+    fun consumeItems(bee: MechanicalBeeEntity): Boolean {
+        if (!hasItems(bee)) return false
+
+        for (req in requiredItems) {
+            var toRemove = req.count
+            val iterator = bee.carriedItems.iterator()
+            while (iterator.hasNext() && toRemove > 0) {
+                val carried = iterator.next()
+                if (ItemStack.isSameItemSameComponents(carried, req)) {
+                    val removed = minOf(carried.count, toRemove)
+                    carried.shrink(removed)
+                    toRemove -= removed
+                    if (carried.isEmpty) iterator.remove()
+                }
+            }
+        }
+
+        return true
+    }
+
     /**
      * Whether the bee should return to home after performing this action.
      */
