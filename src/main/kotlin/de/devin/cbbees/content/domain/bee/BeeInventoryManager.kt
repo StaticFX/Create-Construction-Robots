@@ -23,56 +23,51 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
     private val WIRELESS_SCAN_INTERVAL = 100 // 5 seconds
 
     /**
-     * Picks up items for the current task.
+     * Picks up items for the current task into the bee's inventory.
      */
-    fun pickUpItems(required: List<ItemStack>, context: BeeContext, carriedItems: MutableList<ItemStack>): Boolean {
+    fun pickUpItems(required: List<ItemStack>, context: BeeContext): Boolean {
         val ownerPlayer = robot.getOwnerPlayer() ?: return false
         if (ownerPlayer.isCreative) return true
 
         val source = getMaterialSource(ownerPlayer, context)
-        val carryCapacity = context.carryCapacity
-        var itemsPickedUp = 0
-
-        carriedItems.clear()
+        robot.inventory.clearContent()
 
         for (req in required) {
             if (req.isEmpty) continue
-            if (itemsPickedUp >= carryCapacity) break
+            if (robot.isInventoryFull()) break
 
-            val toPickUp = minOf(req.count, carryCapacity - itemsPickedUp)
-            val extracted = source.extractItems(req, toPickUp)
+            val extracted = source.extractItems(req, req.count)
             if (!extracted.isEmpty) {
-                carriedItems.add(extracted)
-                itemsPickedUp += extracted.count
+                robot.addToInventory(extracted)
             }
         }
 
         val totalRequired = required.sumOf { it.count }
-        return itemsPickedUp >= totalRequired
+        var totalCarried = 0
+        for (i in 0 until robot.inventory.containerSize) {
+            totalCarried += robot.inventory.getItem(i).count
+        }
+        return totalCarried >= totalRequired
     }
 
     /**
      * Deposits carried items back into player or wireless inventory.
      */
-    fun depositItems(carriedItems: MutableList<ItemStack>, context: BeeContext) {
+    fun depositItems(context: BeeContext) {
         val ownerPlayer = robot.getOwnerPlayer() ?: return
         if (ownerPlayer.isCreative) {
-            carriedItems.clear()
+            robot.inventory.clearContent()
             return
         }
 
         val source = getMaterialSource(ownerPlayer, context)
-        val remainingItems = mutableListOf<ItemStack>()
 
-        for (stack in carriedItems) {
+        for (i in 0 until robot.inventory.containerSize) {
+            val stack = robot.inventory.getItem(i)
+            if (stack.isEmpty) continue
             val remaining = source.insertItems(stack)
-            if (!remaining.isEmpty) {
-                remainingItems.add(remaining)
-            }
+            robot.inventory.setItem(i, remaining)
         }
-
-        carriedItems.clear()
-        carriedItems.addAll(remainingItems)
     }
 
     /**

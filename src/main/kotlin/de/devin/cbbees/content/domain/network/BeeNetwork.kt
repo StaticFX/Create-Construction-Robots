@@ -48,6 +48,24 @@ class BeeNetwork(
             .firstOrNull()
     }
 
+    fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
+        return ports.filter { it.isValidForPickup() && it.hasAvailableItemStack(stack, excludeBeeId) }
+            .sortedByDescending { it.priority() }
+            .firstOrNull()
+    }
+
+    fun releaseReservations(beeId: UUID) {
+        ports.forEach { it.releaseReservation(beeId) }
+    }
+
+    fun cleanupReservations(currentTick: Long) {
+        ports.forEach { it.cleanupReservations(currentTick) }
+    }
+
+    fun clearReservations() {
+        ports.forEach { it.clearReservations() }
+    }
+
     fun dispatchBatch(batch: TaskBatch) {
         val hive = hives.firstOrNull { topology.isOperationalRange(it, batch.targetPosition) } ?: return
         hive.acceptBatch(batch)

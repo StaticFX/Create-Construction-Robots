@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.action.impl
 
 import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
@@ -30,23 +31,10 @@ class PlaceBlockAction(
     val blockState: BlockState,
     val blockEntityTag: CompoundTag? = null,
     override val requiredItems: List<ItemStack> = emptyList()
-) : BeeAction {
+) : BeeAction, ItemConsumingAction {
 
-    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
-        // Consume required items from robot's inventory
-        for (req in requiredItems) {
-            var toRemove = req.count
-            val iterator = robot.carriedItems.iterator()
-            while (iterator.hasNext() && toRemove > 0) {
-                val carried = iterator.next()
-                if (ItemStack.isSameItemSameComponents(carried, req)) {
-                    val removed = minOf(carried.count, toRemove)
-                    carried.shrink(removed)
-                    toRemove -= removed
-                    if (carried.isEmpty) iterator.remove()
-                }
-            }
-        }
+    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        consumeItems(bee)
 
         // Use Create's BlockHelper for proper schematic block placement.
         // This handles all edge cases: rails, state filtering, block entity data,

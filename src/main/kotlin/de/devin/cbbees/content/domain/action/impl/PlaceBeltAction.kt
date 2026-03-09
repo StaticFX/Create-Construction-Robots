@@ -6,6 +6,7 @@ import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -27,10 +28,10 @@ class PlaceBeltAction(
     private val casings: List<BeltBlockEntity.CasingType>,
     private val covers: List<Boolean>,
     override val requiredItems: List<ItemStack> = emptyList()
-) : BeeAction {
+) : BeeAction, ItemConsumingAction {
 
-    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
-        consumeItems(robot)
+    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        consumeItems(bee)
 
         BeltConnectorItem.createBelts(level, pos, end)
 

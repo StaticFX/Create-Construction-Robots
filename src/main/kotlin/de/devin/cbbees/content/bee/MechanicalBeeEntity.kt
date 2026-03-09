@@ -3,13 +3,12 @@ package de.devin.cbbees.content.bee
 import com.mojang.serialization.Dynamic
 import de.devin.cbbees.content.bee.brain.BeeBrainProvider
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
-import de.devin.cbbees.content.domain.bee.BeeInventoryManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.upgrades.BeeContext
+import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.network.syncher.EntityDataAccessor
@@ -24,14 +23,16 @@ import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
+import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
+import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.schedule.Activity
 import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.ListTag
 import net.minecraft.world.level.Level
-import net.neoforged.neoforge.common.damagesource.DamageContainer
 import software.bernie.geckolib.animatable.GeoEntity
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.animation.AnimatableManager
@@ -65,6 +66,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
         private val TIER: EntityDataAccessor<String> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.STRING)
+        private val TARGET_POS: EntityDataAccessor<Optional<BlockPos>> =
+            SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
 
         /** Maximum ticks before teleporting to target */
         const val MAX_STUCK_TICKS = 60  // 3 seconds
@@ -80,12 +83,11 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
     /** Calculated stats for this robot based on backpack upgrades */
-    private var robotContext: BeeContext? = null
+    private var beeContext: BeeContext? = null
 
-    /** Items the robot is currently carrying for the task */
-    val carriedItems: MutableList<ItemStack> = mutableListOf()
-
-    val inventoryManager = BeeInventoryManager(this)
+    /** Slot-based inventory. Size depends on tier (andesite=1, brass=3, sturdy=9). */
+    var inventory = SimpleContainer(1)
+        private set
 
     var networkId: UUID = UUID.randomUUID()
 
@@ -112,17 +114,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
         controllers.add(
             AnimationController(this, "controller", 5) { event ->
-                val brain = this.getBrain()
-                val animation = when {
-                    brain.isActive(Activity.WORK) -> RawAnimation.begin().thenLoop("flying")
-                    brain.isActive(Activity.REST) -> RawAnimation.begin().thenLoop("flying")
-                    // If moving, play flying
-                    deltaMovement.lengthSqr() > 0.0001 -> RawAnimation.begin().thenPlay("flying_start")
-                        .thenLoop("flying")
-
-                    else -> RawAnimation.begin().thenLoop("flying_idle")
-                }
-                event.setAndContinue(animation)
+                event.setAndContinue(RawAnimation.begin().thenLoop("idle"))
             }
         )
     }
@@ -144,6 +136,9 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         set(value) {
             entityData.set(TIER, value.name.lowercase())
             getAttribute(Attributes.FLYING_SPEED)?.baseValue = 1.0 * value.capabilities.flySpeedModifier
+            if (inventory.containerSize != value.capabilities.inventorySize) {
+                inventory = SimpleContainer(value.capabilities.inventorySize)
+            }
         }
 
     override fun brainProvider(): Brain.Provider<*> {
@@ -164,6 +159,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         builder.define(OWNER_UUID, Optional.empty())
         builder.define(BEEHIVE_ID, Optional.empty())
         builder.define(TIER, MechanicalBeeTier.ANDESITE.name.lowercase())
+        builder.define(TARGET_POS, Optional.empty())
     }
 
     override fun createNavigation(level: Level): PathNavigation {
@@ -190,6 +186,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide) {
+            network()?.releaseReservations(this.uuid)
             beehive()?.onBeeRemoved(this)
         }
         super.remove(reason)
@@ -205,10 +202,30 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         super.tick()
         if (level().isClientSide) return
 
-        if (robotContext == null || tickCount % 100 == 0) {
-            robotContext = beehive()?.getBeeContext()
+        syncTargetPos()
+
+        if (beeContext == null || tickCount % 100 == 0) {
+            beeContext = beehive()?.getBeeContext()
         }
     }
+
+    private fun syncTargetPos() {
+        val brain = getBrain()
+        val walkTarget = brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null)
+        if (walkTarget != null) {
+            entityData.set(TARGET_POS, Optional.of(walkTarget.target.currentBlockPosition()))
+            return
+        }
+        val batch = brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
+        val task = batch?.getCurrentTask()
+        if (task != null) {
+            entityData.set(TARGET_POS, Optional.of(task.targetPos))
+        } else {
+            entityData.set(TARGET_POS, Optional.empty())
+        }
+    }
+
+    fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
     override fun push(entity: net.minecraft.world.entity.Entity) {}
     override fun doPush(entity: net.minecraft.world.entity.Entity) {}
@@ -220,6 +237,17 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         entityData.get(BEEHIVE_ID).ifPresent { compound.putUUID("HomeId", it) }
         compound.putUUID("NetworkId", networkId)
         compound.putString("Tier", tier.name)
+
+        val itemsTag = ListTag()
+        for (i in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(i)
+            if (!stack.isEmpty) {
+                val slotTag = stack.save(registryAccess()) as CompoundTag
+                slotTag.putInt("Slot", i)
+                itemsTag.add(slotTag)
+            }
+        }
+        compound.put("BeeInventory", itemsTag)
     }
 
     override fun readAdditionalSaveData(compound: CompoundTag) {
@@ -228,7 +256,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
             setOwner(compound.getUUID("Owner"))
         }
         if (compound.hasUUID("HomeId")) {
-            //TODO receive beehive instance from global registry and add it here to bee
             entityData.set(BEEHIVE_ID, Optional.of(compound.getUUID("HomeId")))
         }
         if (compound.hasUUID("NetworkId")) {
@@ -236,6 +263,17 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         }
         if (compound.contains("Tier")) {
             tier = MechanicalBeeTier.valueOf(compound.getString("Tier"))
+        }
+
+        if (compound.contains("BeeInventory")) {
+            val itemsTag = compound.getList("BeeInventory", 10)
+            for (j in 0 until itemsTag.size) {
+                val slotTag = itemsTag.getCompound(j)
+                val slot = slotTag.getInt("Slot")
+                if (slot in 0 until inventory.containerSize) {
+                    inventory.setItem(slot, ItemStack.parseOptional(registryAccess(), slotTag))
+                }
+            }
         }
     }
 
@@ -250,12 +288,78 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return getOwnerUUID()?.let { level().getPlayerByUUID(it) } as? ServerPlayer
     }
 
-    fun getBeeContext(): BeeContext = robotContext ?: BeeContext()
+    fun getBeeContext(): BeeContext = beeContext ?: BeeContext()
 
     /**
-     * Gets the maximum number of items this robot can carry per trip.
+     * Inserts a stack into the bee's inventory. Returns the remainder that didn't fit.
      */
-    fun getCarryCapacity(): Int = getBeeContext().carryCapacity
+    fun addToInventory(stack: ItemStack): ItemStack {
+        var remaining = stack.copy()
+        // First pass: merge into existing matching slots
+        for (i in 0 until inventory.containerSize) {
+            if (remaining.isEmpty) return ItemStack.EMPTY
+            val slotStack = inventory.getItem(i)
+            if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, remaining)) {
+                val canAdd = minOf(remaining.count, slotStack.maxStackSize - slotStack.count)
+                if (canAdd > 0) {
+                    slotStack.grow(canAdd)
+                    remaining.shrink(canAdd)
+                }
+            }
+        }
+        // Second pass: fill empty slots
+        for (i in 0 until inventory.containerSize) {
+            if (remaining.isEmpty) return ItemStack.EMPTY
+            if (inventory.getItem(i).isEmpty) {
+                inventory.setItem(i, remaining.copy())
+                return ItemStack.EMPTY
+            }
+        }
+        return remaining
+    }
+
+    fun getInventoryContents(): List<ItemStack> {
+        val list = mutableListOf<ItemStack>()
+        for (i in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(i)
+            if (!stack.isEmpty) list.add(stack)
+        }
+        return list
+    }
+
+    fun isInventoryFull(): Boolean {
+        for (i in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(i)
+            if (stack.isEmpty || stack.count < stack.maxStackSize) return false
+        }
+        return true
+    }
+
+    fun countInInventory(stack: ItemStack): Int {
+        var count = 0
+        for (i in 0 until inventory.containerSize) {
+            val slotStack = inventory.getItem(i)
+            if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
+                count += slotStack.count
+            }
+        }
+        return count
+    }
+
+    fun removeFromInventory(stack: ItemStack, count: Int): Boolean {
+        var toRemove = count
+        for (i in 0 until inventory.containerSize) {
+            if (toRemove <= 0) break
+            val slotStack = inventory.getItem(i)
+            if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
+                val removed = minOf(slotStack.count, toRemove)
+                slotStack.shrink(removed)
+                toRemove -= removed
+                if (slotStack.isEmpty) inventory.setItem(i, ItemStack.EMPTY)
+            }
+        }
+        return toRemove <= 0
+    }
 
     /**
      * Drops a robot item at the current position and removes the entity.

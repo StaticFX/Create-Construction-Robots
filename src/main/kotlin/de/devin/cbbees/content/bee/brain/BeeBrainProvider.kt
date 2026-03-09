@@ -47,8 +47,9 @@ object BeeBrainProvider {
         brain.addActivityWithConditions(
             Activity.WORK,
             ImmutableList.of(
-                Pair.of(0, MoveToTaskBehavior()),
-                Pair.of(1, ExecuteTaskBehavior())
+                Pair.of(0, GatherItemsBehavior()),
+                Pair.of(1, MoveToTaskBehavior()),
+                Pair.of(2, ExecuteTaskBehavior())
             ),
             setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_PRESENT))
         )

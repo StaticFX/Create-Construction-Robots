@@ -10,6 +10,7 @@ import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.backpack.client.TaskProgressClientEvents
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.brain.BeeSensors
+import de.devin.cbbees.content.bee.client.BeeTargetLineHandler
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
@@ -37,6 +38,7 @@ import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.data.event.GatherDataEvent
+import net.neoforged.neoforge.event.RegisterCommandsEvent
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.LogManager
@@ -83,6 +85,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(BeeTargetLineHandler::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
             NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
@@ -104,6 +107,10 @@ object CreateBuzzyBeez {
                 AllBlockEntityTypes.LOGISTICS_PORT.get(),
                 { be, side -> be.getItemHandler(be.world) }
             )
+        }
+
+        NeoForge.EVENT_BUS.addListener<RegisterCommandsEvent> {
+            de.devin.cbbees.content.bee.debug.BeeDebugCommand.register(it.dispatcher)
         }
 
         // Register server-side event handlers on the NeoForge event bus

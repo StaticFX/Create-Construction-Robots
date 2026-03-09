@@ -1,8 +1,9 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.debug.BeeDebug
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -17,24 +18,44 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
-        val task = batch.getCurrentTask() ?: return false
+        val task = batch.getCurrentTask()
+        if (task == null) {
+            BeeDebug.log(owner, "Execute: no current task in batch")
+            return false
+        }
 
         // Check if task is within the bee's current network range
         val network = owner.network()
         if (network != null && !network.isInRange(task.targetPos)) {
+            BeeDebug.log(owner, "Execute: task at ${task.targetPos} out of network range")
             return false
         }
 
         val workRange = owner.tier.capabilities.workRange
+        val inRange = owner.blockPosition().closerThan(task.targetPos, workRange)
 
-        return owner.blockPosition().closerThan(task.targetPos, workRange)
+        if (!inRange) {
+            BeeDebug.log(owner, "Execute: not in range of ${task.targetPos} (dist=${owner.blockPosition().distSqr(task.targetPos)}, range=$workRange)")
+            return false
+        }
+
+        // Check if the task needs items the bee doesn't have
+        val action = task.action
+        if (action is ItemConsumingAction && !action.hasItems(owner)) {
+            BeeDebug.log(owner, "Execute: missing items for ${action.requiredItems.joinToString { "${it.count}x ${it.item}" }}")
+            return false
+        }
+
+        BeeDebug.log(owner, "Execute: ready to run ${task.action.getDescription()}")
+        return true
     }
 
     override fun start(level: ServerLevel, owner: MechanicalBeeEntity, gameTime: Long) {
-        CreateBuzzyBeez.LOGGER.info("Bee now executing task")
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val task = batch.getCurrentTask() ?: return
         val hive = owner.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
+
+        BeeDebug.log(owner, "Executing: ${task.action.getDescription()}")
 
         val done = task.action.execute(level, owner, owner.getBeeContext())
 
@@ -43,22 +64,24 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
             if (!batch.advance()) {
                 val nextBatch = hive.notifyTaskCompleted(task, owner)
 
-                CreateBuzzyBeez.LOGGER.info("Finished")
-
-
                 if (nextBatch != null) {
-                    CreateBuzzyBeez.LOGGER.info("Found next task")
-
+                    BeeDebug.log(owner, "Batch done — received next batch")
                     owner.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), nextBatch)
                     owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
                 } else {
-                    CreateBuzzyBeez.LOGGER.info("No other task found")
+                    BeeDebug.log(owner, "Batch done — no more work, returning to hive")
                     owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
                 }
             } else {
-                CreateBuzzyBeez.LOGGER.info("Advancing to next sub-task in batch")
+                BeeDebug.log(owner, "Advancing to next sub-task in batch")
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
+        } else {
+            BeeDebug.log(owner, "Task failed — releasing batch")
+            owner.network()?.releaseReservations(owner.uuid)
+            batch.release()
+            owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+            owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
         }
     }
 }

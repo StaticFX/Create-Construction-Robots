@@ -1,5 +1,6 @@
 package de.devin.cbbees.network
 
+import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
@@ -37,6 +38,8 @@ object CCRServerEvents {
         GlobalJobPool.tick()
 
         val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
+        val gameTime = server.overworld().gameTime
+        ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         for (player in server.playerList.players) {
             HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
 
@@ -74,7 +77,9 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
+        ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()
         GlobalJobPool.clear()
+        BeeDebug.clear()
     }
 }

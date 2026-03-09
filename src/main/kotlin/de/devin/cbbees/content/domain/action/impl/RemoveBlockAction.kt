@@ -27,7 +27,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         }
     }
 
-    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (context.pickupEnabled) {
             val state = level.getBlockState(pos)
             if (level is ServerLevel) {
@@ -39,7 +39,15 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
                 }
 
                 level.destroyBlock(pos, false)
-                robot.carriedItems.addAll(drops)
+                for (drop in drops) {
+                    val remainder = bee.addToInventory(drop)
+                    if (!remainder.isEmpty) {
+                        val itemEntity = net.minecraft.world.entity.item.ItemEntity(
+                            level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder
+                        )
+                        level.addFreshEntity(itemEntity)
+                    }
+                }
                 return true
             }
         } else {

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -12,8 +13,10 @@ object StuckReasonResolver {
 
         // 2) Missing resources for any pending batch
         job.batches.filter { it.status == TaskStatus.PENDING }.forEach { b ->
-            val missing = b.tasks.flatMap { it.action.requiredItems }
-                .filter { req -> network.findProvider(req) == null }
+            val missing = b.tasks.map { it.action }
+                .filterIsInstance<ItemConsumingAction>()
+                .flatMap { it.requiredItems }
+                .filter { req -> network.findAvailableProvider(req) == null }
             if (missing.isNotEmpty()) return "Missing resources (${missing.size})"
         }
 

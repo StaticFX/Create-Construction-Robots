@@ -1,8 +1,8 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryStatus
@@ -22,7 +22,7 @@ class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
         val hive = entity.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
 
-        CreateBuzzyBeez.LOGGER.info("Returning bee to hive")
+        BeeDebug.log(entity, "Entering hive")
 
         val success = hive.returnBee(entity.tier)
 

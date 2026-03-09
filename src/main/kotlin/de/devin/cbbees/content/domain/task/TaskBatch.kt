@@ -30,7 +30,18 @@ class TaskBatch(
         return true
     }
 
+    fun getRemainingTasks(): List<BeeTask> = tasks.subList(currentIndex, tasks.size)
+
     fun isComplete(): Boolean = currentIndex >= tasks.size
+
+    fun release(resetNetwork: Boolean = true) {
+        currentIndex = 0
+        status = TaskStatus.PENDING
+        tasks.forEach { it.release() }
+        if (resetNetwork) {
+            assignedNetworkId = null
+        }
+    }
 
     fun assignToRobot(bee: MechanicalBeeEntity) {
         status = TaskStatus.IN_PROGRESS

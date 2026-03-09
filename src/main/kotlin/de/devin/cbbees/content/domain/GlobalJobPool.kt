@@ -1,22 +1,14 @@
 package de.devin.cbbees.content.domain
 
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
-import de.devin.cbbees.content.domain.logistics.LogisticsPort
-import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
-import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.Level
 import net.minecraft.world.level.saveddata.SavedData
-import java.util.UUID
 import de.devin.cbbees.util.ServerSide
 
 /**
@@ -94,8 +86,7 @@ object GlobalJobPool : SavedData() {
             val candidateNetworks = allNetworks.filter { network ->
                 val firstComp = network.components.firstOrNull()
                 firstComp != null && firstComp.world == job.level &&
-                        network.isInRange(batch.targetPosition) &&
-                        canNetworkProvideResources(network, batch)
+                        network.isInRange(batch.targetPosition)
             }.sortedBy { network ->
                 // Prefer network with closest hive
                 network.hives.minOf { it.pos.distSqr(batch.targetPosition) }
@@ -110,16 +101,6 @@ object GlobalJobPool : SavedData() {
 
         if (!jobBacklog.contains(job)) jobBacklog.add(job)
         this.setDirty()
-    }
-
-    private fun canNetworkProvideResources(network: BeeNetwork, batch: TaskBatch): Boolean {
-        val requiredItems = batch.tasks.flatMap { it.action.requiredItems }
-        if (requiredItems.isEmpty()) return true
-
-        return requiredItems.all { req ->
-            val provider = network.findProvider(req)
-            provider != null
-        }
     }
 
     override fun save(

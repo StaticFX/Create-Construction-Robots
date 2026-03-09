@@ -50,5 +50,10 @@ object AllPackets {
             CancelJobPacket.STREAM_CODEC,
             CancelJobPacket.Companion::handle
         )
+        registrar.playToClient(
+            BeeDebugSyncPacket.TYPE,
+            BeeDebugSyncPacket.STREAM_CODEC,
+            BeeDebugSyncPacket.Companion::handle
+        )
     }
 }

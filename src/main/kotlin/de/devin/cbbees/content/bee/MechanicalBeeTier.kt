@@ -13,6 +13,7 @@ data class BeeCapabilities(
     val flySpeedModifier: Float,
     val blockDestroySpeed: Float,
     val workRange: Double,
+    val inventorySize: Int,
 )
 
 enum class MechanicalBeeTier(
@@ -24,19 +25,19 @@ enum class MechanicalBeeTier(
     ANDESITE(
         "andesite",
         "Andesite Encased",
-        BeeCapabilities(1.0f, 1.0f, 2.0),
+        BeeCapabilities(1.0f, 1.0f, 2.0, 1),
         { AllItems.ANDESITE_BEE.get() }
     ),
     BRASS(
         "brass",
         "Brass Encased",
-        BeeCapabilities(1.4f, 2.0f, 2.5),
+        BeeCapabilities(1.4f, 2.0f, 2.5, 3),
         { AllItems.BRASS_BEE.get() }
     ),
     STURDY(
         "sturdy",
         "Sturdy",
-        BeeCapabilities(1.8f, 4.0f, 3.0),
+        BeeCapabilities(1.8f, 4.0f, 3.0, 9),
         { AllItems.STURDY_BEE.get() }
     );
 

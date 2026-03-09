@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.action.impl
 
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
@@ -11,7 +12,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.BonemealableBlock
 
-class FertilizeAction(override val pos: BlockPos) : BeeAction {
+class FertilizeAction(override val pos: BlockPos) : BeeAction, ItemConsumingAction {
     override fun getWorkTicks(context: BeeContext): Int = 20
 
     override val requiredItems: List<ItemStack> = listOf(ItemStack(Items.BONE_MEAL))
@@ -26,7 +27,8 @@ class FertilizeAction(override val pos: BlockPos) : BeeAction {
         }
     }
 
-    override fun execute(level: Level, robot: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        consumeItems(bee)
         val state = level.getBlockState(pos)
         if (state.block is BonemealableBlock) {
             val bonemealable = state.block as BonemealableBlock

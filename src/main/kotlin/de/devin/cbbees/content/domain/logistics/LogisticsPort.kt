@@ -59,9 +59,36 @@ interface LogisticsPort : INetworkComponent {
 
     fun hasItemStack(stack: ItemStack): Boolean
 
+    /**
+     * Checks whether the port has enough unreserved stock of [stack],
+     * optionally excluding a specific bee's reservation.
+     */
+    fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID? = null): Boolean = hasItemStack(stack)
+
     fun removeItemStack(stack: ItemStack): Boolean
 
     fun addItemStack(stack: ItemStack): ItemStack
+
+    /**
+     * Reserves [items] at this port for the given bee. One reservation per bee;
+     * calling again replaces the previous reservation.
+     */
+    fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {}
+
+    /**
+     * Releases any reservation held by [beeId].
+     */
+    fun releaseReservation(beeId: UUID) {}
+
+    /**
+     * Removes reservations older than [maxAge] ticks.
+     */
+    fun cleanupReservations(currentTick: Long, maxAge: Long = 600) {}
+
+    /**
+     * Removes all reservations.
+     */
+    fun clearReservations() {}
 
     override fun isAnchor(): Boolean = false
 

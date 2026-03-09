@@ -2,20 +2,21 @@ package de.devin.cbbees.content.schematics
 
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.AllBlocks
+import com.simibubi.create.AllItems
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import com.simibubi.create.foundation.utility.BlockHelper
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.action.impl.PickupItemAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import de.devin.cbbees.util.ServerSide
@@ -37,6 +38,7 @@ class SchematicCreateBridge(
     private val printer = SchematicPrinter()
     private var isLoaded = false
     private var schematicStack: ItemStack = ItemStack.EMPTY
+    private val handledPositions = mutableSetOf<BlockPos>()
 
     /**
      * Load a schematic from an ItemStack (Create's SchematicItem)
@@ -107,6 +109,7 @@ class SchematicCreateBridge(
             return emptyList()
         }
 
+        handledPositions.clear()
         val batches = mutableListOf<TaskBatch>()
 
         // Iterate through all blocks in the schematic using Create's three-pass printer
@@ -119,80 +122,14 @@ class SchematicCreateBridge(
 
             printer.handleCurrentTarget({ pos, state, blockEntity ->
                 if (state == null || state.isAir) return@handleCurrentTarget
-
-                // Skip secondary parts of multi-block structures
+                if (handledPositions.contains(pos)) return@handleCurrentTarget
                 if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
 
-                // Belt handling: only the controller segment spawns a task; middle segments are ignored.
                 if (AllBlocks.BELT.has(state)) {
-                    val beltBE = blockEntity as? BeltBlockEntity ?: return@handleCurrentTarget
-                    if (!beltBE.isController) return@handleCurrentTarget
-
-                    val beltWorld = beltBE.level ?: level
-                    val controllerPos = beltBE.controller ?: pos
-                    val chain = BeltBlock.getBeltChain(beltWorld, controllerPos)
-                    if (chain.isEmpty()) return@handleCurrentTarget
-
-                    val casings = mutableListOf<BeltBlockEntity.CasingType>()
-                    val covers = mutableListOf<Boolean>()
-                    chain.forEach { chainPos ->
-                        val segment = beltWorld.getBlockEntity(chainPos) as? BeltBlockEntity
-                        casings.add(segment?.casing ?: BeltBlockEntity.CasingType.NONE)
-                        covers.add(segment?.covered ?: false)
-                    }
-
-                    val priority = BlockPlacementClassifier.calculatePriority(pos, state)
-                    val buildTask = BeeTask.belt(
-                        controllerPos = chain.first(),
-                        endPos = chain.last(),
-                        chain = chain,
-                        casings = casings,
-                        covers = covers,
-                        items = items,
-                        priority = priority,
-                        job = job
-                    )
-
-                    val tasksInBatch = mutableListOf<BeeTask>()
-
-                    if (items.isNotEmpty()) {
-                        val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
-                        if (port != null) {
-                            val pickupAction = PickupItemAction(port.pos, items)
-                            tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
-                        }
-                    }
-
-                    tasksInBatch.add(buildTask)
-                    batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
-                    return@handleCurrentTarget
+                    handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
+                } else {
+                    handleRegularBlock(pos, state, blockEntity, items, job, batches)
                 }
-
-                // Non-belt blocks use the two-pass priority system. Deferred blocks are placed
-                // after supports to mirror SchematiCannon ordering.
-                val priority = BlockPlacementClassifier.calculatePriority(pos, state)
-                val tag = prepareBlockEntityData(state, blockEntity)
-                val buildTask = BeeTask.place(
-                    pos = pos,
-                    state = state,
-                    items = items,
-                    priority = priority,
-                    tag = tag,
-                    job = job
-                )
-
-                val tasksInBatch = mutableListOf<BeeTask>()
-
-                if (items.isNotEmpty()) {
-                    val port = ServerBeeNetworkManager.findProviderFor(level, items[0], pos)
-                    if (port != null) {
-                        val pickupAction = PickupItemAction(port.pos, items)
-                        tasksInBatch.add(BeeTask(pickupAction, job, buildTask.priority + 1))
-                    }
-                }
-
-                tasksInBatch.add(buildTask)
-                batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
             }, { _, _ ->
                 // TODO Add entity handling (armor stands, item frames, etc.)
             })
@@ -278,6 +215,129 @@ class SchematicCreateBridge(
      */
     private fun calculateRemovalPriority(pos: BlockPos, maxY: Int): Int {
         return pos.y - maxY + 256
+    }
+
+    private fun handleRegularBlock(
+        pos: BlockPos,
+        state: BlockState,
+        blockEntity: BlockEntity?,
+        items: List<ItemStack>,
+        job: BeeJob,
+        batches: MutableList<TaskBatch>
+    ) {
+        val priority = BlockPlacementClassifier.calculatePriority(pos, state)
+        val tag = prepareBlockEntityData(state, blockEntity)
+        val buildTask = BeeTask.place(
+            pos = pos,
+            state = state,
+            items = items,
+            priority = priority,
+            tag = tag,
+            job = job
+        )
+
+        batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos))
+    }
+
+    private fun handleBeltPlacement(
+        pos: BlockPos,
+        state: BlockState,
+        beltBE: BeltBlockEntity?,
+        items: List<ItemStack>,
+        job: BeeJob,
+        batches: MutableList<TaskBatch>
+    ) {
+        if (beltBE == null || !beltBE.isController) return
+
+        val beltWorld = beltBE.level ?: level
+        val controllerPos = beltBE.controller ?: pos
+        val chain = BeltBlock.getBeltChain(beltWorld, controllerPos)
+        if (chain.isEmpty()) return
+
+        val beltAxis = state.getValue(BeltBlock.HORIZONTAL_FACING).axis
+
+        val startDir = chain.getOrNull(1)?.let { it.subtract(chain.first()) }
+        val endDir = chain.getOrNull(chain.size - 1)?.let { last ->
+            chain.getOrNull(chain.size - 2)?.let { prev -> last.subtract(prev) }
+        }
+
+        val startShaftPos = startDir?.let { chain.first() }
+        val endShaftPos = endDir?.let { chain.last() }
+
+        val casings = mutableListOf<BeltBlockEntity.CasingType>()
+        val covers = mutableListOf<Boolean>()
+        chain.forEach { chainPos ->
+            val segment = beltWorld.getBlockEntity(chainPos) as? BeltBlockEntity
+            casings.add(segment?.casing ?: BeltBlockEntity.CasingType.NONE)
+            covers.add(segment?.covered ?: false)
+        }
+
+        val priority = BlockPlacementClassifier.calculatePriority(pos, state)
+        val startItems = mutableListOf<ItemStack>()
+        val endItems = mutableListOf<ItemStack>()
+
+        val startShaftTask = startShaftPos?.let { shaftPos ->
+            createShaftTaskIfPresent(beltWorld, shaftPos, beltAxis, priority, job, startItems)
+        }
+
+        val endShaftTask = endShaftPos?.let { shaftPos ->
+            createShaftTaskIfPresent(beltWorld, shaftPos, beltAxis, priority, job, endItems)
+        }
+
+        val beltItem = ItemStack(AllItems.BELT_CONNECTOR.get(), 1)
+
+        val buildTask = BeeTask.belt(
+            controllerPos = chain.first(),
+            endPos = chain.last(),
+            chain = chain,
+            casings = casings,
+            covers = covers,
+            items = listOf(beltItem),
+            priority = priority,
+            job = job
+        )
+
+        val tasksInBatch = listOfNotNull(startShaftTask, endShaftTask, buildTask)
+
+        handledPositions.addAll(chain)
+        if (startShaftTask != null) startShaftPos.let(handledPositions::add)
+        if (endShaftTask != null) endShaftPos.let(handledPositions::add)
+
+        batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
+    }
+
+    private fun createShaftTaskIfPresent(
+        beltWorld: Level,
+        shaftPos: BlockPos,
+        beltAxis: Direction.Axis,
+        priority: Int,
+        job: BeeJob,
+        itemCollector: MutableList<ItemStack>
+    ): BeeTask? {
+        val existingState = beltWorld.getBlockState(shaftPos)
+        val baseShaftState = if (AllBlocks.SHAFT.has(existingState)) existingState else AllBlocks.SHAFT.defaultState
+
+        val shaftAxis = when (beltAxis) {
+            Direction.Axis.X -> Direction.Axis.Z
+            Direction.Axis.Z -> Direction.Axis.X
+            else -> beltAxis
+        }
+
+        val shaftState = baseShaftState.setValue(RotatedPillarBlock.AXIS, shaftAxis)
+        if (!AllBlocks.SHAFT.has(shaftState)) return null
+
+        val shaftItem = ItemStack(shaftState.block)
+        if (!shaftItem.isEmpty) itemCollector.add(shaftItem)
+
+        val shaftTag = prepareBlockEntityData(shaftState, beltWorld.getBlockEntity(shaftPos))
+        return BeeTask.place(
+            pos = shaftPos,
+            state = shaftState,
+            items = itemCollector,
+            priority = priority,
+            tag = shaftTag,
+            job = job
+        )
     }
 
     companion object {

@@ -1,8 +1,8 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -18,7 +18,7 @@ class SetHiveWalkTargetBehavior : Behavior<MechanicalBeeEntity>(
         val hive = entity.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
         val walkTarget = hive.walkTarget()
         
-        CreateBuzzyBeez.LOGGER.info("Setting hive target")
+        BeeDebug.log(entity, "Returning to hive")
 
         entity.brain.setMemory(MemoryModuleType.WALK_TARGET, walkTarget)
     }

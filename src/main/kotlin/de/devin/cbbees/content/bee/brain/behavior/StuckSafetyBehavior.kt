@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
@@ -33,7 +33,7 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
         val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).get()
         val targetPos = walkTarget.target.currentBlockPosition()
 
-        CreateBuzzyBeez.LOGGER.warn("Bee ${entity.uuid} is stuck at ${entity.blockPosition()}. Teleporting to target.")
+        BeeDebug.log(entity, "Stuck! Teleporting to target at $targetPos")
 
         // Teleport near the target, but not inside it
         entity.teleportTo(targetPos.x + 0.5, targetPos.y + 1.0, targetPos.z + 0.5)

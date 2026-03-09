@@ -5,6 +5,7 @@ import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.StuckReasonResolver
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.ClientBatchInfo
@@ -173,7 +174,9 @@ class HiveJobsSyncPacket(
                         ClientBatchInfo(
                             status = b.status.name,
                             target = b.targetPosition,
-                            required = b.tasks.flatMap { it.action.requiredItems },
+                            required = b.tasks.map { it.action }
+                                .filterIsInstance<ItemConsumingAction>()
+                                .flatMap { it.requiredItems },
                             assignedBeeIds = beeIds,
                             blockState = if (b.status != TaskStatus.COMPLETED) placeAction?.blockState else null
                         )

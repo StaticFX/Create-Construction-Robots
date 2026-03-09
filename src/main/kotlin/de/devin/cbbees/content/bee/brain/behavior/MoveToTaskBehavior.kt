@@ -1,8 +1,8 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -28,7 +28,7 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
         val task = batch.getCurrentTask() ?: return
         val moveTo = task.targetPos
 
-        CreateBuzzyBeez.LOGGER.info("Moving to task target $moveTo")
+        BeeDebug.log(entity, "Flying to task at $moveTo")
 
         entity.brain.setMemory(
             MemoryModuleType.WALK_TARGET,
