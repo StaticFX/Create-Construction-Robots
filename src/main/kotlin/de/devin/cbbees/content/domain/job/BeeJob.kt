@@ -28,6 +28,9 @@ data class BeeJob(
     var ownerId: UUID? = null,
     var uniquenessKey: Any? = null
 ) {
+    /** Schematic placement metadata for client-side ghost block rendering. */
+    var schematicPlacement: SchematicPlacement? = null
+
     /**
      * The batches associated with this job.
      */

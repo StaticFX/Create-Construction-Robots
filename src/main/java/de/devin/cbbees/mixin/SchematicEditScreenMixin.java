@@ -1,15 +1,20 @@
 package de.devin.cbbees.mixin;
 
+import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicEditScreen;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.network.StartConstructionPacket;
-import de.devin.cbbees.network.StartDeconstructionPacket;
 import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -18,11 +23,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin for {@link SchematicEditScreen} to add "Start Construction" and "Start Deconstruction" buttons
- * that trigger the robot construction/deconstruction system.
+ * Mixin for {@link SchematicEditScreen} to add a "Start Construction" button
+ * that triggers the robot construction system.
  *
- * <p>The construction button will build the schematic using robots.</p>
- * <p>The deconstruction button will remove all blocks within the schematic bounds using robots.</p>
+ * <p>Only shows the button when the active schematic item is a Construction Planner.</p>
  */
 @Mixin(value = SchematicEditScreen.class, remap = false)
 public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
@@ -30,35 +34,29 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
     @Unique
     private IconButton ccr$constructButton;
 
-    /**
-     * Injects at the end of the init method to add our custom construction buttons.
-     */
     @Inject(method = "init", at = @At("TAIL"))
     private void ccr$addConstructButtons(CallbackInfo ci) {
-
-        System.out.println("Tailing init method of SchematicEditScreenMixin");
-
         SchematicHandler handler = CreateClient.SCHEMATIC_HANDLER;
+        if (!handler.isDeployed()) return;
 
-        // Only show the buttons if the schematic is deployed
-        if (handler.isDeployed()) {
-            // Position buttons at the bottom left of the screen
-            int buttonX = guiLeft + 10;
-            int buttonY = guiTop + 90;
+        // Only show for Construction Planner
+        ItemStack activeItem = handler.getActiveSchematicItem();
+        if (activeItem == null || !AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(activeItem)) return;
 
-            // Construction button (green/play icon) - builds the schematic
-            ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
-            ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
-            ccr$constructButton.withCallback(() -> {
-                // Send packet to server to start construction (use singleton INSTANCE)
-                PacketDistributor.sendToServer(StartConstructionPacket.Companion.getINSTANCE());
+        int buttonX = guiLeft + 10;
+        int buttonY = guiTop + 90;
 
-                // Close the screen
-                if (Minecraft.getInstance().screen != null) {
-                    Minecraft.getInstance().screen.onClose();
-                }
-            });
-            addRenderableWidget(ccr$constructButton);
-        }
+        ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
+        ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
+        ccr$constructButton.withCallback(() -> {
+            BlockPos anchor = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
+            Rotation rotation = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
+            Mirror mirror = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+            PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+            if (Minecraft.getInstance().screen != null) {
+                Minecraft.getInstance().screen.onClose();
+            }
+        });
+        addRenderableWidget(ccr$constructButton);
     }
 }

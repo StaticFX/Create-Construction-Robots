@@ -26,10 +26,10 @@ import org.lwjgl.glfw.GLFW
 
 /**
  * Client-side handler for the Deconstruction Planner tool.
- * 
+ *
  * This mirrors Create's SchematicAndQuillHandler but renders in red
  * and opens a deconstruction prompt instead of saving a schematic.
- * 
+ *
  * Selection flow:
  * 1. Player holds Deconstruction Planner
  * 2. Right-click to set first corner
@@ -39,57 +39,57 @@ import org.lwjgl.glfw.GLFW
  * 6. Shift+Right-click to cancel selection
  */
 object DeconstructionHandler {
-    
+
     /** Currently selected face (for resizing) */
     private var selectedFace: Direction? = null
-    
+
     /**
      * Handles mouse scroll input for resizing the selection.
      * @return true if the scroll was handled
      */
     fun mouseScrolled(delta: Double): Boolean {
         if (!isActive()) return false
-        
+
         // Only handle scroll when CTRL is held
         if (!isCtrlDown()) return false
-        
+
         if (DeconstructionSelection.secondPos == null) {
             DeconstructionSelection.range = Mth.clamp(DeconstructionSelection.range + delta.toInt(), 1, 100)
         }
-        
+
         val face = selectedFace ?: return true
         val first = DeconstructionSelection.firstPos ?: return true
         val second = DeconstructionSelection.secondPos ?: return true
-        
+
         var bb = AABB(Vec3.atLowerCornerOf(first), Vec3.atLowerCornerOf(second))
         val vec = face.normal
         val projectedView = Minecraft.getInstance().gameRenderer.mainCamera.position
-        
+
         var adjustedDelta = delta
         if (bb.contains(projectedView)) {
             adjustedDelta *= -1
         }
-        
+
         // Round away from zero
         val intDelta = if (adjustedDelta > 0) Math.ceil(adjustedDelta).toInt() else Math.floor(adjustedDelta).toInt()
         val x = vec.x * intDelta
         val y = vec.y * intDelta
         val z = vec.z * intDelta
-        
+
         val axisDirection = face.axisDirection
         if (axisDirection == AxisDirection.NEGATIVE) {
             bb = bb.move(-x.toDouble(), -y.toDouble(), -z.toDouble())
         }
-        
+
         val maxX = maxOf(bb.maxX - x * axisDirection.step, bb.minX)
         val maxY = maxOf(bb.maxY - y * axisDirection.step, bb.minY)
         val maxZ = maxOf(bb.maxZ - z * axisDirection.step, bb.minZ)
-        
+
         bb = AABB(bb.minX, bb.minY, bb.minZ, maxX, maxY, maxZ)
-        
+
         DeconstructionSelection.firstPos = BlockPos.containing(bb.minX, bb.minY, bb.minZ)
         DeconstructionSelection.secondPos = BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ)
-        
+
         val player = Minecraft.getInstance().player ?: return true
         val sizeX = (bb.xsize + 1).toInt()
         val sizeY = (bb.ysize + 1).toInt()
@@ -98,10 +98,10 @@ object DeconstructionHandler {
             Component.translatable("cbbees.deconstruction.dimensions", sizeX, sizeY, sizeZ),
             true
         )
-        
+
         return true
     }
-    
+
     /**
      * Handles mouse button input.
      * @param button The mouse button (0=left, 1=right)
@@ -111,21 +111,21 @@ object DeconstructionHandler {
     fun onMouseInput(button: Int, pressed: Boolean): Boolean {
         if (!pressed || button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return false
         if (!isActive()) return false
-        
+
         val player = Minecraft.getInstance().player ?: return false
-        
+
         // Shift + right-click to discard selection
         if (player.isShiftKeyDown) {
             discard()
             return true
         }
-        
+
         // If both corners are set, we don't open the prompt screen anymore.
         // The deconstruction is now started via the HUD button or R key.
         if (DeconstructionSelection.secondPos != null) {
             return true
         }
-        
+
         // No target selected
         if (DeconstructionSelection.selectedPos == null) {
             player.displayClientMessage(
@@ -134,7 +134,7 @@ object DeconstructionHandler {
             )
             return true
         }
-        
+
         // Set second corner if first is already set
         if (DeconstructionSelection.firstPos != null) {
             DeconstructionSelection.secondPos = DeconstructionSelection.selectedPos
@@ -144,7 +144,7 @@ object DeconstructionHandler {
             )
             return true
         }
-        
+
         // Set first corner
         DeconstructionSelection.firstPos = DeconstructionSelection.selectedPos
         player.displayClientMessage(
@@ -153,7 +153,7 @@ object DeconstructionHandler {
         )
         return true
     }
-    
+
     /**
      * Discards the current selection.
      */
@@ -164,20 +164,21 @@ object DeconstructionHandler {
             true
         )
     }
-    
+
     /**
      * Called every client tick to update selection state and rendering.
      */
     fun tick() {
         if (!isActive()) return
-        
+
         val player = Minecraft.getInstance().player ?: return
-        
+
         // Update selected position based on where player is looking
         if (isCtrlDown()) {
             // Free-aim mode when CTRL is held
             val pt = AnimationTickHolder.getPartialTicks()
-            val targetVec = player.getEyePosition(pt).add(player.lookAngle.scale(DeconstructionSelection.range.toDouble()))
+            val targetVec =
+                player.getEyePosition(pt).add(player.lookAngle.scale(DeconstructionSelection.range.toDouble()))
             DeconstructionSelection.selectedPos = BlockPos.containing(targetVec)
         } else {
             // Normal raycast mode
@@ -194,7 +195,7 @@ object DeconstructionHandler {
                 DeconstructionSelection.selectedPos = null
             }
         }
-        
+
         // Update selected face for resizing
         selectedFace = null
         val first = DeconstructionSelection.firstPos
@@ -214,31 +215,31 @@ object DeconstructionHandler {
                 else -> result.facing
             }
         }
-        
+
         // Render the selection box
         DeconstructionRenderer.renderWorldOutline(selectedFace)
     }
-    
+
     /**
      * Handles key input for deconstruction.
      */
     fun onKeyInput(key: Int, pressed: Boolean): Boolean {
         if (!pressed || !isActive()) return false
-        
+
         if (AllKeys.START_ACTION.matches(key, 0) && DeconstructionSelection.isComplete()) {
             val first = DeconstructionSelection.firstPos!!
             val second = DeconstructionSelection.secondPos!!
-            
+
             // Send packet to server to start deconstruction
             PacketDistributor.sendToServer(StartDeconstructionPacket(first, second))
-            
+
             // Show feedback
             Minecraft.getInstance().player?.displayClientMessage(
                 Component.translatable("message.cbbees.planner.started")
                     .withStyle { it.withColor(0x00FF00) },
                 true
             )
-            
+
             discard()
             return true
         }
@@ -247,7 +248,7 @@ object DeconstructionHandler {
             PacketDistributor.sendToServer(StopTasksPacket.INSTANCE)
             return true
         }
-        
+
         return false
     }
 
@@ -265,7 +266,7 @@ object DeconstructionHandler {
     fun isActive(): Boolean {
         val player = Minecraft.getInstance().player ?: return false
         val mainHandItem = player.mainHandItem
-        return AllItems.STINGER_PLANNER.isIn(mainHandItem)
+        return AllItems.DECONSTRUCTION_PLANNER.isIn(mainHandItem)
     }
 
     /**
@@ -274,7 +275,7 @@ object DeconstructionHandler {
     private fun isCtrlDown(): Boolean {
         return Minecraft.getInstance().window?.let { window ->
             GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS ||
-            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS
+                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS
         } ?: false
     }
 }

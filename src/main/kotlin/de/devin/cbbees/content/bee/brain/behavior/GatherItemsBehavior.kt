@@ -28,7 +28,8 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
     mapOf(
         BeeMemoryModules.CURRENT_TASK.get() to MemoryStatus.VALUE_PRESENT,
         MemoryModuleType.WALK_TARGET to MemoryStatus.VALUE_ABSENT
-    )
+    ),
+    1 // Re-evaluate every tick to prevent MoveToTaskBehavior from hijacking the walk target
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
@@ -56,7 +57,10 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
         val missing = computeMissingItems(owner, batch)
         if (missing.isNotEmpty()) {
-            BeeDebug.log(owner, "Gather: need ${missing.size} item type(s): ${missing.joinToString { "${it.count}x ${it.item}" }}")
+            BeeDebug.log(
+                owner,
+                "Gather: need ${missing.size} item type(s): ${missing.joinToString { "${it.count}x ${it.item}" }}"
+            )
         }
         return missing.isNotEmpty()
     }
@@ -70,7 +74,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
         if (network == null) {
             BeeDebug.log(entity, "No network — releasing batch")
-            batch.release()
+            batch.release(gameTick = gameTime)
             entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
             return
         }
@@ -80,7 +84,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
         if (gatherPlan.isEmpty()) {
             BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
             network.releaseReservations(entity.uuid)
-            batch.release()
+            batch.release(gameTick = gameTime)
             entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
             return
         }
@@ -108,9 +112,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
                 }
             }
             targetPort.releaseReservation(entity.uuid)
-            // WALK_TARGET stays absent so this behavior fires again next tick if more items needed
         } else {
-            // Navigate to the port
             BeeDebug.log(entity, "Flying to port at $portPos for ${itemsAtPort.size} item type(s)")
             entity.brain.setMemory(
                 MemoryModuleType.WALK_TARGET,

@@ -13,6 +13,7 @@ import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.state.BlockState
 
 /**
  * Places an entire Create belt using the same flow as Schematicannon/BeltConnectorItem.
@@ -24,7 +25,9 @@ import net.minecraft.world.level.Level
 class PlaceBeltAction(
     override val pos: BlockPos,
     private val end: BlockPos,
-    private val chain: List<BlockPos>,
+    val chain: List<BlockPos>,
+    /** Actual belt block states from the schematic, used for ghost rendering. */
+    val chainStates: List<BlockState>,
     private val casings: List<BeltBlockEntity.CasingType>,
     private val covers: List<Boolean>,
     override val requiredItems: List<ItemStack> = emptyList()

@@ -5,7 +5,8 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBeeTier
-import de.devin.cbbees.content.schematics.StingerPlannerItem
+import de.devin.cbbees.content.schematics.ConstructionPlannerItem
+import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.upgrades.*
 import net.minecraft.world.item.Rarity
 
@@ -20,7 +21,7 @@ object AllItems {
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
-    
+
     // Mechanical Bees - goes in backpack robot slots (stackable, consumed on deploy)
     val ANDESITE_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
         .item("andesite_mechanical_bee") { props ->
@@ -28,7 +29,7 @@ object AllItems {
         }
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
-              .rarity(Rarity.UNCOMMON)
+                .rarity(Rarity.UNCOMMON)
         }
         .register()
 
@@ -38,7 +39,7 @@ object AllItems {
         }
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
-              .rarity(Rarity.UNCOMMON)
+                .rarity(Rarity.UNCOMMON)
         }
         .register()
 
@@ -48,20 +49,28 @@ object AllItems {
         }
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
-              .rarity(Rarity.UNCOMMON)
+                .rarity(Rarity.UNCOMMON)
         }
         .register()
 
-    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
-    val STINGER_PLANNER: ItemEntry<StingerPlannerItem> = CreateBuzzyBeez.REGISTRATE
-        .item("stinger_planner") { props ->
-            StingerPlannerItem(props)
+    // Construction Planner - select and deploy schematics for bee construction
+    val CONSTRUCTION_PLANNER: ItemEntry<ConstructionPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("construction_planner") { props ->
+            ConstructionPlannerItem(props)
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
-    
+
+    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
+    val DECONSTRUCTION_PLANNER: ItemEntry<DeconstructionPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("deconstruction_planner") { props ->
+            DeconstructionPlannerItem(props)
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     // ===== Backpack Upgrades =====
-    
+
     // Rapid Wings - +25% bee speed (max 4)
     val RAPID_WINGS: ItemEntry<RapidWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("rapid_wings") { props ->
@@ -69,7 +78,7 @@ object AllItems {
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
-    
+
     // Swarm Intelligence - +2 concurrent bees (max 3)
     val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("swarm_intelligence") { props ->
@@ -77,7 +86,7 @@ object AllItems {
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
-    
+
     // Pollen Link - connect to nearby storage
     val POLLEN_LINK: ItemEntry<PollenLinkUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("pollen_link") { props ->

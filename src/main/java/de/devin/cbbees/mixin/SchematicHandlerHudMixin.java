@@ -1,122 +1,125 @@
 package de.devin.cbbees.mixin;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
-import com.simibubi.create.CreateClient;
-import com.simibubi.create.foundation.gui.AllGuiTextures;
-import de.devin.cbbees.registry.AllKeys;
+import de.devin.cbbees.content.schematics.client.ConstructionToolState;
+import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.network.StartConstructionPacket;
 import de.devin.cbbees.network.StopTasksPacket;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.DeltaTracker;
+import de.devin.cbbees.network.UnselectSchematicPacket;
+import de.devin.cbbees.registry.AllKeys;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.neoforged.neoforge.network.PacketDistributor;
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Mixin for {@link SchematicHandler} to add a "Start Construction" button to the schematic HUD
- * that appears when holding a schematic item.
- * 
- * <p>This adds a visual button and keybind (R key) to trigger robot construction while
- * the schematic is deployed and the player is holding it.</p>
+ * Mixin for {@link SchematicHandler} providing:
+ * <ul>
+ *   <li>RMB interception for the custom Construct / Unselect tools</li>
+ *   <li>R-key shortcut for construction (Construction Planner only)</li>
+ *   <li>Backspace shortcut for stopping tasks</li>
+ * </ul>
  */
 @Mixin(value = SchematicHandler.class, remap = false)
 public abstract class SchematicHandlerHudMixin {
 
-    @Shadow
-    private boolean active;
-
-    @Shadow
-    public abstract boolean isDeployed();
-
-    @Unique
-    private static final int BUTTON_WIDTH = 120;
-    @Unique
-    private static final int BUTTON_HEIGHT = 20;
+    @Shadow private boolean active;
+    @Shadow public abstract boolean isDeployed();
 
     /**
-     * Injects at the end of the render method to draw a "Start Construction" button
-     * on the schematic HUD when the schematic is deployed.
-     * 
-     * <p>The button is positioned centered above the hotbar for easy access.</p>
+     * Reads placement data from the client-side ItemStack and sends a
+     * StartConstructionPacket that carries anchor/rotation/mirror so the
+     * server has up-to-date placement info.
      */
-    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V", at = @At("TAIL"))
-    private void ccr$renderConstructionButton(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        if (!active || !isDeployed()) {
-            return;
-        }
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui) {
-            return;
-        }
-
-        int screenWidth = guiGraphics.guiWidth();
-        int screenHeight = guiGraphics.guiHeight();
-
-        // Position the button centered above the hotbar
-        int buttonX = (screenWidth - BUTTON_WIDTH) / 2;
-        int buttonY = screenHeight - 50;   // Above the hotbar
-
-        // Use Create's HUD background texture for consistent styling
-        AllGuiTextures gray = AllGuiTextures.HUD_BACKGROUND;
-        
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1, 1, 1, 0.75f);
-        
-        // Draw the background using Create's texture
-        guiGraphics.blit(gray.location, buttonX, buttonY, gray.getStartX(), gray.getStartY(), 
-                BUTTON_WIDTH, BUTTON_HEIGHT, gray.getWidth(), gray.getHeight());
-        
-        RenderSystem.setShaderColor(1, 1, 1, 1);
-
-        // Draw button text with Create-style coloring
-        KeyMapping startKey = AllKeys.INSTANCE.getSTART_ACTION();
-        Component buttonText = Component.translatable("gui.cbbees.schematic.start_construction_key", startKey.getTranslatedKeyMessage());
-        int textWidth = mc.font.width(buttonText);
-        int textX = buttonX + (BUTTON_WIDTH - textWidth) / 2;
-        int textY = buttonY + (BUTTON_HEIGHT - 8) / 2;
-        
-        // Use Create's typical text color (light cyan/blue)
-        guiGraphics.drawString(mc.font, buttonText, textX, textY, 0xCCDDFF, false);
-        
-        RenderSystem.disableBlend();
+    @Unique
+    private void ccr$sendConstructionPacket(ItemStack stack) {
+        BlockPos anchor = stack.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
+        Rotation rotation = stack.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
+        Mirror mirror = stack.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+        PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  RMB — custom tool actions                                          */
+    /* ------------------------------------------------------------------ */
+
     /**
-     * Injects at the head of onKeyInput to handle the configured keys for starting construction
-     * and stopping tasks.
+     * Intercepts right-click when a custom Construction Planner tool is active.
      */
-    @Inject(method = "onKeyInput", at = @At("HEAD"))
-    private void ccr$handleKeys(int key, boolean pressed, CallbackInfo ci) {
-        if (!active || !isDeployed() || !pressed) {
+    @Inject(method = "onMouseInput", at = @At("HEAD"), cancellable = true)
+    private void ccr$handleCustomToolRMB(int button, boolean pressed, CallbackInfoReturnable<Boolean> cir) {
+        if (!active || !isDeployed() || !pressed || button != 1) return;
+
+        ConstructionToolState.CustomTool tool = ConstructionToolState.getActiveTool();
+        if (tool == ConstructionToolState.CustomTool.NONE) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        // Ensure player still holds the planner
+        ItemStack mainHand = mc.player.getMainHandItem();
+        if (!AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(mainHand)) {
+            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
             return;
         }
 
-        // Check if start action key is pressed
+        if (tool == ConstructionToolState.CustomTool.CONSTRUCT) {
+            ccr$sendConstructionPacket(mainHand);
+            mc.player.displayClientMessage(
+                Component.translatable("gui.cbbees.schematic.construction_started")
+                    .withStyle(style -> style.withColor(0x00FF00)),
+                true
+            );
+            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            cir.setReturnValue(true);
+        } else if (tool == ConstructionToolState.CustomTool.UNSELECT) {
+            PacketDistributor.sendToServer(UnselectSchematicPacket.Companion.getINSTANCE());
+            mc.player.displayClientMessage(
+                Component.translatable("gui.cbbees.tool.unselect.done")
+                    .withStyle(style -> style.withColor(0xFFAA88)),
+                true
+            );
+            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            cir.setReturnValue(true);
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Key shortcuts                                                      */
+    /* ------------------------------------------------------------------ */
+
+    @Inject(method = "onKeyInput", at = @At("HEAD"))
+    private void ccr$handleKeys(int key, boolean pressed, CallbackInfo ci) {
+        if (!active || !isDeployed() || !pressed) return;
+
+        // R key — construction shortcut (Construction Planner only)
         if (AllKeys.INSTANCE.getSTART_ACTION().matches(key, 0)) {
-            // Send packet to server to start construction (use singleton INSTANCE)
-            PacketDistributor.sendToServer(StartConstructionPacket.Companion.getINSTANCE());
-            
-            // Show feedback to player
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
-                mc.player.displayClientMessage(
-                    Component.translatable("gui.cbbees.schematic.construction_started").withStyle(style -> style.withColor(0x00FF00)),
-                    true
-                );
+                ItemStack mainHand = mc.player.getMainHandItem();
+                if (AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(mainHand)) {
+                    ccr$sendConstructionPacket(mainHand);
+                    mc.player.displayClientMessage(
+                        Component.translatable("gui.cbbees.schematic.construction_started")
+                            .withStyle(style -> style.withColor(0x00FF00)),
+                        true
+                    );
+                }
             }
         }
 
-        // Check if stop action key is pressed
+        // Backspace — stop tasks (any item)
         if (AllKeys.INSTANCE.getSTOP_ACTION().matches(key, 0)) {
             PacketDistributor.sendToServer(StopTasksPacket.getINSTANCE());
         }

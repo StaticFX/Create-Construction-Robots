@@ -264,6 +264,7 @@ class SchematicCreateBridge(
         val startShaftPos = startDir?.let { chain.first() }
         val endShaftPos = endDir?.let { chain.last() }
 
+        val chainStates = chain.map { beltWorld.getBlockState(it) }
         val casings = mutableListOf<BeltBlockEntity.CasingType>()
         val covers = mutableListOf<Boolean>()
         chain.forEach { chainPos ->
@@ -290,6 +291,7 @@ class SchematicCreateBridge(
             controllerPos = chain.first(),
             endPos = chain.last(),
             chain = chain,
+            chainStates = chainStates,
             casings = casings,
             covers = covers,
             items = listOf(beltItem),

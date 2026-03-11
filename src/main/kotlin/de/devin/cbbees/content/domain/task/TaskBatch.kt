@@ -10,10 +10,24 @@ class TaskBatch(
     val job: BeeJob,
     val targetPosition: BlockPos
 ) {
+    companion object {
+        const val MAX_RETRIES = 5
+        /** Minimum ticks before a released batch can be re-dispatched (3 seconds). */
+        const val RETRY_COOLDOWN_TICKS = 60L
+    }
+
     var status: TaskStatus = TaskStatus.PENDING
     var assignedNetworkId: UUID? = null
 
     val priority: Int get() = tasks.maxOfOrNull { it.priority } ?: 0
+
+    /** How many times this batch has been released after a failure. */
+    var retryCount: Int = 0
+        private set
+
+    /** Game tick when this batch was last released. Used for cooldown. */
+    var lastReleasedTick: Long = 0L
+        private set
 
     private var currentIndex = 0
 
@@ -34,10 +48,19 @@ class TaskBatch(
 
     fun isComplete(): Boolean = currentIndex >= tasks.size
 
-    fun release(resetNetwork: Boolean = true) {
+    /** Whether this batch can be retried (hasn't exceeded max retries). */
+    fun canRetry(): Boolean = retryCount < MAX_RETRIES
+
+    /** Whether the cooldown period has elapsed since last release. */
+    fun isCooldownElapsed(currentTick: Long): Boolean =
+        currentTick - lastReleasedTick >= RETRY_COOLDOWN_TICKS
+
+    fun release(resetNetwork: Boolean = true, gameTick: Long = 0L) {
         currentIndex = 0
         status = TaskStatus.PENDING
         tasks.forEach { it.release() }
+        retryCount++
+        lastReleasedTick = gameTick
         if (resetNetwork) {
             assignedNetworkId = null
         }

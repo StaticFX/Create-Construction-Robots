@@ -8,7 +8,9 @@
   ],
   "client": [
     "SchematicEditScreenMixin",
-    "SchematicHandlerHudMixin"
+    "SchematicHandlerFindMixin",
+    "SchematicHandlerHudMixin",
+    "ToolSelectionScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

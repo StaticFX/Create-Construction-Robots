@@ -2,19 +2,14 @@ package de.devin.cbbees.content.beehive
 
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
-import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllEntityTypes
 import net.createmod.catnip.lang.Lang
@@ -32,7 +27,6 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.client.ClientNeoForgeMod
 import net.neoforged.neoforge.items.ItemStackHandler
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 import java.util.*

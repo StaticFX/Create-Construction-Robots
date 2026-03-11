@@ -1,11 +1,13 @@
 package de.devin.cbbees.network
 
+import com.simibubi.create.AllBlocks
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.StuckReasonResolver
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.ClientBatchInfo
@@ -13,7 +15,9 @@ import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
 import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
+import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
@@ -26,7 +30,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.network.PacketDistributor
 import net.neoforged.neoforge.network.handling.IPayloadContext
@@ -53,21 +56,53 @@ class HiveJobsSyncPacket(
             }
         )
 
+        private val GHOST_BLOCK_ENTRY_CODEC: StreamCodec<RegistryFriendlyByteBuf, Pair<BlockPos, BlockState>> =
+            StreamCodec.of(
+                { buf, entry ->
+                    BlockPos.STREAM_CODEC.encode(buf, entry.first)
+                    BLOCK_STATE_CODEC.encode(buf, entry.second)
+                },
+                { buf ->
+                    val pos = BlockPos.STREAM_CODEC.decode(buf)
+                    val state = BLOCK_STATE_CODEC.decode(buf)
+                    pos to state
+                }
+            )
+
+        private val GHOST_BLOCKS_CODEC: StreamCodec<RegistryFriendlyByteBuf, Map<BlockPos, BlockState>> =
+            StreamCodec.of(
+                { buf, map ->
+                    buf.writeVarInt(map.size)
+                    map.forEach { (pos, state) ->
+                        GHOST_BLOCK_ENTRY_CODEC.encode(buf, pos to state)
+                    }
+                },
+                { buf ->
+                    val size = buf.readVarInt()
+                    val map = mutableMapOf<BlockPos, BlockState>()
+                    repeat(size) {
+                        val (pos, state) = GHOST_BLOCK_ENTRY_CODEC.decode(buf)
+                        map[pos] = state
+                    }
+                    map
+                }
+            )
+
         private val BATCH_CODEC: StreamCodec<RegistryFriendlyByteBuf, ClientBatchInfo> = StreamCodec.of(
             { buf, b ->
                 STRING_CODEC.encode(buf, b.status)
                 BlockPos.STREAM_CODEC.encode(buf, b.target)
                 ITEM_LIST_CODEC.encode(buf, b.required)
                 UUID_LIST_CODEC.encode(buf, b.assignedBeeIds)
-                ByteBufCodecs.optional(BLOCK_STATE_CODEC).encode(buf, java.util.Optional.ofNullable(b.blockState))
+                GHOST_BLOCKS_CODEC.encode(buf, b.ghostBlocks)
             },
             { buf ->
                 val status = STRING_CODEC.decode(buf)
                 val target = BlockPos.STREAM_CODEC.decode(buf)
                 val required = ITEM_LIST_CODEC.decode(buf)
                 val assignedBeeIds = UUID_LIST_CODEC.decode(buf)
-                val blockState = ByteBufCodecs.optional(BLOCK_STATE_CODEC).decode(buf).orElse(null)
-                ClientBatchInfo(status, target, required, assignedBeeIds, blockState)
+                val ghostBlocks = GHOST_BLOCKS_CODEC.decode(buf)
+                ClientBatchInfo(status, target, required, assignedBeeIds, ghostBlocks)
             }
         )
 
@@ -83,6 +118,12 @@ class HiveJobsSyncPacket(
                 buf.writeVarInt(j.total)
                 buf.writeNullable(j.reason) { b, s -> STRING_CODEC.encode(b, s) }
                 BATCH_LIST_CODEC.encode(buf, j.batches)
+                buf.writeNullable(j.schematicPlacement) { b, sp ->
+                    STRING_CODEC.encode(b, sp.file)
+                    BlockPos.STREAM_CODEC.encode(b, sp.anchor)
+                    b.writeEnum(sp.rotation)
+                    b.writeEnum(sp.mirror)
+                }
             },
             { buf ->
                 val id = UUID_CODEC.decode(buf)
@@ -92,7 +133,15 @@ class HiveJobsSyncPacket(
                 val total = buf.readVarInt()
                 val reason = buf.readNullable { b -> STRING_CODEC.decode(b) }
                 val batches = BATCH_LIST_CODEC.decode(buf)
-                ClientJobInfo(id, name, status, completed, total, reason, batches)
+                val placement = buf.readNullable { b ->
+                    SchematicPlacement(
+                        file = STRING_CODEC.decode(b),
+                        anchor = BlockPos.STREAM_CODEC.decode(b),
+                        rotation = b.readEnum(net.minecraft.world.level.block.Rotation::class.java),
+                        mirror = b.readEnum(net.minecraft.world.level.block.Mirror::class.java)
+                    )
+                }
+                ClientJobInfo(id, name, status, completed, total, reason, batches, placement)
             }
         )
 
@@ -139,6 +188,32 @@ class HiveJobsSyncPacket(
             }
         )
 
+        /**
+         * Collect all ghost block positions and states from a batch.
+         * Handles both regular PlaceBlockAction and PlaceBeltAction (belt chain + shafts).
+         */
+        private fun collectGhostBlocks(batch: TaskBatch): Map<BlockPos, BlockState> {
+            if (batch.status == TaskStatus.COMPLETED) return emptyMap()
+
+            val ghosts = mutableMapOf<BlockPos, BlockState>()
+            for (task in batch.tasks) {
+                when (val action = task.action) {
+                    is PlaceBlockAction -> ghosts[action.pos] = action.blockState
+                    is PlaceBeltAction -> {
+                        action.chain.forEachIndexed { index, pos ->
+                            // Don't overwrite shaft states already set by PlaceBlockAction
+                            if (!ghosts.containsKey(pos)) {
+                                val state = action.chainStates.getOrNull(index)
+                                    ?: AllBlocks.BELT.defaultState
+                                ghosts[pos] = state
+                            }
+                        }
+                    }
+                }
+            }
+            return ghosts
+        }
+
         fun handle(payload: HiveJobsSyncPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
                 ClientJobCache.update(payload.hivePos, payload.snapshot)
@@ -170,7 +245,6 @@ class HiveJobsSyncPacket(
 
                     val batches = job.batches.map { b ->
                         val beeIds = b.tasks.mapNotNull { it.mechanicalBee?.uuid }
-                        val placeAction = b.tasks.map { it.action }.filterIsInstance<PlaceBlockAction>().firstOrNull()
                         ClientBatchInfo(
                             status = b.status.name,
                             target = b.targetPosition,
@@ -178,7 +252,7 @@ class HiveJobsSyncPacket(
                                 .filterIsInstance<ItemConsumingAction>()
                                 .flatMap { it.requiredItems },
                             assignedBeeIds = beeIds,
-                            blockState = if (b.status != TaskStatus.COMPLETED) placeAction?.blockState else null
+                            ghostBlocks = collectGhostBlocks(b)
                         )
                     }
                     ClientJobInfo(
@@ -188,7 +262,8 @@ class HiveJobsSyncPacket(
                         completed = completed,
                         total = total,
                         reason = reason,
-                        batches = batches
+                        batches = batches,
+                        schematicPlacement = job.schematicPlacement
                     )
                 }
 
@@ -201,10 +276,9 @@ class HiveJobsSyncPacket(
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
                 .map { job ->
                     val batches = job.batches.map { b ->
-                        val placeAction = b.tasks.map { it.action }.filterIsInstance<PlaceBlockAction>().firstOrNull()
                         ClientBatchInfo(
                             b.status.name, b.targetPosition, emptyList(), emptyList(),
-                            if (b.status != TaskStatus.COMPLETED) placeAction?.blockState else null
+                            ghostBlocks = collectGhostBlocks(b)
                         )
                     }
                     ClientJobInfo(
@@ -214,7 +288,8 @@ class HiveJobsSyncPacket(
                         0,
                         job.tasks.size,
                         null,
-                        batches
+                        batches,
+                        schematicPlacement = job.schematicPlacement
                     )
                 }
             val snapshot = HiveSnapshot(ClientNetworkInfo("Personal", 0, 0, 0), jobs)

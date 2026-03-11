@@ -31,13 +31,13 @@ enum class MechanicalBeeTier(
     BRASS(
         "brass",
         "Brass Encased",
-        BeeCapabilities(1.4f, 2.0f, 2.5, 3),
+        BeeCapabilities(2.0f, 2.0f, 2.5, 1),
         { AllItems.BRASS_BEE.get() }
     ),
     STURDY(
         "sturdy",
         "Sturdy",
-        BeeCapabilities(1.8f, 4.0f, 3.0, 9),
+        BeeCapabilities(3.0f, 4.0f, 3.0, 1),
         { AllItems.STURDY_BEE.get() }
     );
 

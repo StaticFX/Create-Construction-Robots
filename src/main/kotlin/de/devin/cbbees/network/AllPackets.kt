@@ -55,5 +55,15 @@ object AllPackets {
             BeeDebugSyncPacket.STREAM_CODEC,
             BeeDebugSyncPacket.Companion::handle
         )
+        registrar.playToServer(
+            SelectSchematicPacket.TYPE,
+            SelectSchematicPacket.STREAM_CODEC,
+            SelectSchematicPacket.Companion::handle
+        )
+        registrar.playToServer(
+            UnselectSchematicPacket.TYPE,
+            UnselectSchematicPacket.STREAM_CODEC,
+            UnselectSchematicPacket.Companion::handle
+        )
     }
 }

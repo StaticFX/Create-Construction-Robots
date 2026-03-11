@@ -1,12 +1,14 @@
 package de.devin.cbbees.content.bee
 
 import com.mojang.serialization.Dynamic
+import com.simibubi.create.AllItems
 import de.devin.cbbees.content.bee.brain.BeeBrainProvider
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -69,14 +71,11 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         private val TARGET_POS: EntityDataAccessor<Optional<BlockPos>> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
 
-        /** Maximum ticks before teleporting to target */
-        const val MAX_STUCK_TICKS = 60  // 3 seconds
-
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 1.0)
-                .add(Attributes.FLYING_SPEED, 0.6)  // Increased speed
-                .add(Attributes.MOVEMENT_SPEED, 0.3)
+                .add(Attributes.FLYING_SPEED, 1.8)
+                .add(Attributes.MOVEMENT_SPEED, 0.9)
         }
     }
 
@@ -100,7 +99,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     init {
-        this.moveControl = FlyingMoveControl(this, 20, true)
+        this.moveControl = FlyingMoveControl(this, 30, true)
     }
 
     override fun hurt(source: DamageSource, amount: Float): Boolean {
@@ -109,6 +108,23 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         }
 
         return false
+    }
+
+    override fun mobInteract(player: Player, hand: net.minecraft.world.InteractionHand): net.minecraft.world.InteractionResult {
+        if (level().isClientSide) return net.minecraft.world.InteractionResult.SUCCESS
+
+        val heldItem = player.getItemInHand(hand)
+        if (!AllItems.WRENCH.isIn(heldItem)) return super.mobInteract(player, hand)
+
+        // Give bee item to player or drop it
+        val beeItem = ItemStack(tier.item(), 1)
+        if (!player.inventory.add(beeItem)) {
+            val itemEntity = ItemEntity(level(), x, y, z, beeItem)
+            level().addFreshEntity(itemEntity)
+        }
+
+        discard()
+        return net.minecraft.world.InteractionResult.SUCCESS
     }
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
@@ -135,7 +151,10 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         get() = MechanicalBeeTier.valueOf(entityData.get(TIER).uppercase())
         set(value) {
             entityData.set(TIER, value.name.lowercase())
-            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 1.0 * value.capabilities.flySpeedModifier
+            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 1.8 * value.capabilities.flySpeedModifier.toDouble()
+            getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue = 0.9 * value.capabilities.flySpeedModifier.toDouble()
+            // Faster bees need higher turn rate to avoid wobbling
+            this.moveControl = FlyingMoveControl(this, (30 * value.capabilities.flySpeedModifier).toInt(), true)
             if (inventory.containerSize != value.capabilities.inventorySize) {
                 inventory = SimpleContainer(value.capabilities.inventorySize)
             }
@@ -187,6 +206,12 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide) {
             network()?.releaseReservations(this.uuid)
+            // Release current batch so it can be retried by another bee
+            val batch = getBrain().getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
+            if (batch != null && batch.status != TaskStatus.COMPLETED) {
+                val tick = (level() as? ServerLevel)?.gameTime ?: 0L
+                batch.release(gameTick = tick)
+            }
             beehive()?.onBeeRemoved(this)
         }
         super.remove(reason)

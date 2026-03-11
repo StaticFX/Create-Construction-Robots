@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
+import net.minecraft.world.entity.ai.memory.WalkTarget
 
 class SetHiveWalkTargetBehavior : Behavior<MechanicalBeeEntity>(
     mapOf(
@@ -16,10 +17,13 @@ class SetHiveWalkTargetBehavior : Behavior<MechanicalBeeEntity>(
 ) {
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
         val hive = entity.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get()
-        val walkTarget = hive.walkTarget()
-        
+        val hiveTarget = hive.walkTarget()
+
         BeeDebug.log(entity, "Returning to hive")
 
-        entity.brain.setMemory(MemoryModuleType.WALK_TARGET, walkTarget)
+        entity.brain.setMemory(
+            MemoryModuleType.WALK_TARGET,
+            WalkTarget(hiveTarget.target, entity.tier.capabilities.flySpeedModifier, hiveTarget.closeEnoughDist)
+        )
     }
 }

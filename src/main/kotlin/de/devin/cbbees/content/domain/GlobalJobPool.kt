@@ -18,14 +18,58 @@ import de.devin.cbbees.util.ServerSide
 @ServerSide
 object GlobalJobPool : SavedData() {
     private val jobBacklog = mutableListOf<BeeJob>()
+    private var redispatchCounter = 0
+    /** Redispatch every 4 calls of tick() = every 2 seconds (tick() is called every 10 server ticks). */
+    private const val REDISPATCH_INTERVAL = 4
 
     fun clear() {
         jobBacklog.clear()
+        redispatchCounter = 0
     }
 
-    fun tick() {
+    fun tick(gameTime: Long = 0L) {
         if (jobBacklog.removeIf { it.status == JobStatus.COMPLETED || it.status == JobStatus.CANCELLED }) {
             this.setDirty()
+        }
+
+        redispatchCounter++
+        if (redispatchCounter >= REDISPATCH_INTERVAL) {
+            redispatchCounter = 0
+            redispatchPendingBatches(gameTime)
+        }
+    }
+
+    /**
+     * Scans for PENDING batches and dispatches them to networks that have available bees.
+     * Handles both:
+     * - Retrying failed/released batches
+     * - Assigning work to newly available bees in hives
+     */
+    private fun redispatchPendingBatches(gameTime: Long) {
+        val allNetworks = ServerBeeNetworkManager.getNetworks()
+        if (allNetworks.isEmpty()) return
+
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+
+            for (batch in job.batches) {
+                if (batch.status != TaskStatus.PENDING) continue
+                if (!batch.canRetry()) continue
+                if (!batch.isCooldownElapsed(gameTime)) continue
+
+                val candidateNetworks = allNetworks.filter { network ->
+                    val firstComp = network.components.firstOrNull()
+                    firstComp != null && firstComp.world == job.level &&
+                            network.isInRange(batch.targetPosition) &&
+                            network.hives.any { it.getAvailableBeeCount() > 0 }
+                }.sortedBy { network ->
+                    network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
+                }
+
+                val targetNetwork = candidateNetworks.firstOrNull() ?: continue
+                batch.assignedNetworkId = targetNetwork.id
+                targetNetwork.dispatchBatch(batch)
+            }
         }
     }
 

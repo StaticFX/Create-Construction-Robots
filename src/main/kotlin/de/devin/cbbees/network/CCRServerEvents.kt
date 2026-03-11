@@ -35,10 +35,10 @@ object CCRServerEvents {
         if (tickCounter < 10) return
         tickCounter = 0
 
-        GlobalJobPool.tick()
-
         val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
         val gameTime = server.overworld().gameTime
+
+        GlobalJobPool.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         for (player in server.playerList.players) {
             HiveJobsSyncPacket.sendPlayerSnapshotTo(player)

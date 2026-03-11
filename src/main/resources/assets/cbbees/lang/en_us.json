@@ -104,5 +104,17 @@
   "ponder.cbbees.buzzy_bees.description": "Automated construction and deconstruction with mechanical bees",
   "ponder.cbbees.mechanical_bee.title": "Introduction to Mechanical Bees",
   "ponder.cbbees.portable_beehive.title": "The Portable Beehive",
-  "ponder.cbbees.mechanical_beehive.title": "The Mechanical Beehive"
+  "ponder.cbbees.mechanical_beehive.title": "The Mechanical Beehive",
+  "item.cbbees.construction_planner": "Construction Planner",
+  "gui.cbbees.construction_planner.no_schematics": "No schematics available",
+  "gui.cbbees.construction_planner.hint": "Alt+Scroll browse | Right-click select",
+  "gui.cbbees.construction_planner.selected": "Selected: %s",
+  "tooltip.cbbees.construction_planner.empty": "No schematic selected",
+  "gui.cbbees.tool.construct": "Construct",
+  "gui.cbbees.tool.construct.desc": "Right-click to deploy construction swarm",
+  "gui.cbbees.tool.unselect": "Unselect",
+  "gui.cbbees.tool.unselect.desc": "Right-click to clear schematic and return to picker",
+  "gui.cbbees.tool.unselect.done": "Schematic unselected",
+  "cbbees.construction.requires_planner": "Hold a Construction Planner to start construction!",
+  "cbbees.construction.no_schematic": "No schematic loaded on planner!"
 }

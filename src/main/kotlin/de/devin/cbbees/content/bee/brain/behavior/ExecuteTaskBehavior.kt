@@ -13,7 +13,8 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
     mapOf(
         BeeMemoryModules.CURRENT_TASK.get() to MemoryStatus.VALUE_PRESENT,
         BeeMemoryModules.HIVE_INSTANCE.get() to MemoryStatus.VALUE_PRESENT
-    )
+    ),
+    1
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
@@ -35,14 +36,16 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         val inRange = owner.blockPosition().closerThan(task.targetPos, workRange)
 
         if (!inRange) {
-            BeeDebug.log(owner, "Execute: not in range of ${task.targetPos} (dist=${owner.blockPosition().distSqr(task.targetPos)}, range=$workRange)")
             return false
         }
 
         // Check if the task needs items the bee doesn't have
         val action = task.action
         if (action is ItemConsumingAction && !action.hasItems(owner)) {
-            BeeDebug.log(owner, "Execute: missing items for ${action.requiredItems.joinToString { "${it.count}x ${it.item}" }}")
+            BeeDebug.log(
+                owner,
+                "Execute: missing items for ${action.requiredItems.joinToString { "${it.count}x ${it.item}" }}"
+            )
             return false
         }
 
@@ -77,9 +80,9 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         } else {
-            BeeDebug.log(owner, "Task failed — releasing batch")
+            BeeDebug.log(owner, "Task failed — releasing batch (retry ${batch.retryCount + 1}/${de.devin.cbbees.content.domain.task.TaskBatch.MAX_RETRIES})")
             owner.network()?.releaseReservations(owner.uuid)
-            batch.release()
+            batch.release(gameTick = gameTime)
             owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
             owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
         }

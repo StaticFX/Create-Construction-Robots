@@ -105,13 +105,14 @@ data class BeeTask(
             controllerPos: BlockPos,
             endPos: BlockPos,
             chain: List<BlockPos>,
+            chainStates: List<BlockState>,
             casings: List<BeltBlockEntity.CasingType>,
             covers: List<Boolean>,
             items: List<ItemStack>,
             priority: Int = 0,
             job: BeeJob
         ): BeeTask {
-            val action = PlaceBeltAction(controllerPos, endPos, chain, casings, covers, items)
+            val action = PlaceBeltAction(controllerPos, endPos, chain, chainStates, casings, covers, items)
             return BeeTask(action, job, priority)
         }
 
