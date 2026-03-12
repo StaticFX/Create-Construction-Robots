@@ -19,6 +19,7 @@ import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.FlyingMob
 import net.minecraft.world.entity.ai.Brain
@@ -31,7 +32,8 @@ import net.minecraft.world.entity.ai.navigation.PathNavigation
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.entity.schedule.Activity
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
 import net.minecraft.world.item.ItemStack
 import net.minecraft.nbt.ListTag
 import net.minecraft.world.level.Level
@@ -110,8 +112,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return false
     }
 
-    override fun mobInteract(player: Player, hand: net.minecraft.world.InteractionHand): net.minecraft.world.InteractionResult {
-        if (level().isClientSide) return net.minecraft.world.InteractionResult.SUCCESS
+    override fun mobInteract(player: Player, hand: InteractionHand): InteractionResult {
+        if (level().isClientSide) return InteractionResult.SUCCESS
 
         val heldItem = player.getItemInHand(hand)
         if (!AllItems.WRENCH.isIn(heldItem)) return super.mobInteract(player, hand)
@@ -124,7 +126,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         }
 
         discard()
-        return net.minecraft.world.InteractionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
@@ -164,11 +166,13 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return BeeBrainProvider.brain()
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun makeBrain(dynamic: Dynamic<*>): Brain<MechanicalBeeEntity> {
         val brain = this.brainProvider().makeBrain(dynamic)
         return BeeBrainProvider.makeBrain(brain as Brain<MechanicalBeeEntity>)
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun getBrain(): Brain<MechanicalBeeEntity> {
         return super.getBrain() as Brain<MechanicalBeeEntity>
     }
@@ -254,10 +258,12 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     // Mechanical bees fly through water — no swimming, no water drag
     override fun isInWater(): Boolean = false
+    @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushedByFluid(): Boolean = false
 
-    override fun push(entity: net.minecraft.world.entity.Entity) {}
-    override fun doPush(entity: net.minecraft.world.entity.Entity) {}
+    override fun push(entity: Entity) { /* no-op */ }
+    override fun doPush(entity: Entity) { /* no-op */ }
+    @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
 
     override fun addAdditionalSaveData(compound: CompoundTag) {

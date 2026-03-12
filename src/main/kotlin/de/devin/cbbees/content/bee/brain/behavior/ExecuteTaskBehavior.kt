@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -81,7 +82,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         } else {
-            BeeDebug.log(owner, "Task failed — releasing batch (retry ${batch.retryCount + 1}/${de.devin.cbbees.content.domain.task.TaskBatch.MAX_RETRIES})")
+            BeeDebug.log(owner, "Task failed — releasing batch (retry ${batch.retryCount + 1}/${TaskBatch.MAX_RETRIES})")
             owner.network()?.releaseReservations(owner.uuid)
             batch.release(gameTick = gameTime)
             owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())

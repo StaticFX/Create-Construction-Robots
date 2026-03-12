@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.util.ItemStackKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -84,12 +85,12 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
             ?: return contents.map { it.copy() }
 
         // Tally items needed by remaining tasks
-        val needed = mutableMapOf<ItemKey, Int>()
+        val needed = mutableMapOf<ItemStackKey, Int>()
         for (task in batch.getRemainingTasks()) {
             val action = task.action
             if (action is ItemConsumingAction) {
                 for (req in action.requiredItems) {
-                    val key = ItemKey(req)
+                    val key = ItemStackKey(req)
                     needed[key] = (needed[key] ?: 0) + req.count
                 }
             }
@@ -97,7 +98,7 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
 
         val excess = mutableListOf<ItemStack>()
         for (carried in contents) {
-            val key = ItemKey(carried)
+            val key = ItemStackKey(carried)
             val neededCount = needed[key] ?: 0
             if (neededCount <= 0) {
                 excess.add(carried.copy())
@@ -119,14 +120,5 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
             val itemEntity = ItemEntity(bee.level(), bee.x, bee.y, bee.z, item.copy())
             bee.level().addFreshEntity(itemEntity)
         }
-    }
-
-    private data class ItemKey(val stack: ItemStack) {
-        override fun equals(other: Any?): Boolean {
-            if (other !is ItemKey) return false
-            return ItemStack.isSameItemSameComponents(stack, other.stack)
-        }
-
-        override fun hashCode(): Int = ItemStack.hashItemAndComponents(stack)
     }
 }

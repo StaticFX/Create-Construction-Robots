@@ -6,6 +6,8 @@ import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.util.ItemStackKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -145,7 +147,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
     private fun computeMissingItems(
         bee: MechanicalBeeEntity,
-        batch: de.devin.cbbees.content.domain.task.TaskBatch
+        batch: TaskBatch
     ): List<ItemStack> {
         // Aggregate all required items from remaining tasks
         val totalRequired = mutableMapOf<ItemStackKey, Int>()
@@ -179,14 +181,4 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
         }
     }
 
-    private data class ItemStackKey(val stack: ItemStack) {
-        override fun equals(other: Any?): Boolean {
-            if (other !is ItemStackKey) return false
-            return ItemStack.isSameItemSameComponents(stack, other.stack)
-        }
-
-        override fun hashCode(): Int {
-            return ItemStack.hashItemAndComponents(stack)
-        }
-    }
 }

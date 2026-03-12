@@ -7,6 +7,7 @@ import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
@@ -45,9 +46,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
             for (drop in drops) {
                 val remainder = bee.addToInventory(drop)
                 if (!remainder.isEmpty) {
-                    val itemEntity = net.minecraft.world.entity.item.ItemEntity(
-                        level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder
-                    )
+                    val itemEntity = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder)
                     level.addFreshEntity(itemEntity)
                 }
             }
