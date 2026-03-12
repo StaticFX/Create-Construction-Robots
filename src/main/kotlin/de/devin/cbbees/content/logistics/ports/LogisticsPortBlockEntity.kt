@@ -151,6 +151,10 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         return true
     }
 
+    override fun testFilter(stack: ItemStack): Boolean {
+        return filteringBehavior.test(stack)
+    }
+
     override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean {
         // TODO implement
         return true;

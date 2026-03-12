@@ -40,6 +40,12 @@ interface LogisticsPort : INetworkComponent {
     fun isValidForDropOff(): Boolean
 
     /**
+     * Tests whether the given [stack] passes this port's item filter.
+     * Returns true if no filter is set or if the item matches the filter.
+     */
+    fun testFilter(stack: ItemStack): Boolean = true
+
+    /**
      * Priority of this port.
      * Higher is more important.
      */

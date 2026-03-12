@@ -37,19 +37,19 @@ class BeeNetwork(
         components.any { c -> topology.isAnchor(c) && topology.isLogisticsRange(c, pos) }
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.hasItemStack(stack) }
+        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
             .sortedByDescending { it.priority() }
             .firstOrNull()
     }
 
     fun findDropOff(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForDropOff() }
+        return ports.filter { it.isValidForDropOff() && (stack.isEmpty || it.testFilter(stack)) }
             .sortedByDescending { it.priority() }
             .firstOrNull()
     }
 
     fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.hasAvailableItemStack(stack, excludeBeeId) }
+        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(stack, excludeBeeId) }
             .sortedByDescending { it.priority() }
             .firstOrNull()
     }
