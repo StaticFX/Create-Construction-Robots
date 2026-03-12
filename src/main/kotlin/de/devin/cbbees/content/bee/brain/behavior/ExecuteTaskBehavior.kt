@@ -77,6 +77,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                 }
             } else {
                 BeeDebug.log(owner, "Advancing to next sub-task in batch")
+                batch.getCurrentTask()?.action?.onActivate(owner)
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         } else {

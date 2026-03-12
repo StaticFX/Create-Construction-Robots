@@ -16,7 +16,7 @@ class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
         val hivePos = owner.brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).get().pos
-        return owner.blockPosition().closerThan(hivePos, 1.5)
+        return owner.blockPosition().closerThan(hivePos, 4.0)
     }
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {

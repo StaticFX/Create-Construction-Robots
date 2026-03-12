@@ -74,8 +74,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 1.0)
-                .add(Attributes.FLYING_SPEED, 1.8)
-                .add(Attributes.MOVEMENT_SPEED, 0.9)
+                .add(Attributes.FLYING_SPEED, 3.0)
+                .add(Attributes.MOVEMENT_SPEED, 1.5)
         }
     }
 
@@ -151,8 +151,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         get() = MechanicalBeeTier.valueOf(entityData.get(TIER).uppercase())
         set(value) {
             entityData.set(TIER, value.name.lowercase())
-            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 1.8 * value.capabilities.flySpeedModifier.toDouble()
-            getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue = 0.9 * value.capabilities.flySpeedModifier.toDouble()
+            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 3.0 * value.capabilities.flySpeedModifier.toDouble()
+            getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue = 1.5 * value.capabilities.flySpeedModifier.toDouble()
             // Faster bees need higher turn rate to avoid wobbling
             this.moveControl = FlyingMoveControl(this, (30 * value.capabilities.flySpeedModifier).toInt(), true)
             if (inventory.containerSize != value.capabilities.inventorySize) {
@@ -251,6 +251,10 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
+
+    // Mechanical bees fly through water — no swimming, no water drag
+    override fun isInWater(): Boolean = false
+    override fun isPushedByFluid(): Boolean = false
 
     override fun push(entity: net.minecraft.world.entity.Entity) {}
     override fun doPush(entity: net.minecraft.world.entity.Entity) {}

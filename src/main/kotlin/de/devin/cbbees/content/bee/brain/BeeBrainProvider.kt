@@ -7,7 +7,6 @@ import de.devin.cbbees.content.bee.brain.behavior.*
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.behavior.LookAtTargetSink
 import net.minecraft.world.entity.ai.behavior.MoveToTargetSink
-import net.minecraft.world.entity.ai.behavior.Swim
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 import net.minecraft.world.entity.schedule.Activity
@@ -39,8 +38,7 @@ object BeeBrainProvider {
                 Pair.of(0, LookAtTargetSink(45, 90)),
                 Pair.of(1, MoveToTargetSink()),
                 Pair.of(2, UpdateBeeStatusBehavior()),
-                Pair.of(3, StuckSafetyBehavior()),
-                Pair.of(4, Swim(0.8f))
+                Pair.of(3, StuckSafetyBehavior())
             )
         )
 
@@ -57,6 +55,7 @@ object BeeBrainProvider {
         brain.addActivityWithConditions(
             Activity.REST,
             ImmutableList.of(
+                Pair.of(1, DropOffItemsBehavior()),
                 Pair.of(2, EnterBeeHiveBehavior()),
                 Pair.of(3, SetHiveWalkTargetBehavior())
             ),

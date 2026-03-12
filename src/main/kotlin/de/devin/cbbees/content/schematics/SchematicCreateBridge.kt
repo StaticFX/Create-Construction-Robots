@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.utility.BlockHelper
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -172,12 +173,15 @@ class SchematicCreateBridge(
 
                     // Skip air and unbreakable blocks
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        val task = BeeTask.remove(
-                            pos = pos,
-                            priority = calculateRemovalPriority(pos, maxY),
-                            job = job
-                        )
-                        batches.add(TaskBatch(listOf(task), job, pos))
+                        val priority = calculateRemovalPriority(pos, maxY)
+                        val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
+                        val tasks = if (CBeesConfig.beePickupItems.get()) {
+                            val dropOffTask = BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job)
+                            listOf(removeTask, dropOffTask)
+                        } else {
+                            listOf(removeTask)
+                        }
+                        batches.add(TaskBatch(tasks, job, pos))
                     }
                 }
             }

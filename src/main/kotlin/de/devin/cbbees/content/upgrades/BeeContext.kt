@@ -12,7 +12,6 @@ data class BeeContext(
     var wirelessLinkEnabled: Boolean = false,
     var precisionEnabled: Boolean = false,
     var silkTouchEnabled: Boolean = false,
-    var pickupEnabled: Boolean = false,
     var breakSpeedMultiplier: Double = 1.0,
     /** Maximum number of bees this source can contribute to a single job */
     var maxContributedBees: Int = 4,

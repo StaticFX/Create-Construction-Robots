@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.task
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
@@ -121,6 +122,10 @@ data class BeeTask(
          */
         fun remove(pos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
             return BeeTask(RemoveBlockAction(pos), job, priority)
+        }
+
+        fun dropOff(fallbackPos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
+            return BeeTask(DropOffItemsAction(fallbackPos), job, priority)
         }
     }
 }

@@ -41,7 +41,7 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
 
         entity.brain.setMemory(
             MemoryModuleType.WALK_TARGET,
-            WalkTarget(moveTo, entity.tier.capabilities.flySpeedModifier, 1)
+            WalkTarget(moveTo, 1.0f, 1)
         )
     }
 }

@@ -116,7 +116,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             BeeDebug.log(entity, "Flying to port at $portPos for ${itemsAtPort.size} item type(s)")
             entity.brain.setMemory(
                 MemoryModuleType.WALK_TARGET,
-                WalkTarget(portPos, entity.tier.capabilities.flySpeedModifier, 1)
+                WalkTarget(portPos, 1.0f, 1)
             )
         }
     }

@@ -127,11 +127,4 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Gathering Wings - Bees pick up broken blocks
-    val GATHERING_WINGS: ItemEntry<GatheringWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
-        .item("gathering_wings") { props ->
-            GatheringWingsUpgrade(props)
-        }
-        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
-        .register()
 }

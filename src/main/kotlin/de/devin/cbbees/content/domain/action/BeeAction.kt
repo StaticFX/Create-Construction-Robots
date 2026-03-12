@@ -14,6 +14,13 @@ interface BeeAction {
 
     fun onStart(robot: MechanicalBeeEntity) {}
     fun onTick(robot: MechanicalBeeEntity, tick: Int) {}
+
+    /**
+     * Called when this action's task becomes the current task in its batch.
+     * Use this to resolve dynamic targets (e.g. finding the nearest port).
+     */
+    fun onActivate(bee: MechanicalBeeEntity) {}
+
     fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean
 
     /**

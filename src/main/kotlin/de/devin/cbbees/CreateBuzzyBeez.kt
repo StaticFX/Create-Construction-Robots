@@ -5,6 +5,7 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.blocks.AllBlocks
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.backpack.client.TaskProgressClientEvents
@@ -23,6 +24,7 @@ import de.devin.cbbees.network.AllPackets
 import de.devin.cbbees.network.CCRServerEvents
 import de.devin.cbbees.ponder.CCRPonderPlugin
 import de.devin.cbbees.registry.AllBlockEntityTypes
+import de.devin.cbbees.registry.AllEffects
 import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.registry.AllKeys
 import de.devin.cbbees.registry.AllMenuTypes
@@ -32,7 +34,9 @@ import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.resources.ResourceLocation
+import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.Mod
+import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
@@ -65,6 +69,8 @@ object CreateBuzzyBeez {
     val LOGGER: Logger = LogManager.getLogger(ID)
 
     init {
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.COMMON, CBeesConfig.SPEC)
+
         REGISTRATE.registerEventListeners(MOD_BUS)
 
         AllCreativeModeTabs.register()
@@ -74,6 +80,7 @@ object CreateBuzzyBeez {
         AllEntityTypes.register()
         AllBlockEntityTypes.register()
         AllMenuTypes.register()
+        AllEffects.register()
         BeeMemoryModules.register()
         BeeSensors.register()
 

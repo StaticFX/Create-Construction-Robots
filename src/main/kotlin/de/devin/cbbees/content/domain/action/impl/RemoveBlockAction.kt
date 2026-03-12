@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.action.impl
 
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -28,37 +29,35 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     }
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
-        if (context.pickupEnabled) {
-            val state = level.getBlockState(pos)
-            if (level is ServerLevel) {
-                // Determine drops
-                val drops = if (context.silkTouchEnabled) {
-                    listOf(ItemStack(state.block.asItem()))
-                } else {
-                    Block.getDrops(state, level, pos, level.getBlockEntity(pos))
-                }
+        if (level !is ServerLevel) return false
 
-                level.destroyBlock(pos, false)
-                for (drop in drops) {
-                    val remainder = bee.addToInventory(drop)
-                    if (!remainder.isEmpty) {
-                        val itemEntity = net.minecraft.world.entity.item.ItemEntity(
-                            level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder
-                        )
-                        level.addFreshEntity(itemEntity)
-                    }
+        val shouldPickUp = CBeesConfig.beePickupItems.get()
+
+        if (shouldPickUp) {
+            val state = level.getBlockState(pos)
+            val drops = if (context.silkTouchEnabled) {
+                listOf(ItemStack(state.block.asItem()))
+            } else {
+                Block.getDrops(state, level, pos, level.getBlockEntity(pos))
+            }
+
+            level.destroyBlock(pos, false)
+            for (drop in drops) {
+                val remainder = bee.addToInventory(drop)
+                if (!remainder.isEmpty) {
+                    val itemEntity = net.minecraft.world.entity.item.ItemEntity(
+                        level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder
+                    )
+                    level.addFreshEntity(itemEntity)
                 }
-                return true
             }
         } else {
-            // No pickup upgrade - just destroy the block (void it)
             level.destroyBlock(pos, true)
-            return true
         }
-        return false
+        return true
     }
 
-    override fun shouldReturnAfter(context: BeeContext): Boolean = context.pickupEnabled
+    override fun shouldReturnAfter(context: BeeContext): Boolean = CBeesConfig.beePickupItems.get()
 
     override fun getDescription(): String {
         return "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"

@@ -23,7 +23,7 @@ class SetHiveWalkTargetBehavior : Behavior<MechanicalBeeEntity>(
 
         entity.brain.setMemory(
             MemoryModuleType.WALK_TARGET,
-            WalkTarget(hiveTarget.target, entity.tier.capabilities.flySpeedModifier, hiveTarget.closeEnoughDist)
+            WalkTarget(hiveTarget.target, 1.0f, hiveTarget.closeEnoughDist)
         )
     }
 }

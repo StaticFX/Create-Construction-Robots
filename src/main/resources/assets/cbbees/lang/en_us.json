@@ -106,6 +106,7 @@
   "ponder.cbbees.portable_beehive.title": "The Portable Beehive",
   "ponder.cbbees.mechanical_beehive.title": "The Mechanical Beehive",
   "item.cbbees.construction_planner": "Construction Planner",
+  "item.cbbees.deconstruction_planner": "Deconstruction Planner",
   "gui.cbbees.construction_planner.no_schematics": "No schematics available",
   "gui.cbbees.construction_planner.hint": "Alt+Scroll browse | Right-click select",
   "gui.cbbees.construction_planner.selected": "Selected: %s",
@@ -116,5 +117,6 @@
   "gui.cbbees.tool.unselect.desc": "Right-click to clear schematic and return to picker",
   "gui.cbbees.tool.unselect.done": "Schematic unselected",
   "cbbees.construction.requires_planner": "Hold a Construction Planner to start construction!",
-  "cbbees.construction.no_schematic": "No schematic loaded on planner!"
+  "cbbees.construction.no_schematic": "No schematic loaded on planner!",
+  "effect.cbbees.hive_speed": "Hive Speed"
 }

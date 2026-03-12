@@ -36,9 +36,6 @@ enum class UpgradeType(
     }),
     SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
-    }),
-    GATHERING_WINGS(1, "tooltip.cbbees.upgrade.gathering_wings", IUpgrade { ctx, count ->
-        if (count > 0) ctx.pickupEnabled = true
     });
 
     companion object {
@@ -71,7 +68,6 @@ enum class UpgradeType(
  * - Honey Efficiency: Increased carry capacity and break speed (max 2)
  * - Stinger Precision: Bees can place redstone/rails correctly (1 only)
  * - Soft Touch: Deconstruction preserves blocks (1 only)
- * - Gathering Wings: Bees collect and return broken blocks (1 only)
  */
 open class BeeUpgradeItem(
     val upgradeType: UpgradeType,
@@ -122,5 +118,3 @@ class HoneyEfficiencyUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeTyp
 class StingerPrecisionUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.STINGER_PRECISION, properties)
 
 class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT_TOUCH, properties)
-
-class GatheringWingsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.GATHERING_WINGS, properties)

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "create:item/schematic_and_quill"
+    "layer0": "cbbees:item/deconstruction_planner"
   }
 }

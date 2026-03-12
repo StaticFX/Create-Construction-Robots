@@ -9,9 +9,12 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.registry.AllEffects
 import de.devin.cbbees.registry.AllEntityTypes
+import net.minecraft.world.effect.MobEffectInstance
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangNumberFormat
 import net.minecraft.ChatFormatting
@@ -81,6 +84,13 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         batch.assignToRobot(bee)
 
+        // Apply hive speed bonus as a MobEffect (scales with RPM)
+        val ctx = getBeeContext()
+        if (ctx.speedMultiplier > 1.0) {
+            val amplifier = ((ctx.speedMultiplier - 1.0) / 0.20).toInt().coerceIn(0, 9)
+            bee.addEffect(MobEffectInstance(AllEffects.HIVE_SPEED, -1, amplifier, false, false, false))
+        }
+
         level!!.addFreshEntity(bee)
         activeBees.add(bee.uuid)
         sync()
@@ -89,9 +99,8 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
-        if (getAvailableBeeCount() <= 0) {
-            return false // Safety check
-        }
+        if (getAvailableBeeCount() <= 0) return false
+        if (getActiveBeeCount() >= getBeeContext().maxActiveRobots) return false
 
         this.setChanged()
 
@@ -114,7 +123,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun walkTarget(): WalkTarget {
-        return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 0)
+        return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 2)
     }
 
 
@@ -197,8 +206,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val rpm = abs(getSpeed())
         if (rpm > 0) {
             context.speedMultiplier *= (1.0 + (rpm / 256.0))
-            // 8x RPM multiplier for bee count as requested
-            // Base is usually 4 from context, we add based on RPM
             val extraRobots = (rpm / 8.0).toInt()
             context.maxActiveRobots += extraRobots
             context.workRange = (6 + rpm.toDouble())
@@ -208,6 +215,9 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             context.maxContributedBees = 0
             context.workRange = 0.0
         }
+
+        // Cap at config limit
+        context.maxActiveRobots = minOf(context.maxActiveRobots, CBeesConfig.maxBeesPerHive.get())
 
         return context
     }
