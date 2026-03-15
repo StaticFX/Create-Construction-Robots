@@ -2,6 +2,8 @@ package de.devin.cbbees.content.domain.network
 
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
+import de.devin.cbbees.content.domain.logistics.ReservablePort
+import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -22,6 +24,8 @@ class BeeNetwork(
 
     val hives: List<BeeHive> get() = components.filterIsInstance<BeeHive>()
     val ports: List<LogisticsPort> get() = components.filterIsInstance<LogisticsPort>()
+    val transportPorts: List<TransportPort> get() = components.filterIsInstance<TransportPort>()
+    val reservablePorts: List<ReservablePort> get() = components.filterIsInstance<ReservablePort>()
 
     /**
      * The aggregate operational range of all anchors in this network.
@@ -55,15 +59,15 @@ class BeeNetwork(
     }
 
     fun releaseReservations(beeId: UUID) {
-        ports.forEach { it.releaseReservation(beeId) }
+        reservablePorts.forEach { it.releaseReservation(beeId) }
     }
 
     fun cleanupReservations(currentTick: Long) {
-        ports.forEach { it.cleanupReservations(currentTick) }
+        reservablePorts.forEach { it.cleanupReservations(currentTick) }
     }
 
     fun clearReservations() {
-        ports.forEach { it.clearReservations() }
+        reservablePorts.forEach { it.clearReservations() }
     }
 
     fun dispatchBatch(batch: TaskBatch) {

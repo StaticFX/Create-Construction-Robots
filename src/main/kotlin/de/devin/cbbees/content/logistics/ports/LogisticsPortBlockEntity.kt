@@ -46,8 +46,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     var filterStack: ItemStack = ItemStack.EMPTY
     var priority = 0
 
-    private data class PortReservation(val items: List<ItemStack>, val tick: Long)
-    private val reservations = mutableMapOf<UUID, PortReservation>()
+    private val reservationManager = de.devin.cbbees.content.domain.logistics.PortReservationManager()
 
     // This is what the bees will call
     fun getInventory(level: Level): IItemHandler? {
@@ -231,35 +230,24 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
             }
         }
 
-        val reserved = reservations
-            .filter { excludeBeeId == null || it.key != excludeBeeId }
-            .values.flatMap { it.items }
-            .filter { ItemStack.isSameItemSameComponents(it, stack) }
-            .sumOf { it.count }
-
-        return physical - reserved >= stack.count
+        return physical - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
     }
 
     override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
-        reservations[beeId] = PortReservation(items, tick)
+        reservationManager.reserve(beeId, items, tick)
         updateBusyState()
     }
 
     override fun releaseReservation(beeId: UUID) {
-        reservations.remove(beeId)
-        updateBusyState()
+        if (reservationManager.release(beeId)) updateBusyState()
     }
 
     override fun cleanupReservations(currentTick: Long, maxAge: Long) {
-        val sizeBefore = reservations.size
-        reservations.entries.removeAll { currentTick - it.value.tick > maxAge }
-        if (reservations.size != sizeBefore) updateBusyState()
+        if (reservationManager.cleanup(currentTick, maxAge)) updateBusyState()
     }
 
     override fun clearReservations() {
-        val hadReservations = reservations.isNotEmpty()
-        reservations.clear()
-        if (hadReservations) updateBusyState()
+        if (reservationManager.clear()) updateBusyState()
     }
 
     private fun updateBusyState() {
@@ -268,7 +256,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         val currentState = blockState.getValue(PORT_STATE)
         if (currentState == PortState.INVALID) return
 
-        val targetState = if (reservations.isNotEmpty()) PortState.BUSY else PortState.VALID
+        val targetState = if (reservationManager.hasReservations) PortState.BUSY else PortState.VALID
         if (currentState != targetState) {
             level.setBlock(blockPos, blockState.setValue(PORT_STATE, targetState), 3)
         }

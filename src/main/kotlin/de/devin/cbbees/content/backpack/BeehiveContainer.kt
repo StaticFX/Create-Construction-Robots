@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.backpack
 
 import de.devin.cbbees.content.bee.MechanicalBeeItem
+import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.domain.GlobalJobPool
@@ -125,7 +126,7 @@ class BeehiveContainer : AbstractContainerMenu {
             } else {
                 // Moving from player inventory to backpack
                 // Try robot slots first, then upgrade slots
-                if (slotStack.item is MechanicalBeeItem) {
+                if (slotStack.item is MechanicalBeeItem || slotStack.item is MechanicalBumbleBeeItem) {
                     if (!moveItemStackTo(slotStack, 0, PortableBeehiveItem.ROBOT_SLOTS, false)) {
                         return ItemStack.EMPTY
                     }
@@ -178,7 +179,7 @@ class BeehiveContainer : AbstractContainerMenu {
      */
     inner class RobotSlot(container: Container, index: Int, x: Int, y: Int) : Slot(container, index, x, y) {
         override fun mayPlace(stack: ItemStack): Boolean {
-            return stack.item is MechanicalBeeItem
+            return stack.item is MechanicalBeeItem || stack.item is MechanicalBumbleBeeItem
         }
 
         override fun getMaxStackSize(): Int = MechanicalBeeItem.MAX_STACK_SIZE

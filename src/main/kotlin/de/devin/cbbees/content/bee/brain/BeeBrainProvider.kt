@@ -13,8 +13,9 @@ import net.minecraft.world.entity.schedule.Activity
 
 object BeeBrainProvider {
 
+    @Suppress("UNCHECKED_CAST")
     fun brain(): Brain.Provider<MechanicalBeeEntity> {
-        val brain = Brain.provider(
+        return Brain.provider(
             listOf(
                 BeeMemoryModules.HIVE_POS.get(),
                 BeeMemoryModules.HIVE_INSTANCE.get(),
@@ -27,9 +28,7 @@ object BeeBrainProvider {
             listOf(
                 BeeSensors.HIVE_SENSOR.get()
             )
-        )
-
-        return brain
+        ) as Brain.Provider<MechanicalBeeEntity>
     }
 
     fun makeBrain(brain: Brain<MechanicalBeeEntity>): Brain<MechanicalBeeEntity> {
@@ -45,9 +44,10 @@ object BeeBrainProvider {
         brain.addActivityWithConditions(
             Activity.WORK,
             ImmutableList.of(
-                Pair.of(0, GatherItemsBehavior()),
-                Pair.of(1, MoveToTaskBehavior()),
-                Pair.of(2, ExecuteTaskBehavior())
+                Pair.of(0, RechargeSpringBehavior()),
+                Pair.of(1, GatherItemsBehavior()),
+                Pair.of(2, MoveToTaskBehavior()),
+                Pair.of(3, ExecuteTaskBehavior())
             ),
             setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_PRESENT))
         )

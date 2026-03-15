@@ -3,7 +3,6 @@ package de.devin.cbbees.content.domain.beehive
 import com.simibubi.create.content.equipment.armor.BacktankUtil
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBeeTier
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -13,6 +12,8 @@ import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
@@ -24,7 +25,7 @@ import java.util.*
 
 /**
  * Implementation of IBeeHome that wraps a player and their portable beehive (backpack).
- * Also implements BeeSource to allow contributing bees to jobs from multiple sources.
+ * Also implements BeeSource to allow contributing bees from multiple sources.
  */
 class PortableBeeHive(val player: Player) : BeeHive {
     private val activeBees = mutableSetOf<UUID>()
@@ -36,17 +37,26 @@ class PortableBeeHive(val player: Player) : BeeHive {
             return false
         }
 
-        val beeTier = consumeBee() ?: return false
-        return spawnBee(beeTier, batch)
+        val beeItem = consumeBee()
+        if (beeItem.isEmpty) return false
+        return spawnBee(beeItem, batch)
     }
 
-    private fun spawnBee(tier: MechanicalBeeTier, batch: TaskBatch): Boolean {
+    private fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), player.level()).apply {
-            this.tier = tier
             setOwner(player.uuid)
             setPos(player.position().add(0.0, 1.0, 0.0))
             this.networkId = this@PortableBeeHive.network().id
         }
+
+        // Rewind spring — costs Backtank air proportional to deficit
+        val deficit = 1.0f - bee.springTension
+        if (deficit > 0f) {
+            val airCost = (deficit * CBeesConfig.portableAirPerRewind.get()).toInt()
+            if (!hasAir(airCost)) return false
+            consumeAir(airCost)
+        }
+        bee.springTension = 1.0f
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
         bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
@@ -59,7 +69,7 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return true
     }
 
-    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
+    override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
         activeBees.remove(bee.uuid)
     }
 
@@ -106,19 +116,19 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return BacktankUtil.getAir(backpack) >= amount
     }
 
-    fun addBee(tier: MechanicalBeeTier): Boolean {
+    fun addBee(item: ItemStack): Boolean {
         if (player.isCreative) return true
         val backpackItemStack = getBackpackStack()
         if (backpackItemStack.isEmpty) return false
-        return (backpackItemStack.item as PortableBeehiveItem).addRobot(backpackItemStack, tier)
+        return (backpackItemStack.item as PortableBeehiveItem).addRobot(backpackItemStack, item)
     }
 
-    override fun consumeBee(): MechanicalBeeTier? {
+    override fun consumeBee(): ItemStack {
         val backpack = getBackpackStack()
-        if (backpack.isEmpty) return null
+        if (backpack.isEmpty) return ItemStack.EMPTY
 
-        // Creative mode players don't consume bees, return ANDESITE as default
-        if (player.isCreative) return MechanicalBeeTier.STURDY
+        // Creative mode players don't consume bees, return a mechanical bee
+        if (player.isCreative) return ItemStack(AllItems.MECHANICAL_BEE.get())
 
         return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
     }
@@ -134,8 +144,8 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return (backpack.item as PortableBeehiveItem).getTotalRobotCount(backpack)
     }
 
-    override fun returnBee(tier: MechanicalBeeTier): Boolean {
-        return addBee(tier)
+    override fun returnBee(item: ItemStack): Boolean {
+        return addBee(item)
     }
 
     override fun walkTarget(): WalkTarget {

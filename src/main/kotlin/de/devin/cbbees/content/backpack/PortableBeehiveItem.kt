@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.backpack
 
 import de.devin.cbbees.content.bee.MechanicalBeeItem
-import de.devin.cbbees.content.bee.MechanicalBeeTier
+import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.content.upgrades.UpgradeType
@@ -33,7 +33,6 @@ import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.animation.AnimatableManager
 import software.bernie.geckolib.animation.AnimationController
 import software.bernie.geckolib.animation.RawAnimation
-import software.bernie.geckolib.renderer.GeoArmorRenderer
 import software.bernie.geckolib.util.GeckoLibUtil
 import java.util.function.Consumer
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions
@@ -49,7 +48,7 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  * Constructor Backpack - A wearable equipment item that manages constructor robots and their upgrades.
  *
  * This item can be worn in the Curios "back" slot. When opened, it provides a GUI with:
- * - 4 Slots for [MechanicalBeeItem]s.
+ * - 4 Slots for bee items (MechanicalBeeItem or MechanicalBumbleBeeItem).
  * - 6 Slots for [BeeUpgradeItem]s.
  *
  * The backpack acts as the central hub for the mod's automated building system, storing the state
@@ -197,6 +196,10 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         }
     }
 
+    private fun isBeeItem(item: net.minecraft.world.item.Item): Boolean {
+        return item is MechanicalBeeItem || item is MechanicalBumbleBeeItem
+    }
+
     /**
      * Counts the number of robots currently stored in the backpack.
      */
@@ -204,7 +207,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         val contents = stack.get(DataComponents.CONTAINER) ?: return 0
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
-        return items.subList(0, ROBOT_SLOTS).count { it.item is MechanicalBeeItem && !it.isEmpty }
+        return items.subList(0, ROBOT_SLOTS).count { isBeeItem(it.item) && !it.isEmpty }
     }
 
     /**
@@ -236,7 +239,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         var count = 0
         for (i in 0 until ROBOT_SLOTS) {
             val s = items[i]
-            if (!s.isEmpty && s.item is MechanicalBeeItem) {
+            if (!s.isEmpty && isBeeItem(s.item)) {
                 count += s.count
             }
         }
@@ -244,44 +247,42 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     /**
-     * Consumes a single robot from the backpack inventory.
-     * @return the tier of the robot consumed, or null if no robots available
+     * Consumes a single bee from the backpack inventory.
+     * @return the consumed bee ItemStack (count 1), or ItemStack.EMPTY if none available
      */
-    fun consumeBee(stack: ItemStack): MechanicalBeeTier? {
-        val contents = stack.get(DataComponents.CONTAINER) ?: return null
+    fun consumeBee(stack: ItemStack): ItemStack {
+        val contents = stack.get(DataComponents.CONTAINER) ?: return ItemStack.EMPTY
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
 
         for (i in 0 until ROBOT_SLOTS) {
             val s = items[i]
-            if (!s.isEmpty && s.item is MechanicalBeeItem) {
-                val tier = (s.item as MechanicalBeeItem).tier
+            if (!s.isEmpty && isBeeItem(s.item)) {
+                val consumed = s.copyWithCount(1)
                 s.shrink(1)
                 if (s.isEmpty) {
                     items[i] = ItemStack.EMPTY
                 }
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
-                return tier
+                return consumed
             }
         }
-        return null
+        return ItemStack.EMPTY
     }
 
     /**
-     * Adds a single robot to the backpack inventory.
+     * Adds a single bee to the backpack inventory.
      * @return true if successful, false if backpack is full
      */
-    fun addRobot(stack: ItemStack, tier: MechanicalBeeTier): Boolean {
+    fun addRobot(stack: ItemStack, beeItem: ItemStack): Boolean {
         val contents = stack.get(DataComponents.CONTAINER)
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents?.copyInto(items)
 
-        val item = tier.item()
-
         // Try to stack with existing robots first
         for (i in 0 until ROBOT_SLOTS) {
             val s = items[i]
-            if (!s.isEmpty && s.item == item && s.count < s.maxStackSize) {
+            if (!s.isEmpty && ItemStack.isSameItemSameComponents(s, beeItem) && s.count < s.maxStackSize) {
                 s.grow(1)
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
                 return true
@@ -291,7 +292,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         // Try to find an empty slot
         for (i in 0 until ROBOT_SLOTS) {
             if (items[i].isEmpty) {
-                items[i] = ItemStack(item, 1)
+                items[i] = beeItem.copyWithCount(1)
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
                 return true
             }
@@ -330,24 +331,10 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         val player = slotContext.entity() as? Player ?: return
         if (player.level().isClientSide) return
 
-        // Handle air refilling from Create's systems
-        // If the item is tagged as pressurized_air_sources, BacktankUtil.getAir and maxAir should work.
-        // We can manually refill if we find the player is in a refilling state.
-        // Actually, Create's AirbacktankBlockEntity usually handles refilling by checking if the player is wearing a backtank.
-        // If we are in the "back" Curio slot, it might not be found by Create.
-
-        // We can try to simulate the refilling if the player is holding an air hose (simplified)
-        // or just let BacktankUtil handle it if we can find where it's called.
-
-        // Let's implement a simple refilling if submerged in air from a nearby source?
-        // Actually, the most reliable way is to ensure we are compatible with BacktankUtil.
-
         // Creative mode players always have full air
         if (player.isCreative) {
             val maxAir = BacktankUtil.maxAir(stack)
             if (BacktankUtil.getAir(stack) < maxAir) {
-                // We'll leave it for now if we can't find the exact component name,
-                // but at least we've made it an ArmorItem which should help with compatibility.
             }
         }
     }

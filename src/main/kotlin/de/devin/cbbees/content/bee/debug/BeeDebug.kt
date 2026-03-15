@@ -1,10 +1,12 @@
 package de.devin.cbbees.content.bee.debug
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.network.BeeDebugSyncPacket
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.FlyingMob
 import net.neoforged.neoforge.network.PacketDistributor
 import java.util.UUID
 
@@ -31,20 +33,35 @@ object BeeDebug {
      * Sends a debug message about a bee to all nearby players with debug enabled.
      */
     fun log(bee: MechanicalBeeEntity, message: String) {
+        val springPct = (bee.springTension * 100).toInt()
+        logForEntity(bee, "Bee", "Spring: $springPct% | $message")
+    }
+
+    /**
+     * Sends a debug message about any flying mob entity to all nearby players with debug enabled.
+     */
+    fun logForEntity(entity: FlyingMob, label: String, message: String) {
         if (enabledPlayers.isEmpty()) return
-        val level = bee.level()
+        val level = entity.level()
         if (level.isClientSide) return
 
         val server = level.server ?: return
-        val beeLabel = bee.tier.id.replaceFirstChar { it.uppercase() }
-        val shortId = bee.uuid.toString().substring(0, 4)
-        val text = Component.literal("[$beeLabel $shortId] ")
+        val shortId = entity.uuid.toString().substring(0, 4)
+
+        val displayMessage = if (entity is MechanicalBumbleBeeEntity) {
+            val springPct = (entity.springTension * 100).toInt()
+            "Spring: $springPct% | $message"
+        } else {
+            message
+        }
+
+        val text = Component.literal("[$label $shortId] ")
             .withStyle(ChatFormatting.GOLD)
-            .append(Component.literal(message).withStyle(ChatFormatting.GRAY))
+            .append(Component.literal(displayMessage).withStyle(ChatFormatting.GRAY))
 
         for (uuid in enabledPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            if (player.level() == level && player.blockPosition().closerThan(bee.blockPosition(), 128.0)) {
+            if (player.level() == level && player.blockPosition().closerThan(entity.blockPosition(), 128.0)) {
                 player.sendSystemMessage(text)
             }
         }

@@ -1,15 +1,15 @@
 package de.devin.cbbees.content.domain.beehive
 
-import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBeeTier
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
+import net.minecraft.world.entity.Entity
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.UUID
 
@@ -49,15 +49,16 @@ interface BeeHive : INetworkComponent {
 
     /**
      * Attempts to consume a bee from this source for deployment.
-     * @return the tier of the bee consumed, or null if no bees available.
+     * @return the consumed bee ItemStack, or ItemStack.EMPTY if no bees available.
      */
-    fun consumeBee(): MechanicalBeeTier?
+    fun consumeBee(): ItemStack
 
     /**
      * Attempts to return a bee to this source.
+     * @param item the bee item to return.
      * @return true if the bee was successfully returned, false if the source is full.
      */
-    fun returnBee(tier: MechanicalBeeTier): Boolean
+    fun returnBee(item: ItemStack): Boolean
 
     /**
      * Gets the maximum range at which bees from this source can work.
@@ -109,12 +110,12 @@ interface BeeHive : INetworkComponent {
     /**
      * Called when a bee from this source is spawned.
      */
-    fun onBeeSpawned(bee: MechanicalBeeEntity) {}
+    fun onBeeSpawned(bee: Entity) {}
 
     /**
      * Called when a bee from this source is removed/returned.
      */
-    fun onBeeRemoved(bee: MechanicalBeeEntity) {}
+    fun onBeeRemoved(bee: Entity) {}
 
     override fun isAnchor(): Boolean = true
 

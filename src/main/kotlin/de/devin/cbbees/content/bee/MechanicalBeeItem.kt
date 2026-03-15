@@ -8,20 +8,20 @@ import net.minecraft.world.item.TooltipFlag
 
 /**
  * Constructor Robot Item - Represents a robot that can be stored in the Constructor Backpack.
- * 
+ *
  * Features:
  * - Stackable up to 64
  * - Consumed from backpack when deployed for construction
  * - Returned to backpack when task is complete
  * - If backpack is full, drops on the ground
  */
-class MechanicalBeeItem(val tier: MechanicalBeeTier, properties: Properties) : Item(properties) {
-    
+class MechanicalBeeItem(properties: Properties) : Item(properties) {
+
     companion object {
         /** Maximum stack size for robots */
         const val MAX_STACK_SIZE = 64
     }
-    
+
     override fun appendHoverText(
         stack: ItemStack,
         context: TooltipContext,
@@ -29,13 +29,13 @@ class MechanicalBeeItem(val tier: MechanicalBeeTier, properties: Properties) : I
         tooltipFlag: TooltipFlag
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
-        
+
         // Show description
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.bee.description")
                 .withStyle(ChatFormatting.GRAY)
         )
-        
+
         // Show behavior info
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.bee.consumed_on_deploy")

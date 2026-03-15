@@ -14,7 +14,7 @@ class MechanicalBeeModel : GeoModel<MechanicalBeeEntity>() {
     }
 
     override fun getTextureResource(animatable: MechanicalBeeEntity): ResourceLocation {
-        return CreateBuzzyBeez.asResource("textures/entity/mechanical_bee/${animatable.tier.id}.png")
+        return CreateBuzzyBeez.asResource("textures/entity/mechanical_bee.png")
     }
 
     override fun getAnimationResource(animatable: MechanicalBeeEntity): ResourceLocation {

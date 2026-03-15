@@ -1,9 +1,11 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
@@ -19,6 +21,11 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        if (owner.springTension <= 0f) {
+            BeeDebug.log(owner, "Execute: spring depleted — returning to hive")
+            return false
+        }
+
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val task = batch.getCurrentTask()
         if (task == null) {
@@ -33,7 +40,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
             return false
         }
 
-        val workRange = owner.tier.capabilities.workRange
+        val workRange = owner.workRange
         val inRange = owner.blockPosition().closerThan(task.targetPos, workRange)
 
         if (!inRange) {
@@ -64,6 +71,13 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         val done = task.action.execute(level, owner, owner.getBeeContext())
 
         if (done) {
+            // Drain spring based on action type
+            val drain = if (task.action is RemoveBlockAction)
+                CBeesConfig.springDrainBreak.get()
+            else
+                CBeesConfig.springDrainPlace.get()
+            owner.consumeSpring(drain)
+
             task.complete()
             if (!batch.advance()) {
                 val nextBatch = hive.notifyTaskCompleted(task, owner)

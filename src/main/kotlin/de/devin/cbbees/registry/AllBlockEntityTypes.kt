@@ -10,6 +10,8 @@ import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.MechanicalBeehiveRenderer
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortRenderer
+import de.devin.cbbees.content.logistics.transport.TransportPortBlockEntity
+import de.devin.cbbees.content.logistics.transport.TransportPortRenderer
 
 object AllBlockEntityTypes {
 
@@ -24,6 +26,12 @@ object AllBlockEntityTypes {
         .blockEntity("logistics_port", ::LogisticPortBlockEntity)
         .validBlocks(AllBlocks.LOGISTICS_PORT)
         .renderer { NonNullFunction { LogisticsPortRenderer(it) } }
+        .register()
+
+    val TRANSPORT_PORT: BlockEntityEntry<TransportPortBlockEntity> = CreateBuzzyBeez.REGISTRATE
+        .blockEntity("transport_port", ::TransportPortBlockEntity)
+        .validBlocks(AllBlocks.CARGO_PORT)
+        .renderer { NonNullFunction { TransportPortRenderer(it) } }
         .register()
 
     fun register() {}

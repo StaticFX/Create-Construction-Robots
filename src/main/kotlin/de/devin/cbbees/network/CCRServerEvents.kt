@@ -2,6 +2,7 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.TransportDispatcher
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -39,6 +40,7 @@ object CCRServerEvents {
         val gameTime = server.overworld().gameTime
 
         GlobalJobPool.tick(gameTime)
+        TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         for (player in server.playerList.players) {
             HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
@@ -80,6 +82,7 @@ object CCRServerEvents {
         ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()
         GlobalJobPool.clear()
+        TransportDispatcher.clear()
         BeeDebug.clear()
     }
 }

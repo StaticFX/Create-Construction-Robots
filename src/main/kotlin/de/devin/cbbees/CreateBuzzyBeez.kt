@@ -14,6 +14,7 @@ import de.devin.cbbees.content.bee.brain.BeeSensors
 import de.devin.cbbees.content.bee.client.BeeTargetLineHandler
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
+import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
@@ -98,6 +99,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
             NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
+            NeoForge.EVENT_BUS.register(CargoPortLinkRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
         }

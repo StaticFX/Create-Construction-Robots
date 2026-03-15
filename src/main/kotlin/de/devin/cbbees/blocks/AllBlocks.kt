@@ -6,6 +6,7 @@ import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlock
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
+import de.devin.cbbees.content.logistics.transport.TransportPortBlock
 import net.minecraft.world.level.block.Blocks
 
 object AllBlocks {
@@ -36,6 +37,11 @@ object AllBlocks {
         .build()
         .register()
 
+    val CARGO_PORT = CreateBuzzyBeez.REGISTRATE.block("cargo_port", ::TransportPortBlock)
+        .initialProperties(SharedProperties::softMetal)
+        .properties { it.noOcclusion() }
+        .item()
+        .build()
+        .register()
+
 }
-
-

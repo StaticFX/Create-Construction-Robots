@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 
@@ -24,7 +25,7 @@ class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
 
         BeeDebug.log(entity, "Entering hive")
 
-        val success = hive.returnBee(entity.tier)
+        val success = hive.returnBee(ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get()))
 
 
         if (success) {

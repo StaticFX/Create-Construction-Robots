@@ -51,7 +51,8 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     val beeInventory = object : ItemStackHandler(9) {
         override fun onContentsChanged(slot: Int) = sync()
-        override fun isItemValid(slot: Int, stack: ItemStack) = stack.item is MechanicalBeeItem
+        override fun isItemValid(slot: Int, stack: ItemStack) =
+            stack.item is MechanicalBeeItem || stack.item is MechanicalBumbleBeeItem
     }
 
 
@@ -71,11 +72,11 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         super.destroy()
     }
 
-    fun spawnBee(tier: MechanicalBeeTier, batch: TaskBatch): Boolean {
+    fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
-            this.tier = tier
-            setPos(Vec3.atCenterOf(blockPos.above()))
+            setPos(Vec3.atCenterOf(blockPos.above()).add(BeeSeparation.spawnOffset(level!!.random)))
             this.networkId = this@MechanicalBeehiveBlockEntity.network().id
+            this.springTension = 1.0f
         }
 
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
@@ -104,8 +105,11 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         this.setChanged()
 
-        val beeTier = consumeBee() ?: return false
-        return spawnBee(beeTier, batch)
+        // Only consume regular Mechanical Bees for construction batches —
+        // Bumble Bees are transport-only and dispatched by TransportDispatcher
+        val beeItem = consumeBeeOfType(MechanicalBeeItem::class.java)
+        if (beeItem.isEmpty) return false
+        return spawnBee(beeItem, batch)
     }
 
     override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
@@ -116,7 +120,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return nextBatch
     }
 
-    override fun onBeeRemoved(bee: MechanicalBeeEntity) {
+    override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
         if (activeBees.remove(bee.uuid)) {
             sync()
         }
@@ -206,6 +210,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val rpm = abs(getSpeed())
         if (rpm > 0) {
             context.speedMultiplier *= (1.0 + (rpm / 256.0))
+            context.springEfficiency = 1.0 + (rpm / 256.0)
             val extraRobots = (rpm / 8.0).toInt()
             context.maxActiveRobots += extraRobots
             context.workRange = (6 + rpm.toDouble())
@@ -222,14 +227,13 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return context
     }
 
-    fun addBee(tier: MechanicalBeeTier): Boolean {
-        val item = tier.item()
+    fun addBee(item: ItemStack): Boolean {
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
             if (stack.isEmpty) {
-                beeInventory.setStackInSlot(i, ItemStack(item, 1))
+                beeInventory.setStackInSlot(i, item.copyWithCount(1))
                 return true
-            } else if (stack.item == item && stack.count < stack.maxStackSize) {
+            } else if (ItemStack.isSameItemSameComponents(stack, item) && stack.count < stack.maxStackSize) {
                 stack.grow(1)
                 sync()
                 return true
@@ -238,21 +242,37 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return false
     }
 
-    override fun consumeBee(): MechanicalBeeTier? {
+    override fun consumeBee(): ItemStack {
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
-            if (!stack.isEmpty && stack.item is MechanicalBeeItem) {
-                val tier = (stack.item as MechanicalBeeItem).tier
+            if (!stack.isEmpty && (stack.item is MechanicalBeeItem || stack.item is MechanicalBumbleBeeItem)) {
+                val consumed = stack.copyWithCount(1)
                 stack.shrink(1)
                 sync()
-                return tier
+                return consumed
             }
         }
-        return null
+        return ItemStack.EMPTY
     }
 
-    override fun returnBee(tier: MechanicalBeeTier): Boolean {
-        return addBee(tier)
+    /**
+     * Consumes a bee of a specific item type (e.g. only MechanicalBeeItem or only MechanicalBumbleBeeItem).
+     */
+    fun consumeBeeOfType(itemClass: Class<*>): ItemStack {
+        for (i in 0 until beeInventory.slots) {
+            val stack = beeInventory.getStackInSlot(i)
+            if (!stack.isEmpty && itemClass.isInstance(stack.item)) {
+                val consumed = stack.copyWithCount(1)
+                stack.shrink(1)
+                sync()
+                return consumed
+            }
+        }
+        return ItemStack.EMPTY
+    }
+
+    override fun returnBee(item: ItemStack): Boolean {
+        return addBee(item)
     }
 
     // BeeSource implementation
@@ -261,6 +281,20 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
             if (!stack.isEmpty) {
+                count += stack.count
+            }
+        }
+        return count
+    }
+
+    /**
+     * Gets the count of available bees of a specific item type.
+     */
+    fun getAvailableBeeCountOfType(itemClass: Class<*>): Int {
+        var count = 0
+        for (i in 0 until beeInventory.slots) {
+            val stack = beeInventory.getStackInSlot(i)
+            if (!stack.isEmpty && itemClass.isInstance(stack.item)) {
                 count += stack.count
             }
         }
@@ -309,11 +343,20 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             )
             .forGoggles(tooltip, 1)
 
+        // Spring Efficiency
+        Lang.builder("cbbees").translate("gui.goggles.beehive.spring_efficiency")
+            .style(ChatFormatting.GRAY)
+            .add(
+                Lang.builder("cbbees")
+                    .text(ChatFormatting.GOLD, "${LangNumberFormat.format(context.springEfficiency)}x")
+            )
+            .forGoggles(tooltip, 1)
+
         return true
     }
 
     override fun getIcon(isPlayerSneaking: Boolean): ItemStack {
-        return AllItems.ANDESITE_BEE.asStack()
+        return AllItems.MECHANICAL_BEE.asStack()
     }
 
     fun getMaterialSource(): MaterialSource {

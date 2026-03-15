@@ -3,6 +3,7 @@ package de.devin.cbbees.content.bee.brain
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.content.domain.task.TransportTask
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -20,6 +21,10 @@ object BeeMemoryModules {
 
     val HIVE_INSTANCE = CreateBuzzyBeez.REGISTRATE.generic("hive_instance", Registries.MEMORY_MODULE_TYPE) {
         MemoryModuleType<BeeHive>(Optional.empty())
+    }.register()
+
+    val TRANSPORT_TASK = CreateBuzzyBeez.REGISTRATE.generic("transport_task", Registries.MEMORY_MODULE_TYPE) {
+        MemoryModuleType<TransportTask>(Optional.empty())
     }.register()
 
     fun register() {}

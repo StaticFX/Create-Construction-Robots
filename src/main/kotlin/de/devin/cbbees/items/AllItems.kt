@@ -4,7 +4,7 @@ import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeItem
-import de.devin.cbbees.content.bee.MechanicalBeeTier
+import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.upgrades.*
@@ -22,10 +22,10 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Mechanical Bees - goes in backpack robot slots (stackable, consumed on deploy)
-    val ANDESITE_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
-        .item("andesite_mechanical_bee") { props ->
-            MechanicalBeeItem(MechanicalBeeTier.ANDESITE, props)
+    // Mechanical Bee - goes in beehive/backpack robot slots (stackable, consumed on deploy)
+    val MECHANICAL_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
+        .item("mechanical_bee") { props ->
+            MechanicalBeeItem(props)
         }
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
@@ -33,22 +33,13 @@ object AllItems {
         }
         .register()
 
-    val BRASS_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
-        .item("brass_mechanical_bee") { props ->
-            MechanicalBeeItem(MechanicalBeeTier.BRASS, props)
+    // Mechanical Bumble Bee - logistics transport bee
+    val MECHANICAL_BUMBLE_BEE: ItemEntry<MechanicalBumbleBeeItem> = CreateBuzzyBeez.REGISTRATE
+        .item("mechanical_bumble_bee") { props ->
+            MechanicalBumbleBeeItem(props)
         }
         .properties {
-            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
-                .rarity(Rarity.UNCOMMON)
-        }
-        .register()
-
-    val STURDY_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
-        .item("sturdy_mechanical_bee") { props ->
-            MechanicalBeeItem(MechanicalBeeTier.STURDY, props)
-        }
-        .properties {
-            it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
+            it.stacksTo(MechanicalBumbleBeeItem.MAX_STACK_SIZE)
                 .rarity(Rarity.UNCOMMON)
         }
         .register()

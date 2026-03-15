@@ -15,5 +15,7 @@ data class BeeContext(
     var breakSpeedMultiplier: Double = 1.0,
     /** Maximum number of bees this source can contribute to a single job */
     var maxContributedBees: Int = 4,
-    var airConsumptionMultiplier: Double = 1.0
+    var airConsumptionMultiplier: Double = 1.0,
+    /** Higher RPM → tighter wound spring → less drain per action */
+    var springEfficiency: Double = 1.0
 )

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -35,6 +36,8 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        if (owner.springTension <= 0f) return false
+
         if (owner.isInventoryFull()) {
             BeeDebug.log(owner, "Gather: inventory full, skipping")
             return false
@@ -98,7 +101,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
         targetPort.reserve(entity.uuid, itemsAtPort, level.gameTime)
 
         val portPos = targetPort.pos
-        val workRange = entity.tier.capabilities.workRange
+        val workRange = entity.workRange
 
         if (entity.blockPosition().closerThan(portPos, workRange)) {
             // At the port — extract everything we can fit
@@ -110,6 +113,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
                         // Put back what didn't fit
                         targetPort.addItemStack(remainder)
                     }
+                    entity.consumeSpring(CBeesConfig.springDrainPickup.get())
                     BeeDebug.log(entity, "Picked up ${item.count}x ${item.item} from port at $portPos")
                 }
             }

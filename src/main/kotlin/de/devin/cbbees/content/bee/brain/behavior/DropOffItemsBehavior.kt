@@ -47,7 +47,7 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
             return
         }
 
-        val workRange = entity.tier.capabilities.workRange
+        val workRange = entity.workRange
         if (entity.blockPosition().closerThan(dropOffPort.pos, workRange)) {
             // At the port — deposit items
             for (item in excess) {

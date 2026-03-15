@@ -10,6 +10,8 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.items.AllItems as CBeesItems
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
@@ -47,37 +49,37 @@ import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Entity representation of the Constructor Robot.
+ * Entity representation of the Mechanical Bee.
  *
- * Constructor Robots are flying autonomous entities that perform tasks assigned by a [BeeTaskManager].
+ * Mechanical Bees are flying autonomous entities that perform tasks assigned by a [BeeTaskManager].
  * Their primary lifecycle involves:
- * 1. Spawning from a Constructor Backpack when a schematic construction is initiated.
- * 2. Fetching a task from the owner's task manager.
- * 3. Picking up a single item from inventory (upgrades allow more items per trip).
+ * 1. Spawning from a beehive when a construction job is dispatched.
+ * 2. Fetching a task from the job pool.
+ * 3. Picking up required items from logistics ports.
  * 4. Flying to the target block position.
  * 5. Placing blocks instantly or breaking blocks quickly.
- * 6. Returning to the player to pick up more items for the next task.
- *
- * The robot entity is tied to a specific [owner] (player/beehive) and will discard itself if the owner is not found.
+ * 6. Returning to the hive when all tasks are done.
  */
 class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) : FlyingMob(entityType, level),
-    GeoEntity {
+    GeoEntity, NetworkedBee {
 
     companion object {
         private val OWNER_UUID: EntityDataAccessor<Optional<UUID>> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
         private val BEEHIVE_ID: EntityDataAccessor<Optional<UUID>> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_UUID)
-        private val TIER: EntityDataAccessor<String> =
-            SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.STRING)
         private val TARGET_POS: EntityDataAccessor<Optional<BlockPos>> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
+        private val SPRING_TENSION: EntityDataAccessor<Float> =
+            SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.FLOAT)
+
+        const val WORK_RANGE: Double = 2.5
 
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 1.0)
-                .add(Attributes.FLYING_SPEED, 3.0)
-                .add(Attributes.MOVEMENT_SPEED, 1.5)
+                .add(Attributes.FLYING_SPEED, 6.0)
+                .add(Attributes.MOVEMENT_SPEED, 3.0)
         }
     }
 
@@ -86,13 +88,34 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     /** Calculated stats for this robot based on backpack upgrades */
     private var beeContext: BeeContext? = null
 
-    /** Slot-based inventory. Size depends on tier (andesite=1, brass=3, sturdy=9). */
+    /** Single-slot inventory */
     var inventory = SimpleContainer(1)
         private set
 
     var networkId: UUID = UUID.randomUUID()
 
-    fun network(): BeeNetwork? {
+    /** Tick when spring recharge completes at hive. -1 = not recharging. */
+    var rechargeFinishTick: Long = -1
+
+    val workRange: Double = WORK_RANGE
+
+    var springTension: Float
+        get() = entityData.get(SPRING_TENSION)
+        set(value) = entityData.set(SPRING_TENSION, value.coerceIn(0.0f, 1.0f))
+
+    /**
+     * Consumes spring tension for an action. Applies efficiency modifiers from [beeContext].
+     * Returns false if spring is already empty. Drains to 0 if insufficient for a full action.
+     */
+    fun consumeSpring(baseDrain: Double): Boolean {
+        if (springTension <= 0f) return false
+        val ctx = getBeeContext()
+        val effectiveDrain = (baseDrain / ctx.springEfficiency * ctx.airConsumptionMultiplier).toFloat()
+        springTension = (springTension - effectiveDrain).coerceAtLeast(0f)
+        return true
+    }
+
+    override fun network(): BeeNetwork? {
         return if (level().isClientSide) {
             ClientBeeNetworkManager.getNetwork(networkId)
         } else {
@@ -101,7 +124,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     init {
-        this.moveControl = FlyingMoveControl(this, 30, true)
+        this.moveControl = FlyingMoveControl(this, 60, true)
     }
 
     override fun hurt(source: DamageSource, amount: Float): Boolean {
@@ -119,7 +142,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (!AllItems.WRENCH.isIn(heldItem)) return super.mobInteract(player, hand)
 
         // Give bee item to player or drop it
-        val beeItem = ItemStack(tier.item(), 1)
+        val beeItem = ItemStack(CBeesItems.MECHANICAL_BEE.get(), 1)
         if (!player.inventory.add(beeItem)) {
             val itemEntity = ItemEntity(level(), x, y, z, beeItem)
             level().addFreshEntity(itemEntity)
@@ -149,19 +172,6 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return geoCache
     }
 
-    var tier: MechanicalBeeTier
-        get() = MechanicalBeeTier.valueOf(entityData.get(TIER).uppercase())
-        set(value) {
-            entityData.set(TIER, value.name.lowercase())
-            getAttribute(Attributes.FLYING_SPEED)?.baseValue = 3.0 * value.capabilities.flySpeedModifier.toDouble()
-            getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue = 1.5 * value.capabilities.flySpeedModifier.toDouble()
-            // Faster bees need higher turn rate to avoid wobbling
-            this.moveControl = FlyingMoveControl(this, (30 * value.capabilities.flySpeedModifier).toInt(), true)
-            if (inventory.containerSize != value.capabilities.inventorySize) {
-                inventory = SimpleContainer(value.capabilities.inventorySize)
-            }
-        }
-
     override fun brainProvider(): Brain.Provider<*> {
         return BeeBrainProvider.brain()
     }
@@ -181,8 +191,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         super.defineSynchedData(builder)
         builder.define(OWNER_UUID, Optional.empty())
         builder.define(BEEHIVE_ID, Optional.empty())
-        builder.define(TIER, MechanicalBeeTier.ANDESITE.name.lowercase())
         builder.define(TARGET_POS, Optional.empty())
+        builder.define(SPRING_TENSION, 1.0f)
     }
 
     override fun createNavigation(level: Level): PathNavigation {
@@ -232,9 +242,15 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (level().isClientSide) return
 
         syncTargetPos()
+        BeeSeparation.applySeparation(this)
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
+        }
+
+        // Drain spring while flying
+        if (deltaMovement.lengthSqr() > 0.001) {
+            consumeSpring(CBeesConfig.springDrainFlight.get())
         }
     }
 
@@ -254,7 +270,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         }
     }
 
-    fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
+    override fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
     // Mechanical bees fly through water — no swimming, no water drag
     override fun isInWater(): Boolean = false
@@ -271,7 +287,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         getOwnerUUID()?.let { compound.putUUID("Owner", it) }
         entityData.get(BEEHIVE_ID).ifPresent { compound.putUUID("HomeId", it) }
         compound.putUUID("NetworkId", networkId)
-        compound.putString("Tier", tier.name)
+        compound.putFloat("SpringTension", springTension)
+        compound.putLong("RechargeFinishTick", rechargeFinishTick)
 
         val itemsTag = ListTag()
         for (i in 0 until inventory.containerSize) {
@@ -296,8 +313,11 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (compound.hasUUID("NetworkId")) {
             networkId = compound.getUUID("NetworkId")
         }
-        if (compound.contains("Tier")) {
-            tier = MechanicalBeeTier.valueOf(compound.getString("Tier"))
+        if (compound.contains("SpringTension")) {
+            springTension = compound.getFloat("SpringTension")
+        }
+        if (compound.contains("RechargeFinishTick")) {
+            rechargeFinishTick = compound.getLong("RechargeFinishTick")
         }
 
         if (compound.contains("BeeInventory")) {
@@ -313,7 +333,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     override fun getName(): Component {
-        return Component.translatable("entity.cbbees.mechanical_bee.${tier.id}")
+        return Component.translatable("entity.cbbees.mechanical_bee")
     }
 
     /**
@@ -401,8 +421,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
      * Used when the home cannot be found or is full.
      */
     fun dropBeeItemAndDiscard() {
-        val item = tier.item()
-        val beeItemStack = ItemStack(item, 1)
+        val beeItemStack = ItemStack(CBeesItems.MECHANICAL_BEE.get(), 1)
         val itemEntity = ItemEntity(
             level(),
             x,

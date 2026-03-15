@@ -19,6 +19,8 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        if (owner.springTension <= 0f) return false
+
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val task = batch.getCurrentTask() ?: return false
 
@@ -28,7 +30,7 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
             return false
         }
 
-        val workRange = owner.tier.capabilities.workRange
+        val workRange = owner.workRange
         return !owner.blockPosition().closerThan(task.targetPos, workRange)
     }
 
