@@ -6,7 +6,9 @@ import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler;
 import de.devin.cbbees.items.AllItems;
+import de.devin.cbbees.network.SelectSchematicPacket;
 import de.devin.cbbees.network.StartConstructionPacket;
 import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.minecraft.client.Minecraft;
@@ -49,6 +51,14 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
         ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
         ccr$constructButton.withCallback(() -> {
+            // Sync filename to server if still in browsing preview
+            if (ConstructionPlannerHandler.INSTANCE.isBrowsingPreview()) {
+                String filename = activeItem.get(AllDataComponents.SCHEMATIC_FILE);
+                if (filename != null) {
+                    PacketDistributor.sendToServer(new SelectSchematicPacket(filename));
+                }
+                ConstructionPlannerHandler.INSTANCE.clearBrowsingPreview();
+            }
             BlockPos anchor = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
             Rotation rotation = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
             Mirror mirror = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);

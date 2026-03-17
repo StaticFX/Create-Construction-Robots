@@ -2,15 +2,11 @@ package de.devin.cbbees.network
 
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.items.AllItems
-import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.level.block.Mirror
-import net.minecraft.world.level.block.Rotation
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**
@@ -40,15 +36,13 @@ class SelectSchematicPacket(val schematicName: String) : CustomPacketPayload {
                 val name = payload.schematicName
                 if (name.contains("..") || name.contains("/") || name.contains("\\")) return@enqueueWork
 
-                // Set schematic data components on the planner
+                // Set filename and owner on the server-side item.
+                // Create's SchematicSyncPacket will handle deployed/anchor/rotation/mirror
+                // when its own sync fires after the client-side deploy.
                 stack.set(AllDataComponents.SCHEMATIC_FILE, name)
                 stack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-                stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, false)
-                stack.set(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO)
-                stack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE)
-                stack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
 
-                // Try to write bounds if the file already exists on the server
+                // Write bounds if the file already exists on the server
                 try {
                     com.simibubi.create.content.schematics.SchematicItem.writeSize(player.level(), stack)
                 } catch (_: Exception) {

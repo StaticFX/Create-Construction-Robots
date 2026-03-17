@@ -65,5 +65,10 @@ object AllPackets {
             UnselectSchematicPacket.STREAM_CODEC,
             UnselectSchematicPacket.Companion::handle
         )
+        registrar.playToServer(
+            InstantConstructionPacket.TYPE,
+            InstantConstructionPacket.STREAM_CODEC,
+            InstantConstructionPacket.Companion::handle
+        )
     }
 }

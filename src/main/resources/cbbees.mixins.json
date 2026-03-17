@@ -10,6 +10,7 @@
     "SchematicEditScreenMixin",
     "SchematicHandlerFindMixin",
     "SchematicHandlerHudMixin",
+    "SchematicPromptScreenMixin",
     "ToolSelectionScreenMixin"
   ],
   "injectors": {

@@ -17,10 +17,9 @@ import net.neoforged.api.distmarker.OnlyIn
 /**
  * Construction Planner - a reusable tool for selecting and deploying schematics.
  *
- * When right-clicked with no schematic loaded, opens a picker screen listing
- * available `.nbt` schematic files. Once a schematic is selected and deployed
- * in-world, the player can position, rotate, and flip it using Create's
- * schematic overlay, then press the configured hotkey to start construction.
+ * When right-clicked with no schematic loaded, enters groups or selects schematics
+ * from the inline HUD. Shift+right-click on a schematic instantly starts construction
+ * at the crosshair position without the Create overlay.
  *
  * After construction starts, the schematic data is cleared and the planner
  * is ready for reuse.
@@ -32,7 +31,7 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
 
         if (level.isClientSide) {
             if (!hasSchematic(stack)) {
-                selectFromHUD()
+                handleClientUse(player)
             }
         }
 
@@ -40,8 +39,14 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
     }
 
     @OnlyIn(Dist.CLIENT)
-    private fun selectFromHUD() {
-        ConstructionPlannerHandler.confirmSelection()
+    private fun handleClientUse(player: Player) {
+        if (player.isShiftKeyDown) {
+            // Shift+RMB: instant construction at crosshair
+            ConstructionPlannerHandler.instantConstruct()
+        } else {
+            // Normal RMB: enter group or select schematic
+            ConstructionPlannerHandler.confirmSelection()
+        }
     }
 
     override fun appendHoverText(
