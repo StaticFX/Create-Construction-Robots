@@ -28,13 +28,6 @@ object AllPackets {
             StopTasksPacket.Companion::handle
         )
 
-        // Task progress sync packet - sends task progress from server to client
-        registrar.playToClient(
-            TaskProgressSyncPacket.TYPE,
-            TaskProgressSyncPacket.STREAM_CODEC,
-            TaskProgressSyncPacket.Companion::handle
-        )
-
         registrar.playToServer(
             RequestHiveJobsPacket.TYPE,
             RequestHiveJobsPacket.STREAM_CODEC,

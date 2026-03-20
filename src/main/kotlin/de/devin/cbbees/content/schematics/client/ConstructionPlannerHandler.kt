@@ -1,21 +1,16 @@
 package de.devin.cbbees.content.schematics.client
 
-import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.CreateClient
-import com.simibubi.create.foundation.gui.AllGuiTextures
-import de.devin.cbbees.content.schematics.ConstructionPlannerItem
+import com.simibubi.create.content.schematics.SchematicItem
+import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.InstantConstructionPacket
 import de.devin.cbbees.network.SelectSchematicPacket
-import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
-import net.minecraft.world.phys.BlockHitResult
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.network.PacketDistributor
@@ -24,29 +19,32 @@ import org.lwjgl.glfw.GLFW
 /**
  * Client-side handler for the Construction Planner's inline schematic selector HUD.
  *
- * When the player holds a Construction Planner without a schematic loaded,
- * this renders a selector above the hotbar with group navigation support.
- * Alt+Scroll cycles through schematics/groups.
+ * ## States
+ * - **State 1** (Item in Hand): Player holds empty Construction Planner. Our HUD shows.
+ *   Create is dormant — no data on the item.
+ * - **State 2** (Schematic Hovered): Player has scrolled to a schematic. Still no data
+ *   on the item. Our HUD shows + ghost blocks at crosshair + AABB outline. Create dormant.
+ * - **State 3** (Schematic Selected/Deployed): Player RMB-confirmed. We set SCHEMATIC_FILE +
+ *   DEPLOYED=true + ANCHOR on the item. Create activates with full tools.
  *
- * When a schematic is hovered, its data is set on the client-side ItemStack
- * so Create's [com.simibubi.create.content.schematics.client.SchematicHandler]
- * activates with the full deployed experience — blue bounding box, ghost blocks,
- * and positioning/rotation tools. Scrolling to a different schematic swaps it live.
- *
- * Construction via R key or CONSTRUCT tool syncs the filename to the server
- * before dispatching the build job.
+ * Browsing state (state 2) is purely internal — no data components on the item.
  */
 @OnlyIn(Dist.CLIENT)
 object ConstructionPlannerHandler {
 
-    /** Represents an item in the HUD list — either a group folder or a schematic file. */
+    /** Represents an item in the HUD list — a parent nav entry, group folder, or schematic file. */
     sealed class HudEntry {
+        /** Navigate up one level in the group hierarchy. */
+        data object ParentEntry : HudEntry()
         data class GroupEntry(val name: String, val fullPath: String) : HudEntry()
         data class SchematicEntry(val filename: String) : HudEntry()
     }
 
     private var allSchematics: List<String> = emptyList()
     private var currentItems: List<HudEntry> = emptyList()
+
+    /** Returns the current HUD item list (groups + schematics at the current level). */
+    fun getCurrentItems(): List<HudEntry> = currentItems
     var selectedIndex = 0
         private set
 
@@ -55,22 +53,22 @@ object ConstructionPlannerHandler {
         private set
 
     /**
-     * True while browsing schematics with a live preview set on the client item.
+     * True while browsing schematics with a ghost preview visible.
+     * This is purely internal state — no data on the item.
      * Accessible from Java mixins via `ConstructionPlannerHandler.INSTANCE.isBrowsingPreview()`.
      */
     var isBrowsingPreview = false
         private set
 
-    /** Filename currently set on the client item for preview. */
+    /** Filename currently being previewed. Internal state only. */
     private var browsingFilename: String? = null
 
     private var lastRefreshTick = 0L
     private const val REFRESH_INTERVAL = 40L // 2 seconds
 
     /**
-     * Our HUD is active when the player holds a Construction Planner that is
-     * either empty or in browsing state (has file, not yet deployed).
-     * State 3 (deployed) is fully owned by Create — our HUD hides.
+     * Our HUD is active when the player holds a Construction Planner that has
+     * no schematic deployed. In state 3 (deployed), Create owns the UI.
      */
     fun isActive(): Boolean {
         val player = Minecraft.getInstance().player ?: return false
@@ -78,7 +76,6 @@ object ConstructionPlannerHandler {
         if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
         // State 3: deployed → Create owns it, our HUD is inactive
         if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) return false
-        // State 1 (empty) or State 2 (has file, not deployed)
         return true
     }
 
@@ -86,7 +83,7 @@ object ConstructionPlannerHandler {
         val player = Minecraft.getInstance().player
         val stack = player?.mainHandItem
 
-        // Not holding a planner — just pause internal flags, preserve item data
+        // Not holding a planner — pause preview rendering but keep internal state
         if (stack == null || !AllItems.CONSTRUCTION_PLANNER.isIn(stack)) {
             if (isBrowsingPreview) {
                 isBrowsingPreview = false
@@ -95,11 +92,9 @@ object ConstructionPlannerHandler {
             return
         }
 
-        // State 3: deployed → detect transition from browsing and sync to server
+        // State 3: deployed → Create owns it, nothing for us to do
         if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
-            if (isBrowsingPreview && browsingFilename != null) {
-                // User deployed via Create's RMB → sync filename to server
-                PacketDistributor.sendToServer(SelectSchematicPacket(browsingFilename!!))
+            if (isBrowsingPreview) {
                 isBrowsingPreview = false
                 browsingFilename = null
                 SchematicHoverPreview.clear()
@@ -107,18 +102,15 @@ object ConstructionPlannerHandler {
             return
         }
 
-        // State 2: has file but not deployed → restore browsing if needed
-        val fileOnItem = stack.get(AllDataComponents.SCHEMATIC_FILE)
-        if (fileOnItem != null && !isBrowsingPreview) {
-            // Returning to planner that was in browsing state — restore
-            browsingFilename = fileOnItem
+        // State 1/2: holding empty planner → restore browsing if we had one
+        if (!isBrowsingPreview && browsingFilename != null) {
             isBrowsingPreview = true
-            SchematicHoverPreview.updatePreview(fileOnItem)
+            SchematicHoverPreview.updatePreview(browsingFilename)
         }
 
-        // State 2: keep preview data in sync
-        if (isBrowsingPreview && browsingFilename != null) {
-            ensurePreviewData()
+        // Update crosshair position for ghost preview
+        if (isBrowsingPreview) {
+            SchematicHoverPreview.tick()
         }
 
         // Refresh schematic list periodically
@@ -127,13 +119,6 @@ object ConstructionPlannerHandler {
             refreshSchematics()
             lastRefreshTick = tick
         }
-    }
-
-    private fun reset() {
-        currentItems = emptyList()
-        allSchematics = emptyList()
-        selectedIndex = 0
-        currentGroupPath = ""
     }
 
     private fun refreshSchematics() {
@@ -151,6 +136,9 @@ object ConstructionPlannerHandler {
         val (subgroups, schematics) = SchematicGroupManager.getItemsAtLevel(currentGroupPath, allSchematics)
 
         val items = mutableListOf<HudEntry>()
+        if (currentGroupPath.isNotEmpty()) {
+            items.add(HudEntry.ParentEntry)
+        }
         for (group in subgroups) {
             val fullPath = if (currentGroupPath.isEmpty()) group else "$currentGroupPath/$group"
             items.add(HudEntry.GroupEntry(group, fullPath))
@@ -168,95 +156,30 @@ object ConstructionPlannerHandler {
     }
 
     /**
-     * Sets or clears the browsing preview based on the current selection.
-     * When a schematic is selected, sets its data on the client-side ItemStack
-     * so Create's SchematicHandler activates with the full deployed experience.
+     * Updates the ghost preview based on the current HUD selection.
+     * Only sets internal state — never touches item data components.
      */
     private fun updateBrowsingPreview() {
         val entry = currentItems.getOrNull(selectedIndex)
         if (entry is HudEntry.SchematicEntry) {
-            setBrowsingPreview(entry.filename)
+            browsingFilename = entry.filename
+            isBrowsingPreview = true
             SchematicHoverPreview.updatePreview(entry.filename)
         } else {
-            clearBrowsingPreview()
+            browsingFilename = null
+            isBrowsingPreview = false
             SchematicHoverPreview.updatePreview(null)
         }
     }
 
     /**
-     * Sets schematic data on the client-side ItemStack for hover preview.
-     * DEPLOYED = false so Create's SchematicHandler enters the pre-deploy state:
-     * blue bounding box follows the crosshair, only DEPLOY tool available.
-     * The user right-clicks to deploy (Create handles the transition to full tools).
-     */
-    private fun setBrowsingPreview(filename: String) {
-        val player = Minecraft.getInstance().player ?: return
-        val stack = player.mainHandItem
-        if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return
-
-        val previousFile = browsingFilename
-        browsingFilename = filename
-        isBrowsingPreview = true
-
-        // Only reset when switching to a different schematic
-        if (previousFile != filename) {
-            stack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-            stack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-            stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, false)
-            stack.set(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO)
-            stack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE)
-            stack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
-
-            // Write bounds so Create can show the blue bounding box
-            try {
-                com.simibubi.create.content.schematics.SchematicItem.writeSize(player.level(), stack)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    /**
-     * Re-applies SCHEMATIC_FILE if a server inventory sync cleared it.
-     * Does NOT touch deployed/anchor/rotation/mirror since Create manages those.
-     */
-    private fun ensurePreviewData() {
-        val player = Minecraft.getInstance().player ?: return
-        val stack = player.mainHandItem
-        if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return
-
-        val filename = browsingFilename ?: return
-        val currentFile = stack.get(AllDataComponents.SCHEMATIC_FILE)
-
-        if (currentFile != filename) {
-            stack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-            stack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-        }
-    }
-
-    /**
-     * Clears browsing preview — removes schematic data from the client-side
-     * ItemStack so Create's SchematicHandler deactivates.
+     * Cancels browsing and clears all internal preview state.
      * Called from Java mixins via `ConstructionPlannerHandler.INSTANCE.clearBrowsingPreview()`.
      */
     fun clearBrowsingPreview() {
-        if (!isBrowsingPreview) return
         isBrowsingPreview = false
         browsingFilename = null
         SchematicHoverPreview.clear()
-
-        val player = Minecraft.getInstance().player ?: return
-
-        // Clear browsing preview data from the planner wherever it is in the inventory.
-        // Only clear planners that are NOT deployed (deployed = user committed to selection).
-        for (i in 0 until player.inventory.containerSize) {
-            val stack = player.inventory.getItem(i)
-            if (AllItems.CONSTRUCTION_PLANNER.isIn(stack)
-                && ConstructionPlannerItem.hasSchematic(stack)
-                && !stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)
-            ) {
-                ConstructionPlannerItem.clearSchematic(stack)
-            }
-        }
     }
 
     /**
@@ -268,12 +191,14 @@ object ConstructionPlannerHandler {
         if (!isAltDown()) return false
         if (currentItems.isEmpty()) return false
 
-        selectedIndex = if (delta > 0) {
-            (selectedIndex - 1 + currentItems.size) % currentItems.size
-        } else {
+        val forward = delta < 0
+        selectedIndex = if (forward) {
             (selectedIndex + 1) % currentItems.size
+        } else {
+            (selectedIndex - 1 + currentItems.size) % currentItems.size
         }
 
+        ConstructionPlannerHUD.onSelectionChanged(forward)
         updateBrowsingPreview()
         return true
     }
@@ -289,6 +214,7 @@ object ConstructionPlannerHandler {
         currentGroupPath = entry.fullPath
         selectedIndex = 0
         rebuildItems()
+        ConstructionPlannerHUD.onGroupChanged(entering = true)
         return true
     }
 
@@ -303,36 +229,96 @@ object ConstructionPlannerHandler {
         currentGroupPath = if (lastSlash >= 0) currentGroupPath.substring(0, lastSlash) else ""
         selectedIndex = 0
         rebuildItems()
+        ConstructionPlannerHUD.onGroupChanged(entering = false)
         return true
     }
 
     /**
-     * Confirms the current selection.
-     * For groups: navigates into the group.
-     * For schematics: sets up the hover preview (DEPLOYED=false) so Create shows
-     * the blue bounding box following the crosshair. Also syncs filename to server.
+     * Confirms the current selection via RMB.
+     * - For groups: navigates into the group.
+     * - For schematics: sets data on the item (FILE + DEPLOYED=true + ANCHOR) so
+     *   Create activates with full tools (state 3). Syncs filename to server.
      */
     fun confirmSelection(): Boolean {
         val entry = currentItems.getOrNull(selectedIndex) ?: return false
 
         return when (entry) {
+            is HudEntry.ParentEntry -> onNavigateOut()
             is HudEntry.GroupEntry -> onNavigateIn()
-            is HudEntry.SchematicEntry -> {
-                // Set up hover state on client item
-                setBrowsingPreview(entry.filename)
-                // Sync filename to server
-                PacketDistributor.sendToServer(SelectSchematicPacket(entry.filename))
+            is HudEntry.SchematicEntry -> deploySchematic(entry.filename)
+        }
+    }
 
-                Minecraft.getInstance().player?.displayClientMessage(
-                    Component.translatable(
-                        "gui.cbbees.construction_planner.selected",
-                        entry.filename.removeSuffix(".nbt")
-                    ).withStyle { it.withColor(0xFFFF00) },
-                    true
-                )
-                true
+    /**
+     * Called from the full-screen browser to deploy a schematic by name.
+     * Uses the current crosshair position for the anchor.
+     */
+    fun confirmSchematicByName(filename: String): Boolean {
+        return deploySchematic(filename)
+    }
+
+    /**
+     * Sets schematic data on the item and transitions to state 3 (Create's deploy).
+     * The anchor comes from the hover preview if available, otherwise from a fresh
+     * raycast (needed when confirming from the full-screen GUI where the preview is inactive).
+     */
+    private fun deploySchematic(filename: String): Boolean {
+        val mc = Minecraft.getInstance()
+        val player = mc.player ?: return false
+        val stack = player.mainHandItem
+        if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
+
+        val centerAnchor = SchematicHoverPreview.anchorPos ?: run {
+            // Hover preview inactive (e.g. confirming from GUI) — raycast from player
+            val hit = RaycastHelper.rayTraceRange(player.level(), player, 75.0)
+            if (hit.type != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                // No block in range — place at player's feet as fallback
+                player.blockPosition()
+            } else {
+                val hitPos = net.minecraft.core.BlockPos.containing(hit.location)
+                val replaceable = player.level().getBlockState(hitPos).canBeReplaced()
+                if (!replaceable) hitPos.relative(hit.direction) else hitPos
             }
         }
+
+        // Transfer rotation/mirror from the ghost preview so the deployed schematic matches
+        val rotation = SchematicHoverPreview.currentRotation
+        val mirror = SchematicHoverPreview.currentMirror
+
+        // Convert center anchor to corner anchor for Create's placement system
+        val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
+
+        // Set all data components on the client item — Create will pick this up
+        stack.set(AllDataComponents.SCHEMATIC_FILE, filename)
+        stack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
+        stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
+        stack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor)
+        stack.set(AllDataComponents.SCHEMATIC_ROTATION, rotation)
+        stack.set(AllDataComponents.SCHEMATIC_MIRROR, mirror)
+
+        // Write bounds so Create can render properly
+        try {
+            SchematicItem.writeSize(player.level(), stack)
+        } catch (_: Exception) {}
+
+        // Don't call handler.deploy() directly — activeSchematicItem won't be set yet.
+        // Create's tick() will run findBlueprintInHand() (via our mixin), detect the
+        // filename change, and call init() → loadSettings() + deploy() + setupRenderer().
+
+        // Sync all data to server so inventory sync doesn't clobber client state
+        PacketDistributor.sendToServer(SelectSchematicPacket(filename, anchor, rotation, mirror))
+
+        // Clear our browsing state — Create takes over on next tick
+        clearBrowsingPreview()
+
+        player.displayClientMessage(
+            Component.translatable(
+                "gui.cbbees.construction_planner.selected",
+                filename.removeSuffix(".nbt")
+            ).withStyle { it.withColor(0xFFFF00) },
+            true
+        )
+        return true
     }
 
     /**
@@ -346,22 +332,15 @@ object ConstructionPlannerHandler {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return false
 
-        val hitResult = mc.hitResult
-        val anchor = if (hitResult is BlockHitResult) {
-            hitResult.blockPos.relative(hitResult.direction)
-        } else {
-            return false
-        }
+        val centerAnchor = SchematicHoverPreview.anchorPos ?: return false
+        val rotation = SchematicHoverPreview.currentRotation
+        val mirror = SchematicHoverPreview.currentMirror
 
-        val rotation = when ((player.yRot % 360 + 360) % 360) {
-            in 45f..135f -> Rotation.CLOCKWISE_90
-            in 135f..225f -> Rotation.CLOCKWISE_180
-            in 225f..315f -> Rotation.COUNTERCLOCKWISE_90
-            else -> Rotation.NONE
-        }
+        // Convert center anchor to corner anchor for server placement
+        val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
 
         PacketDistributor.sendToServer(
-            InstantConstructionPacket(entry.filename, anchor, rotation, Mirror.NONE)
+            InstantConstructionPacket(entry.filename, anchor, rotation, mirror)
         )
 
         player.displayClientMessage(
@@ -377,114 +356,11 @@ object ConstructionPlannerHandler {
     /** Returns the currently selected entry, if any. */
     fun getSelectedEntry(): HudEntry? = currentItems.getOrNull(selectedIndex)
 
-    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
-        if (!isActive()) return
-
-        val mc = Minecraft.getInstance()
-        if (mc.options.hideGui || mc.screen != null) return
-
-        val screenWidth = guiGraphics.guiWidth()
-        val screenHeight = guiGraphics.guiHeight()
-        val gray = AllGuiTextures.HUD_BACKGROUND
-        val centerX = screenWidth / 2
-
-        guiGraphics.pose().pushPose()
-        guiGraphics.pose().translate(0f, 0f, 200f)
-
-        if (currentItems.isEmpty()) {
-            val text = Component.translatable("gui.cbbees.construction_planner.no_schematics")
-            val textWidth = mc.font.width(text)
-            val bgWidth = textWidth + 20
-            val bgX = centerX - bgWidth / 2
-            val bgY = screenHeight - 75
-
-            RenderSystem.enableBlend()
-            RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
-            guiGraphics.blit(
-                gray.location, bgX, bgY,
-                gray.startX.toFloat(), gray.startY.toFloat(),
-                bgWidth, 18, gray.width, gray.height
-            )
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-            guiGraphics.drawString(mc.font, text, centerX - textWidth / 2, bgY + 5, 0x888888, false)
-            RenderSystem.disableBlend()
-            guiGraphics.pose().popPose()
-            return
-        }
-
-        val entry = currentItems[selectedIndex]
-        val isGroup = entry is HudEntry.GroupEntry
-        val displayName = when (entry) {
-            is HudEntry.GroupEntry -> entry.name
-            is HudEntry.SchematicEntry -> entry.filename.removeSuffix(".nbt")
-        }
-        val icon = if (isGroup) "\uD83D\uDCC1 " else ""
-        val nameComp = Component.literal("$icon$displayName")
-        val nameColor = if (isGroup) 0x88CCFF else 0xFFFF00
-
-        val breadcrumb = buildBreadcrumb()
-        val breadcrumbComp = Component.literal(breadcrumb).withStyle { it.withColor(0x888888) }
-
-        val leftArrow = "< "
-        val rightArrow = " >"
-        val hintText = Component.translatable("gui.cbbees.construction_planner.hint_groups")
-        val counterText = Component.literal("${selectedIndex + 1}/${currentItems.size}")
-
-        val nameWidth = mc.font.width(nameComp)
-        val leftW = mc.font.width(leftArrow)
-        val rightW = mc.font.width(rightArrow)
-        val nameLineW = leftW + nameWidth + rightW
-        val hintWidth = mc.font.width(hintText)
-        val breadcrumbWidth = mc.font.width(breadcrumbComp)
-
-        val bgWidth = maxOf(nameLineW, hintWidth, breadcrumbWidth) + 30
-        val bgHeight = if (currentGroupPath.isEmpty()) 30 else 42
-        val bgX = centerX - bgWidth / 2
-        val bgY = screenHeight - if (currentGroupPath.isEmpty()) 80 else 92
-
-        RenderSystem.enableBlend()
-        RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
-        guiGraphics.blit(
-            gray.location, bgX, bgY,
-            gray.startX.toFloat(), gray.startY.toFloat(),
-            bgWidth, bgHeight, gray.width, gray.height
-        )
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-
-        var yOffset = bgY + 5
-
-        if (currentGroupPath.isNotEmpty()) {
-            guiGraphics.drawString(mc.font, breadcrumbComp, centerX - breadcrumbWidth / 2, yOffset, 0x888888, false)
-            yOffset += 12
-        }
-
-        var drawX = centerX - nameLineW / 2
-        guiGraphics.drawString(mc.font, leftArrow, drawX, yOffset, 0x999999, false)
-        drawX += leftW
-        guiGraphics.drawString(mc.font, nameComp, drawX, yOffset, nameColor, false)
-        drawX += nameWidth
-        guiGraphics.drawString(mc.font, rightArrow, drawX, yOffset, 0x999999, false)
-
-        val counterWidth = mc.font.width(counterText)
-        guiGraphics.drawString(mc.font, counterText, bgX + bgWidth - counterWidth - 6, yOffset, 0x666666, false)
-
-        yOffset += 13
-        guiGraphics.drawString(mc.font, hintText, centerX - hintWidth / 2, yOffset, 0xAAAAAA, false)
-
-        RenderSystem.disableBlend()
-        guiGraphics.pose().popPose()
-    }
-
-    private fun buildBreadcrumb(): String {
-        if (currentGroupPath.isEmpty()) return "Root"
-        val parts = currentGroupPath.split("/")
-        return "Root > " + parts.joinToString(" > ")
-    }
-
     private fun isAltDown(): Boolean {
         return Minecraft.getInstance().window.let { window ->
             GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
                     GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
         }
     }
+
 }

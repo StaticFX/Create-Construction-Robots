@@ -7,9 +7,7 @@ import de.devin.cbbees.network.StopTasksPacket
 import de.devin.cbbees.registry.AllKeys
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.VecHelper
-import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.Direction.AxisDirection
@@ -250,13 +248,6 @@ object DeconstructionHandler {
         }
 
         return false
-    }
-
-    /**
-     * Renders the deconstruction HUD.
-     */
-    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
-        DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
     }
 
     /**

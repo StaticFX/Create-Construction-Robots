@@ -183,7 +183,7 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
         super.tick()
         if (level().isClientSide) return
         syncTargetPos()
-        BeeSeparation.applySeparation(this)
+        BeeSeparation.applyFlightOffset(this)
 
         // Drain spring while flying
         if (deltaMovement.lengthSqr() > 0.001) {

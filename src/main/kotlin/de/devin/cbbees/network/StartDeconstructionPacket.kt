@@ -2,6 +2,7 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
@@ -62,6 +63,9 @@ class StartDeconstructionPacket(
                     )
                     job.addBatches(tasks)
 
+                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
+                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                    }
                     GlobalJobPool.dispatchNewJob(job)
                     player.displayClientMessage(
                         Component.translatable("cbbees.deconstruction.started", tasks.size),

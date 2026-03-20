@@ -52,6 +52,7 @@ object BlockPlacementClassifier {
      *
      * Includes:
      * - Create's belts (need support shafts and structure placed first)
+     * - Create's belt tunnels (need belt placed first, otherwise destroyed on belt placement)
      * - Create's gantry carriages (need shafts)
      * - Create's mechanical arms (need base)
      * - Brittle blocks: torches, ladders, signs, pressure plates, buttons/levers,
@@ -62,6 +63,8 @@ object BlockPlacementClassifier {
      */
     fun shouldDeferBlock(state: BlockState): Boolean {
         return AllBlocks.BELT.has(state)
+                || AllBlocks.ANDESITE_TUNNEL.has(state)
+                || AllBlocks.BRASS_TUNNEL.has(state)
                 || AllBlocks.GANTRY_CARRIAGE.has(state)
                 || AllBlocks.MECHANICAL_ARM.has(state)
                 || BlockMovementChecks.isBrittle(state)

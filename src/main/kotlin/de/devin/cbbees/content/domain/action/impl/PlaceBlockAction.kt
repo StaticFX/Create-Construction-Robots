@@ -1,5 +1,8 @@
 package de.devin.cbbees.content.domain.action.impl
 
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity.CasingType
+import com.simibubi.create.content.kinetics.belt.BeltHelper
 import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
@@ -34,6 +37,21 @@ class PlaceBlockAction(
 ) : BeeAction, ItemConsumingAction {
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        // Belt tunnels require the belt below to have CASING=true before placement,
+        // otherwise canSurvive() fails and the tunnel is immediately destroyed.
+        // Replicate BeltTunnelItem.updateCustomBlockEntityTag behavior.
+        // Check BEFORE consuming items so a retry doesn't waste materials.
+        if (AllBlocks.ANDESITE_TUNNEL.has(blockState) || AllBlocks.BRASS_TUNNEL.has(blockState)) {
+            val belt = BeltHelper.getSegmentBE(level, pos.below())
+            if (belt == null) return false  // Belt not placed yet — retry later
+            if (belt.casing == CasingType.NONE) {
+                belt.setCasingType(
+                    if (AllBlocks.ANDESITE_TUNNEL.has(blockState)) CasingType.ANDESITE
+                    else CasingType.BRASS
+                )
+            }
+        }
+
         consumeItems(bee)
 
         // Use Create's BlockHelper for proper schematic block placement.

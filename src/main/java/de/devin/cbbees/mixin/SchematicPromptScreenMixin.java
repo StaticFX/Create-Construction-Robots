@@ -46,10 +46,12 @@ public abstract class SchematicPromptScreenMixin extends AbstractSimiScreen {
         ccr$groupButton.withCallback(() -> {
             Function1<String, Unit> callback = (selectedPath) -> {
                 ccr$selectedGroup = selectedPath;
-                Minecraft.getInstance().setScreen((SchematicPromptScreen) (Object) this);
                 return Unit.INSTANCE;
             };
-            Minecraft.getInstance().setScreen(new GroupPickerScreen(callback, ccr$selectedGroup));
+            // Pass this screen as parentScreen so GroupPicker returns here on close/confirm
+            Minecraft.getInstance().setScreen(new GroupPickerScreen(
+                callback, ccr$selectedGroup, (SchematicPromptScreen) (Object) this
+            ));
         });
         addRenderableWidget(ccr$groupButton);
     }

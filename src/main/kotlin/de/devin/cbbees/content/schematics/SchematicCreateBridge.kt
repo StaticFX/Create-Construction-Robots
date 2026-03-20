@@ -8,6 +8,7 @@ import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import com.simibubi.create.foundation.utility.BlockHelper
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
+import com.simibubi.create.content.kinetics.belt.BeltPart
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.domain.job.BeeJob
@@ -289,6 +290,25 @@ class SchematicCreateBridge(
             createShaftTaskIfPresent(beltWorld, shaftPos, beltAxis, priority, job, endItems)
         }
 
+        // Create shaft tasks for middle pulley positions (shafts inside belts)
+        // BeltConnectorItem.createBelts checks for existing shafts at middle positions
+        // and converts them to PULLEY parts — we need to place those shafts first
+        val middleShaftTasks = mutableListOf<BeeTask>()
+        for (i in 1 until chain.size - 1) {
+            val chainPos = chain[i]
+            val chainState = chainStates[i]
+            if (AllBlocks.BELT.has(chainState)
+                && chainState.hasProperty(BeltBlock.PART)
+                && chainState.getValue(BeltBlock.PART) == BeltPart.PULLEY
+            ) {
+                val pulleyItems = mutableListOf<ItemStack>()
+                val shaftTask = createShaftTaskIfPresent(beltWorld, chainPos, beltAxis, priority, job, pulleyItems)
+                if (shaftTask != null) {
+                    middleShaftTasks.add(shaftTask)
+                }
+            }
+        }
+
         val beltItem = ItemStack(AllItems.BELT_CONNECTOR.get(), 1)
 
         val buildTask = BeeTask.belt(
@@ -303,7 +323,7 @@ class SchematicCreateBridge(
             job = job
         )
 
-        val tasksInBatch = listOfNotNull(startShaftTask, endShaftTask, buildTask)
+        val tasksInBatch = listOfNotNull(startShaftTask, endShaftTask) + middleShaftTasks + buildTask
 
         handledPositions.addAll(chain)
         if (startShaftTask != null) startShaftPos.let(handledPositions::add)

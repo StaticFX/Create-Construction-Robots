@@ -1,25 +1,22 @@
 package de.devin.cbbees.content.schematics.client
 
-import net.neoforged.neoforge.client.event.RenderGuiEvent
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.InputEvent
 
 /**
  * Client-side event handler for the Deconstruction Planner system.
- * 
+ *
  * Registers event listeners for:
  * - Client tick: Updates the DeconstructionHandler each tick for selection rendering
  * - Mouse input: Handles right-click for setting selection corners
  * - Mouse scroll: Handles scroll wheel for resizing selection
  * - Key input: Handles R key for starting deconstruction
- * - Render GUI: Renders the deconstruction HUD
- * 
- * Note: Events are manually registered in CreateBuzzyBeez to avoid compatibility issues
- * with Kotlin For Forge's auto-registration system.
+ *
+ * HUD is registered as a GUI layer in CreateBuzzyBeez.
  */
 object DeconstructionClientEvents {
-    
+
     /**
      * Called every client tick.
      * Updates the DeconstructionHandler to handle selection state and rendering.
@@ -28,8 +25,9 @@ object DeconstructionClientEvents {
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
         DeconstructionHandler.tick()
+        DeconstructionRenderer.update()
     }
-    
+
     /**
      * Called when a mouse button is clicked.
      * Handles right-click for setting selection corners and opening the prompt.
@@ -41,7 +39,7 @@ object DeconstructionClientEvents {
             event.isCanceled = true
         }
     }
-    
+
     /**
      * Called when the mouse scroll wheel is used.
      * Handles scroll for resizing the selection area.
@@ -62,17 +60,7 @@ object DeconstructionClientEvents {
     @JvmStatic
     fun onKeyInput(event: InputEvent.Key) {
         if (DeconstructionHandler.onKeyInput(event.key, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)) {
-            // No cancel needed for key input usually, or it might interfere with other things
+            // No cancel needed for key input usually
         }
-    }
-
-    /**
-     * Called when the GUI is rendered.
-     * Renders the deconstruction HUD.
-     */
-    @SubscribeEvent
-    @JvmStatic
-    fun onRenderGui(event: RenderGuiEvent.Post) {
-        DeconstructionHandler.renderHUD(event.guiGraphics, event.partialTick)
     }
 }

@@ -12,17 +12,6 @@ import org.lwjgl.glfw.GLFW
 object AllKeys {
 
     /**
-     * Keybinding to toggle the task progress HUD visibility.
-     * Default key: P
-     */
-    val TOGGLE_TASK_HUD: KeyMapping = KeyMapping(
-        "key.${CreateBuzzyBeez.ID}.toggle_task_hud",
-        InputConstants.Type.KEYSYM,
-        GLFW.GLFW_KEY_P,
-        "key.categories.${CreateBuzzyBeez.ID}"
-    )
-
-    /**
      * Keybinding to start construction or deconstruction.
      * Default key: R
      */
@@ -56,20 +45,37 @@ object AllKeys {
     )
 
     /**
+     * Keybinding to rotate the schematic ghost preview.
+     * Default key: COMMA
+     */
+    val ROTATE_PREVIEW: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.rotate_preview",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_COMMA,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
+     * Keybinding to mirror the schematic ghost preview.
+     * Default key: PERIOD
+     */
+    val MIRROR_PREVIEW: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.mirror_preview",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_PERIOD,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
      * Registers all keybindings with the game.
      * Called from RegisterKeyMappingsEvent.
      */
     fun register(event: RegisterKeyMappingsEvent) {
-        event.register(TOGGLE_TASK_HUD)
         event.register(START_ACTION)
         event.register(STOP_ACTION)
         event.register(OPEN_SCHEMATIC_BROWSER)
+        event.register(ROTATE_PREVIEW)
+        event.register(MIRROR_PREVIEW)
     }
 
-    /**
-     * Checks if the toggle HUD key was just pressed.
-     */
-    fun isToggleTaskHudPressed(): Boolean {
-        return TOGGLE_TASK_HUD.consumeClick()
-    }
 }

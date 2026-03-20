@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component
  * Represents an instruction for a stationary beehive.
  */
 data class BeeInstruction(
-    var type: InstructionType = InstructionType.FERTILIZE,
+    var type: InstructionType = InstructionType.DECONSTRUCT,
     var beeCount: Int = 1,
     var range: Int = 16
 ) {
@@ -30,7 +30,6 @@ data class BeeInstruction(
 }
 
 enum class InstructionType(val translationKey: String) {
-    FERTILIZE("gui.cbbees.instruction.fertilize"),
     DECONSTRUCT("gui.cbbees.instruction.deconstruct"),
     // CLEAN_FALLEN_ITEMS("gui.cbbees.instruction.clean_items")
     ;

@@ -3,6 +3,7 @@ package de.devin.cbbees.network
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
@@ -117,6 +118,9 @@ class InstantConstructionPacket(
                     job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
                     job.batches.addAll(batches)
 
+                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
+                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                    }
                     GlobalJobPool.dispatchNewJob(job)
                     ConstructionPlannerItem.clearSchematic(mainHand)
                     HiveJobsSyncPacket.sendPlayerSnapshotTo(player)

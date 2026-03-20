@@ -8,7 +8,6 @@ import de.devin.cbbees.blocks.AllBlocks
 import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
-import de.devin.cbbees.content.backpack.client.TaskProgressClientEvents
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.brain.BeeSensors
 import de.devin.cbbees.content.bee.client.BeeTargetLineHandler
@@ -16,15 +15,19 @@ import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
 import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
+import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
+import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
 import de.devin.cbbees.datagen.CCRDatagen
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.AllPackets
 import de.devin.cbbees.network.CCRServerEvents
 import de.devin.cbbees.ponder.CCRPonderPlugin
 import de.devin.cbbees.registry.AllBlockEntityTypes
+import de.devin.cbbees.registry.AllDataComponents
+import de.devin.cbbees.registry.AllCBeesFanProcessingTypes
 import de.devin.cbbees.registry.AllEffects
 import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.registry.AllKeys
@@ -41,7 +44,9 @@ import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.data.event.GatherDataEvent
 import net.neoforged.neoforge.event.RegisterCommandsEvent
@@ -74,6 +79,7 @@ object CreateBuzzyBeez {
 
         REGISTRATE.registerEventListeners(MOD_BUS)
 
+        AllDataComponents.register(MOD_BUS)
         AllCreativeModeTabs.register()
         REGISTRATE.setCreativeTab(AllCreativeModeTabs.BASE_MOD_TAB)
         AllBlocks.register()
@@ -82,6 +88,8 @@ object CreateBuzzyBeez {
         AllBlockEntityTypes.register()
         AllMenuTypes.register()
         AllEffects.register()
+        de.devin.cbbees.registry.AllCBeesRecipeTypes.register(MOD_BUS)
+        AllCBeesFanProcessingTypes.register(MOD_BUS)
         BeeMemoryModules.register()
         BeeSensors.register()
 
@@ -94,7 +102,6 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(ConstructionPlannerClientEvents::class.java)
-            NeoForge.EVENT_BUS.register(TaskProgressClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeTargetLineHandler::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
@@ -102,6 +109,14 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(CargoPortLinkRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
+            MOD_BUS.addListener<RegisterGuiLayersEvent> { event ->
+                event.registerAbove(VanillaGuiLayers.CHAT, asResource("construction_planner_hud")) { guiGraphics, deltaTracker ->
+                    ConstructionPlannerHUD.renderHUD(guiGraphics, deltaTracker)
+                }
+                event.registerAbove(VanillaGuiLayers.CHAT, asResource("deconstruction_planner_hud")) { guiGraphics, deltaTracker ->
+                    DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
+                }
+            }
         }
 
         MOD_BUS.addListener<GatherDataEvent> { CCRDatagen.gatherData(it) }

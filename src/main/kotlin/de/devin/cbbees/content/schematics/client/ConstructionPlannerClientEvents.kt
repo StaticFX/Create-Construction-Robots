@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.InputEvent
-import net.neoforged.neoforge.client.event.RenderGuiEvent
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import org.lwjgl.glfw.GLFW
 
@@ -26,6 +25,7 @@ object ConstructionPlannerClientEvents {
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
         ConstructionPlannerHandler.tick()
+        ConstructionPlannerHUD.update()
 
         // Clear custom tool state if player is no longer holding the planner
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
@@ -35,11 +35,21 @@ object ConstructionPlannerClientEvents {
             }
         }
 
-        // Check keybind for opening full-screen browser
-        if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
-            val player = Minecraft.getInstance().player ?: return
-            if (AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+        // Check keybind for opening full-screen browser (only when holding planner)
+        val player = Minecraft.getInstance().player
+        if (player != null && AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+            if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
                 Minecraft.getInstance().setScreen(ConstructionPlannerScreen())
+            }
+        }
+
+        // Rotate/mirror ghost preview keybinds
+        if (ConstructionPlannerHandler.isBrowsingPreview) {
+            if (AllKeys.ROTATE_PREVIEW.consumeClick()) {
+                SchematicHoverPreview.rotatePreview()
+            }
+            if (AllKeys.MIRROR_PREVIEW.consumeClick()) {
+                SchematicHoverPreview.mirrorPreview()
             }
         }
     }
@@ -65,16 +75,9 @@ object ConstructionPlannerClientEvents {
         }
     }
 
-    @SubscribeEvent
-    @JvmStatic
-    fun onRenderGui(event: RenderGuiEvent.Post) {
-        ConstructionPlannerHandler.renderHUD(event.guiGraphics, event.partialTick)
-    }
-
     /**
-     * Renders ghost blocks during browsing preview (state 2).
-     * Uses our own SchematicHoverPreview renderer positioned via Create's
-     * transformation so ghost blocks follow the crosshair.
+     * Renders ghost blocks and AABB outline during browsing preview (state 2).
+     * Positioned at the crosshair block position, independent of Create.
      */
     @SubscribeEvent
     @JvmStatic

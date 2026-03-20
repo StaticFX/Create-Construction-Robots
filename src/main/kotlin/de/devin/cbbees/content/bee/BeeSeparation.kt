@@ -4,53 +4,35 @@ import net.minecraft.world.entity.FlyingMob
 import net.minecraft.world.phys.Vec3
 
 /**
- * Applies a gentle separation force so bees don't stack on top of each other.
+ * Provides visual spread for mechanical bees so they don't all fly on the exact same path.
  *
- * Call from [FlyingMob.tick] on the server side.
+ * Instead of a runtime separation force (which fights pathfinding and causes bees to
+ * block each other), each bee gets a small deterministic positional offset based on its
+ * entity ID. This offset is applied once per tick as a gentle nudge, spreading bees out
+ * without interfering with navigation.
  */
 object BeeSeparation {
 
-    private const val SEPARATION_RADIUS = 1.5
-    private const val SEPARATION_FORCE = 0.04
-
-    fun applySeparation(bee: FlyingMob) {
-        val level = bee.level()
-        val nearby = level.getEntitiesOfClass(
-            FlyingMob::class.java,
-            bee.boundingBox.inflate(SEPARATION_RADIUS)
-        ) { it !== bee && it is NetworkedBee }
-
-        if (nearby.isEmpty()) return
-
-        var pushX = 0.0
-        var pushY = 0.0
-        var pushZ = 0.0
-
-        for (other in nearby) {
-            val dx = bee.x - other.x
-            val dy = bee.y - other.y
-            val dz = bee.z - other.z
-            val distSq = dx * dx + dy * dy + dz * dz
-
-            if (distSq < SEPARATION_RADIUS * SEPARATION_RADIUS && distSq > 0.001) {
-                val dist = Math.sqrt(distSq)
-                // Stronger push when closer
-                val strength = SEPARATION_FORCE * (1.0 - dist / SEPARATION_RADIUS)
-                pushX += (dx / dist) * strength
-                pushY += (dy / dist) * strength
-                pushZ += (dz / dist) * strength
-            } else if (distSq <= 0.001) {
-                // Nearly identical position — push in random direction
-                pushX += (bee.random.nextDouble() - 0.5) * SEPARATION_FORCE
-                pushZ += (bee.random.nextDouble() - 0.5) * SEPARATION_FORCE
-            }
-        }
+    /**
+     * Applies a small per-bee flight offset so bees in the same area spread out visually.
+     *
+     * The offset is deterministic per entity (based on ID), so each bee consistently
+     * drifts to a slightly different position without oscillation or path-fighting.
+     * Only applies a gentle horizontal nudge — no vertical component to avoid
+     * interfering with altitude-based pathfinding.
+     */
+    fun applyFlightOffset(bee: FlyingMob) {
+        val id = bee.id
+        // Spread bees across a small area using their entity ID
+        val angle = (id * 2654435761L and 0xFFFF).toDouble() / 0xFFFF * Math.PI * 2
+        val offsetX = Math.cos(angle) * 0.006
+        val offsetZ = Math.sin(angle) * 0.006
 
         val current = bee.deltaMovement
         bee.deltaMovement = Vec3(
-            current.x + pushX,
-            current.y + pushY,
-            current.z + pushZ
+            current.x + offsetX,
+            current.y,
+            current.z + offsetZ
         )
     }
 

@@ -11,14 +11,25 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
 import de.devin.cbbees.util.ClientSide
+import net.neoforged.api.distmarker.Dist
+import net.neoforged.api.distmarker.OnlyIn
+import org.lwjgl.glfw.GLFW
+import kotlin.math.abs
 
 /**
  * Handles HUD and world rendering for the deconstruction planner.
+ *
+ * HUD matches the construction planner style: main panel above hotbar with
+ * an extending hint panel when Alt is held.
  */
 @ClientSide
+@OnlyIn(Dist.CLIENT)
 object DeconstructionRenderer {
     private val outlineSlot = Any()
     private const val SELECTION_COLOR = 0xc56868
+
+    /** Eased offset controlling hint panel visibility (0 = hidden, 10 = fully visible). */
+    private var yOffset = 0f
 
     fun renderWorldOutline(selectedFace: Direction?) {
         val box = DeconstructionSelection.getSelectionBox() ?: return
@@ -31,111 +42,156 @@ object DeconstructionRenderer {
             .highlightFace(selectedFace)
     }
 
+    fun update() {
+        if (!DeconstructionHandler.isActive()) {
+            yOffset = 0f
+            return
+        }
+
+        if (isAltDown()) {
+            yOffset += (10f - yOffset) * 0.1f
+        } else {
+            yOffset *= 0.9f
+        }
+    }
+
     fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
         if (!DeconstructionHandler.isActive()) return
 
         val mc = Minecraft.getInstance()
-        if (mc.options.hideGui) return
+        if (mc.options.hideGui || mc.screen != null) return
 
         val first = DeconstructionSelection.firstPos ?: return
 
         val screenWidth = guiGraphics.guiWidth()
         val screenHeight = guiGraphics.guiHeight()
-
-        // Selection Info
-        val infoWidth = 140
-        val infoHeight = 40
-        val infoX = screenWidth / 2 - infoWidth / 2
-        val infoY = 20
-
         val gray = AllGuiTextures.HUD_BACKGROUND
+        val centerX = screenWidth / 2
+
+        guiGraphics.pose().pushPose()
+
+        val second = DeconstructionSelection.secondPos
+
+        // Title
+        val titleText = Component.translatable("cbbees.deconstruction.title")
+        val titleWidth = mc.font.width(titleText)
+
+        // Info line (dimensions or "first corner set")
+        val infoText: Component
+        val infoColor: Int
+        if (second != null) {
+            val sizeX = abs(first.x - second.x) + 1
+            val sizeY = abs(first.y - second.y) + 1
+            val sizeZ = abs(first.z - second.z) + 1
+            infoText = Component.translatable("cbbees.deconstruction.dimensions", sizeX, sizeY, sizeZ)
+            infoColor = 0xCCDDFF
+        } else {
+            infoText = Component.translatable("cbbees.deconstruction.first_pos")
+            infoColor = 0xAAAAAA
+        }
+        val infoWidth = mc.font.width(infoText)
+
+        // Context-sensitive hints
+        val hintText = if (second != null) {
+            Component.translatable(
+                "gui.cbbees.deconstruction.hint_ready",
+                AllKeys.START_ACTION.translatedKeyMessage
+            )
+        } else {
+            Component.translatable("gui.cbbees.deconstruction.hint_select")
+        }
+        val hintWidth = mc.font.width(hintText)
+
+        val secondHint = Component.translatable("gui.cbbees.deconstruction.hint_scroll")
+        val secondHintWidth = mc.font.width(secondHint)
+
+        // Compact hint (shown above panel when Alt not held)
+        val compactHint = Component.translatable("gui.cbbees.deconstruction.hint_alt")
+        val compactHintWidth = mc.font.width(compactHint)
+
+        // Layout
+        val mainHeight = 32
+        val bgWidth = maxOf(
+            titleWidth,
+            infoWidth,
+            compactHintWidth,
+            hintWidth,
+            secondHintWidth
+        ) + 30
+        val bgX = centerX - bgWidth / 2
+        val bgY = screenHeight - 90
+
+        val hintAlpha = yOffset / 10f
+        val stringAlphaComponent = ((hintAlpha * 0xFF).toInt().coerceIn(0, 255)) shl 24
 
         RenderSystem.enableBlend()
-        RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
+
+        // === "Hold Alt" text above main panel (fades out when Alt held) ===
+        if (hintAlpha < 0.7f) {
+            val fade = 1f - (hintAlpha / 0.7f)
+            val a = (fade * 0xFF).toInt().coerceIn(0, 255)
+            guiGraphics.drawString(
+                mc.font, compactHint,
+                centerX - compactHintWidth / 2, bgY - 14,
+                (a shl 24) or 0xFFCCCC, true
+            )
+        }
+
+        // === Main panel background ===
+        RenderSystem.setShaderColor(1f, 1f, 1f, if (hintAlpha > 0.5f) 7f / 8f else 3f / 4f)
         guiGraphics.blit(
-            gray.location, infoX, infoY, gray.startX.toFloat(), gray.startY.toFloat(),
-            infoWidth, infoHeight, gray.width, gray.height
+            gray.location, bgX, bgY,
+            gray.startX.toFloat(), gray.startY.toFloat(),
+            bgWidth, mainHeight, gray.width, gray.height
         )
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
 
-        val titleText = Component.translatable("cbbees.deconstruction.title")
+        // Title
         guiGraphics.drawString(
-            mc.font,
-            titleText,
-            infoX + (infoWidth - mc.font.width(titleText)) / 2,
-            infoY + 5,
-            0xFFCCCC,
-            false
+            mc.font, titleText,
+            centerX - titleWidth / 2, bgY + 5,
+            0xFFCCCC, false
         )
 
-        val second = DeconstructionSelection.secondPos
-        if (second != null) {
-            val sizeX = Math.abs(first.x - second.x) + 1
-            val sizeY = Math.abs(first.y - second.y) + 1
-            val sizeZ = Math.abs(first.z - second.z) + 1
-            val dimText = Component.translatable("cbbees.deconstruction.dimensions", sizeX, sizeY, sizeZ)
-            guiGraphics.drawString(
-                mc.font,
-                dimText,
-                infoX + (infoWidth - mc.font.width(dimText)) / 2,
-                infoY + 20,
-                0xCCDDFF,
-                false
-            )
+        // Info line
+        guiGraphics.drawString(
+            mc.font, infoText,
+            centerX - infoWidth / 2, bgY + 18,
+            infoColor, false
+        )
 
-            val promptText =
-                Component.translatable("cbbees.deconstruction.second_pos", AllKeys.START_ACTION.translatedKeyMessage)
-            guiGraphics.drawString(
-                mc.font,
-                promptText,
-                infoX + (infoWidth - mc.font.width(promptText)) / 2,
-                infoY + 30,
-                0xAAAAAA,
-                false
-            )
+        // === Extended hint panel (extends below main when Alt held) ===
+        if (hintAlpha > 0.25f) {
+            val hintBgY = bgY + mainHeight + 2
 
-            // Start Button
-            renderStartButton(guiGraphics, mc, screenWidth, screenHeight)
-        } else {
-            val waitingText = Component.translatable("cbbees.deconstruction.first_pos")
+            RenderSystem.setShaderColor(0.8f, 0.7f, 0.7f, hintAlpha)
+            guiGraphics.blit(
+                gray.location, bgX, hintBgY,
+                gray.startX.toFloat(), gray.startY.toFloat(),
+                bgWidth, 30, gray.width, gray.height
+            )
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
+
             guiGraphics.drawString(
-                mc.font,
-                waitingText,
-                infoX + (infoWidth - mc.font.width(waitingText)) / 2,
-                infoY + 20,
-                0xAAAAAA,
-                false
+                mc.font, hintText,
+                centerX - hintWidth / 2, hintBgY + 4,
+                stringAlphaComponent or 0xFFCCCC, false
+            )
+            guiGraphics.drawString(
+                mc.font, secondHint,
+                centerX - secondHintWidth / 2, hintBgY + 16,
+                stringAlphaComponent or 0xCCCCDD, false
             )
         }
 
         RenderSystem.disableBlend()
+        guiGraphics.pose().popPose()
     }
 
-    private fun renderStartButton(guiGraphics: GuiGraphics, mc: Minecraft, screenWidth: Int, screenHeight: Int) {
-        val buttonWidth = 150
-        val buttonHeight = 20
-        val buttonX = (screenWidth - buttonWidth) / 2
-        val buttonY = screenHeight - 50
-        val gray = AllGuiTextures.HUD_BACKGROUND
-
-        RenderSystem.setShaderColor(1f, 1f, 1f, 0.75f)
-        guiGraphics.blit(
-            gray.location, buttonX, buttonY, gray.startX.toFloat(), gray.startY.toFloat(),
-            buttonWidth, buttonHeight, gray.width, gray.height
-        )
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
-
-        val buttonText = Component.translatable(
-            "gui.cbbees.schematic.start_deconstruction",
-            AllKeys.START_ACTION.translatedKeyMessage
-        )
-        guiGraphics.drawString(
-            mc.font,
-            buttonText,
-            buttonX + (buttonWidth - mc.font.width(buttonText)) / 2,
-            buttonY + (buttonHeight - 8) / 2,
-            0xFFCCCC,
-            false
-        )
+    private fun isAltDown(): Boolean {
+        return Minecraft.getInstance().window.let { window ->
+            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
+                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
+        }
     }
 }

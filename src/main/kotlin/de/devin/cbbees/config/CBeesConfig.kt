@@ -14,8 +14,14 @@ object CBeesConfig {
     val springDrainFlight: ModConfigSpec.DoubleValue
     val springDrainPickup: ModConfigSpec.DoubleValue
     val springDrainDeposit: ModConfigSpec.DoubleValue
-    val portableAirPerRewind: ModConfigSpec.IntValue
     val springRechargeTicks: ModConfigSpec.IntValue
+
+    // Honey fuel settings
+    val portableHoneyPerRewind: ModConfigSpec.IntValue
+    val portableMaxHoney: ModConfigSpec.IntValue
+    val honeyBottleFuelValue: ModConfigSpec.IntValue
+    val honeycombFuelValue: ModConfigSpec.IntValue
+    val honeyBlockFuelValue: ModConfigSpec.IntValue
 
     init {
         val builder = ModConfigSpec.Builder()
@@ -61,13 +67,34 @@ object CBeesConfig {
             .comment("Spring tension drained per item deposit (BumbleBee)")
             .defineInRange("springDrainDeposit", 0.04, 0.0, 1.0)
 
-        portableAirPerRewind = builder
-            .comment("Base air consumed from Backtank when rewinding spring in a portable beehive")
-            .defineInRange("portableAirPerRewind", 50, 0, 1000)
-
         springRechargeTicks = builder
             .comment("Base ticks to recharge a fully depleted spring at the hive (scales with RPM)")
             .defineInRange("springRechargeTicks", 200, 20, 2000)
+
+        builder.pop()
+
+        builder.comment("Honey Fuel Settings — controls fuel consumption for portable beehive")
+            .push("honey_fuel")
+
+        portableHoneyPerRewind = builder
+            .comment("Honey consumed per full spring rewind in a portable beehive")
+            .defineInRange("portableHoneyPerRewind", 100, 1, 1000)
+
+        portableMaxHoney = builder
+            .comment("Maximum honey stored in a portable beehive")
+            .defineInRange("portableMaxHoney", 400, 100, 10000)
+
+        honeyBottleFuelValue = builder
+            .comment("Honey fuel value per honey bottle")
+            .defineInRange("honeyBottleFuelValue", 100, 1, 1000)
+
+        honeycombFuelValue = builder
+            .comment("Honey fuel value per honeycomb")
+            .defineInRange("honeycombFuelValue", 60, 1, 1000)
+
+        honeyBlockFuelValue = builder
+            .comment("Honey fuel value per honey block")
+            .defineInRange("honeyBlockFuelValue", 400, 1, 10000)
 
         builder.pop()
 

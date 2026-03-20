@@ -1,21 +1,16 @@
 package de.devin.cbbees.content.backpack.client
 
 import de.devin.cbbees.content.backpack.BeehiveTooltipData
-import de.devin.cbbees.registry.AllKeys
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent
-import net.neoforged.neoforge.client.event.RenderGuiEvent
-import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.bus.api.SubscribeEvent
 
 /**
  * Client-side event handler for general CCR features.
- * 
+ *
  * Handles:
  * - Tooltip component registration (on MOD_BUS)
- * - Task progress HUD rendering (on NeoForge EVENT_BUS)
- * - Keybinding handling (on NeoForge EVENT_BUS)
  * - Network cleanup (on NeoForge EVENT_BUS)
  */
 object CCRClientEvents {
@@ -35,33 +30,5 @@ object BeeNetworkClientEvents {
     @JvmStatic
     fun onLoggingOut(event: ClientPlayerNetworkEvent.LoggingOut) {
         ClientBeeNetworkManager.clear()
-    }
-}
-
-/**
- * Event handler for NeoForge EVENT_BUS events related to task progress HUD.
- * Registered separately from CCRClientEvents which is on MOD_BUS.
- */
-object TaskProgressClientEvents {
-
-    /**
-     * Renders the task progress HUD overlay.
-     */
-    @SubscribeEvent
-    @JvmStatic
-    fun onRenderGui(event: RenderGuiEvent.Post) {
-        TaskProgressHUD.renderHUD(event.guiGraphics, event.partialTick)
-    }
-
-    /**
-     * Handles keybinding checks each tick.
-     */
-    @SubscribeEvent
-    @JvmStatic
-    fun onClientTick(event: ClientTickEvent.Post) {
-        // Check if toggle key was pressed
-        while (AllKeys.TOGGLE_TASK_HUD.consumeClick()) {
-            TaskProgressHUD.toggle()
-        }
     }
 }

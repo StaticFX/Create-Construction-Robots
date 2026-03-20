@@ -5,8 +5,10 @@ import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.content.upgrades.UpgradeType
+import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.registry.AllMenuTypes
-import com.simibubi.create.content.equipment.armor.BacktankUtil
+import net.minecraft.ChatFormatting
 import net.minecraft.core.NonNullList
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
@@ -18,6 +20,7 @@ import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.inventory.tooltip.TooltipComponent
 import net.minecraft.world.item.component.ItemContainerContents
@@ -89,8 +92,8 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     companion object {
-        const val ROBOT_SLOTS = 4
-        const val UPGRADE_SLOTS = 6
+        const val ROBOT_SLOTS = 2
+        const val UPGRADE_SLOTS = 4
         const val TOTAL_SLOTS = ROBOT_SLOTS + UPGRADE_SLOTS
 
         // NBT keys for the container
@@ -100,11 +103,46 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     override fun use(level: Level, player: Player, usedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val stack = player.getItemInHand(usedHand)
 
+        // Shift+RMB: try to load honey from the other hand
+        if (player.isShiftKeyDown) {
+            val otherHand = if (usedHand == InteractionHand.MAIN_HAND) InteractionHand.OFF_HAND else InteractionHand.MAIN_HAND
+            val fuelStack = player.getItemInHand(otherHand)
+            val fuelValue = getHoneyFuelValue(fuelStack)
+            if (fuelValue > 0) {
+                if (!level.isClientSide) {
+                    val current = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+                    val max = CBeesConfig.portableMaxHoney.get()
+                    if (current >= max) {
+                        player.displayClientMessage(Component.translatable("cbbees.beehive.honey_full"), true)
+                    } else {
+                        val newValue = minOf(current + fuelValue, max)
+                        stack.set(AllDataComponents.HONEY_FUEL.get(), newValue)
+                        fuelStack.shrink(1)
+                        // Return empty bottle for honey bottles
+                        if (fuelStack.item == Items.HONEY_BOTTLE) {
+                            player.addItem(ItemStack(Items.GLASS_BOTTLE))
+                        }
+                        player.displayClientMessage(
+                            Component.translatable("cbbees.beehive.honey_loaded", newValue, max), true
+                        )
+                    }
+                }
+                return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
+            }
+        }
+
+        // Normal RMB: open GUI
         if (!level.isClientSide && player is ServerPlayer) {
             openBackpackScreen(player, usedHand)
         }
-
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
+    }
+
+    private fun getHoneyFuelValue(stack: ItemStack): Int = when (stack.item) {
+        Items.HONEY_BOTTLE -> CBeesConfig.honeyBottleFuelValue.get()
+        Items.HONEYCOMB -> CBeesConfig.honeycombFuelValue.get()
+        Items.HONEY_BLOCK -> CBeesConfig.honeyBlockFuelValue.get()
+        else -> 0
     }
 
     private fun openBackpackScreen(player: ServerPlayer, hand: InteractionHand) {
@@ -145,17 +183,20 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     override fun isBarVisible(stack: ItemStack): Boolean {
-        return BacktankUtil.getAir(stack) < BacktankUtil.maxAir(stack)
+        val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        return honey < maxHoney
     }
 
     override fun getBarWidth(stack: ItemStack): Int {
-        val maxAir = BacktankUtil.maxAir(stack)
-        if (maxAir <= 0) return 0
-        return (13.0f * BacktankUtil.getAir(stack) / maxAir).roundToInt()
+        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        if (maxHoney <= 0) return 0
+        val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+        return (13.0f * honey / maxHoney).roundToInt()
     }
 
     override fun getBarColor(stack: ItemStack): Int {
-        return 0xe1e8e2
+        return 0xD97F00
     }
 
     override fun appendHoverText(
@@ -172,26 +213,33 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.beehive.bees", robotCount, ROBOT_SLOTS)
-                .withStyle(net.minecraft.ChatFormatting.GRAY)
+                .withStyle(ChatFormatting.GRAY)
+        )
+
+        val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        tooltipComponents.add(
+            Component.translatable("tooltip.cbbees.beehive.honey", honey, maxHoney)
+                .withStyle(ChatFormatting.GOLD)
         )
 
         if (upgrades.isNotEmpty()) {
             tooltipComponents.add(
                 Component.translatable("tooltip.cbbees.beehive.naturified_header")
-                    .withStyle(net.minecraft.ChatFormatting.GOLD)
+                    .withStyle(ChatFormatting.GOLD)
             )
             for ((type, count) in upgrades) {
                 tooltipComponents.add(
                     Component.literal(" - ")
                         .append(Component.translatable(type.descriptionKey))
                         .append(Component.literal(" x$count"))
-                        .withStyle(net.minecraft.ChatFormatting.BLUE)
+                        .withStyle(ChatFormatting.BLUE)
                 )
             }
         } else {
             tooltipComponents.add(
                 Component.translatable("tooltip.cbbees.beehive.no_naturified")
-                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)
+                    .withStyle(ChatFormatting.DARK_GRAY)
             )
         }
     }
@@ -331,11 +379,9 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         val player = slotContext.entity() as? Player ?: return
         if (player.level().isClientSide) return
 
-        // Creative mode players always have full air
+        // Creative mode players always have full honey
         if (player.isCreative) {
-            val maxAir = BacktankUtil.maxAir(stack)
-            if (BacktankUtil.getAir(stack) < maxAir) {
-            }
+            stack.set(AllDataComponents.HONEY_FUEL.get(), CBeesConfig.portableMaxHoney.get())
         }
     }
 

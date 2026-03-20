@@ -9,6 +9,7 @@ import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
 import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -105,6 +106,9 @@ class StartConstructionPacket(
                     job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
                     job.batches.addAll(batches)
 
+                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
+                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                    }
                     GlobalJobPool.dispatchNewJob(job)
 
                     // Construction Planner is reusable — clear all schematic data

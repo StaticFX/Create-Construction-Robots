@@ -47,14 +47,15 @@ class BumbleRechargeSpringBehavior : Behavior<MechanicalBumbleBeeEntity>(
             // At hive — initiate recharge (flat rate, no RPM scaling for bumble bees)
             val rechargeTicks = CBeesConfig.springRechargeTicks.get()
 
-            // Portable beehive: consume air for rewind
+            // Portable beehive: consume honey for rewind
             if (hive is PortableBeeHive) {
-                val airCost = CBeesConfig.portableAirPerRewind.get()
-                if (!hive.hasAir(airCost)) {
-                    BeeDebug.logForEntity(entity, "Bumble", "Not enough air for spring recharge")
+                val ctx = hive.getBeeContext()
+                val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+                if (!hive.hasHoney(honeyCost)) {
+                    BeeDebug.logForEntity(entity, "Bumble", "Not enough honey for spring recharge")
                     return
                 }
-                hive.consumeAir(airCost)
+                hive.consumeHoney(honeyCost)
             }
 
             entity.rechargeFinishTick = gameTime + rechargeTicks

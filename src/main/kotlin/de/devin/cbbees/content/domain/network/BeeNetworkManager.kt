@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
@@ -186,6 +187,52 @@ object ServerBeeNetworkManager {
     fun findProviderFor(level: Level, stack: ItemStack, startPos: BlockPos): LogisticsPort? {
         val network = getNetworkAt(level, startPos)
         return network?.findProvider(stack)
+    }
+
+    fun findPortableHive(playerId: UUID): PortableBeeHive? {
+        return networks.flatMap { it.hives }.filterIsInstance<PortableBeeHive>().find { it.player.uuid == playerId }
+    }
+
+    fun reconnectPortableHive(hive: PortableBeeHive) {
+        val playerPos = hive.player.blockPosition()
+        val playerLevel = hive.player.level()
+
+        // Find a block-based network covering the player's position
+        val blockNetwork = networks.find { net ->
+            net.level == playerLevel &&
+                net.isInRange(playerPos) &&
+                net.components.any { it.isAnchor() && it !is PortableBeeHive }
+        }
+
+        val currentNetwork = getNetworkFor(hive)
+
+        if (blockNetwork != null) {
+            // Already in the target network — no-op
+            if (currentNetwork == blockNetwork) return
+
+            // Move from old network to the block network
+            if (currentNetwork != null) {
+                currentNetwork.removeComponent(hive)
+                if (currentNetwork.components.isEmpty()) {
+                    networks.remove(currentNetwork)
+                }
+            }
+            blockNetwork.addComponent(hive)
+            CreateBuzzyBeez.LOGGER.info("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
+        } else {
+            // No block network nearby
+            if (currentNetwork != null && currentNetwork.components.any { it.isAnchor() && it !is PortableBeeHive }) {
+                // Currently in a block network — detach into isolated network
+                currentNetwork.removeComponent(hive)
+                if (currentNetwork.components.isEmpty()) {
+                    networks.remove(currentNetwork)
+                }
+                hive.networkId = UUID.randomUUID()
+                registerComponent(hive)
+                CreateBuzzyBeez.LOGGER.info("Detached portable hive for ${hive.player.name.string} into isolated network")
+            }
+            // Otherwise already isolated — no-op
+        }
     }
 }
 

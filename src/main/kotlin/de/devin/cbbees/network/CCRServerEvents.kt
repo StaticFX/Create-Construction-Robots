@@ -4,19 +4,14 @@ import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.TransportDispatcher
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
-import de.devin.cbbees.content.domain.task.TaskStatus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
-import net.neoforged.neoforge.network.PacketDistributor
 import de.devin.cbbees.util.ServerSide
 
 /**
  * Server-side event handler for cbbees.
- *
- * Handles periodic task progress sync to clients.
  */
 @ServerSide
 object CCRServerEvents {
@@ -25,7 +20,6 @@ object CCRServerEvents {
 
     /**
      * Called every server tick.
-     * Sends task progress sync packets to players with active tasks.
      */
     @SubscribeEvent
     @JvmStatic
@@ -44,23 +38,6 @@ object CCRServerEvents {
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         for (player in server.playerList.players) {
             HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-
-            val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
-            if (jobs.isNotEmpty()) {
-                val totalTasks = jobs.sumOf { it.tasks.size }
-                val completedTasks = jobs.sumOf { it.tasks.count { t -> t.status == TaskStatus.COMPLETED } }
-
-                // jobProgress map: jobId -> (completed, total)
-                val jobProgress =
-                    jobs.associate { it.jobId to (it.tasks.count { t -> t.status == TaskStatus.COMPLETED } to it.tasks.size) }
-
-                val packet = TaskProgressSyncPacket(
-                    globalTotal = totalTasks,
-                    globalCompleted = completedTasks,
-                    jobProgress = jobProgress
-                )
-                PacketDistributor.sendToPlayer(player, packet)
-            }
         }
     }
 

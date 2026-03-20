@@ -1,12 +1,17 @@
 package de.devin.cbbees.blocks
 
+import com.simibubi.create.AllItems
+import com.simibubi.create.AllBlocks as CreateAllBlocks
 import com.simibubi.create.api.stress.BlockStressValues
 import com.simibubi.create.foundation.data.SharedProperties
+import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlock
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
+import net.minecraft.data.recipes.RecipeCategory
+import net.minecraft.data.recipes.ShapedRecipeBuilder
 import net.minecraft.world.level.block.Blocks
 
 object AllBlocks {
@@ -33,6 +38,14 @@ object AllBlocks {
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() } // Important: so it doesn't "cull" the chest behind it
         .item()
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.TRANSMITTER.get())
+                .define('V', CreateAllBlocks.BRASS_FUNNEL.get())
+                .define('B', CreateAllBlocks.BRASS_CASING.get())
+                .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
         .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/logistics_port/block")) }
         .build()
         .register()
@@ -41,6 +54,17 @@ object AllBlocks {
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() }
         .item()
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.TRANSMITTER.get())
+                .define('V', CreateAllBlocks.ITEM_VAULT.get())
+                .define('B', CreateAllBlocks.BRASS_CASING.get())
+                .pattern("W")
+                .pattern("V")
+                .pattern("B")
+                .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
         .build()
         .register()
 

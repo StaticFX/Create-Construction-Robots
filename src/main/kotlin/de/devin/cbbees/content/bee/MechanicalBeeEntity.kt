@@ -7,6 +7,7 @@ import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -29,6 +30,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
+import net.minecraft.world.entity.MoverType
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
 import net.minecraft.world.SimpleContainer
@@ -110,7 +112,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     fun consumeSpring(baseDrain: Double): Boolean {
         if (springTension <= 0f) return false
         val ctx = getBeeContext()
-        val effectiveDrain = (baseDrain / ctx.springEfficiency * ctx.airConsumptionMultiplier).toFloat()
+        val effectiveDrain = (baseDrain / ctx.springEfficiency * ctx.fuelConsumptionMultiplier).toFloat()
         springTension = (springTension - effectiveDrain).coerceAtLeast(0f)
         return true
     }
@@ -202,6 +204,31 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         return navigation
     }
 
+    /**
+     * Override FlyingMob's travel to use a higher movement factor.
+     * FlyingMob hardcodes 0.02f which, combined with normalization in moveRelative,
+     * results in very slow movement (~4 blocks/sec).
+     * Using 0.04f gives ~9 blocks/sec — fast enough to avoid stuck safety.
+     */
+    override fun travel(travelVector: net.minecraft.world.phys.Vec3) {
+        if (this.isControlledByLocalInstance()) {
+            if (this.isInWater()) {
+                this.moveRelative(0.02f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.8)
+            } else if (this.isInLava()) {
+                this.moveRelative(0.02f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.5)
+            } else {
+                this.moveRelative(if (this.onGround()) 0.1f else 0.04f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.91)
+            }
+        }
+        this.calculateEntityAnimation(false)
+    }
+
     fun beehive(): BeeHive? {
         val brain = this.getBrain()
         val fromMemory = brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).getOrNull()
@@ -242,10 +269,18 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (level().isClientSide) return
 
         syncTargetPos()
-        BeeSeparation.applySeparation(this)
+        BeeSeparation.applyFlightOffset(this)
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
+        }
+
+        // Keep HIVE_POS updated for portable beehives so bees track player movement
+        if (tickCount % 20 == 0) {
+            val hive = beehive()
+            if (hive is PortableBeeHive) {
+                getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), hive.player.blockPosition())
+            }
         }
 
         // Drain spring while flying

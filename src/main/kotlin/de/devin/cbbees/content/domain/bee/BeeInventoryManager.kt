@@ -4,23 +4,16 @@ import de.devin.cbbees.content.bee.CompositeMaterialSource
 import de.devin.cbbees.content.bee.MaterialSource
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.PlayerMaterialSource
-import de.devin.cbbees.content.bee.WirelessMaterialSource
 import de.devin.cbbees.content.domain.network.NetworkMaterialSource
 import de.devin.cbbees.content.upgrades.BeeContext
-import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
-import net.neoforged.neoforge.capabilities.Capabilities
 
 /**
  * Handles inventory operations for constructor robots, including item collection
  * from player inventory and wireless storages.
  */
 class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
-
-    private var cachedWirelessStorages: MutableList<BlockPos> = mutableListOf()
-    private var wirelessScanCooldown = 0
-    private val WIRELESS_SCAN_INTERVAL = 100 // 5 seconds
 
     /**
      * Picks up items for the current task into the bee's inventory.
@@ -84,39 +77,6 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
             sources.add(NetworkMaterialSource(it, robot.level()))
         }
 
-        // 3. Wireless Link (if enabled)
-        if (context.wirelessLinkEnabled) {
-            if (wirelessScanCooldown <= 0) {
-                scanForWirelessStorages(ownerPlayer)
-                wirelessScanCooldown = WIRELESS_SCAN_INTERVAL
-            } else {
-                wirelessScanCooldown--
-            }
-            sources.add(WirelessMaterialSource(robot.level(), cachedWirelessStorages))
-        }
-
         return CompositeMaterialSource(sources)
-    }
-
-    /**
-     * Scans for inventories around the player for Wireless Link.
-     */
-    private fun scanForWirelessStorages(player: ServerPlayer) {
-        cachedWirelessStorages.clear()
-        val range = 16
-        val center = player.blockPosition()
-        val level = robot.level()
-
-        for (x in -range..range) {
-            for (y in -range..range) {
-                for (z in -range..range) {
-                    val pos = center.offset(x, y, z)
-                    val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)
-                    if (handler != null) {
-                        cachedWirelessStorages.add(pos)
-                    }
-                }
-            }
-        }
     }
 }

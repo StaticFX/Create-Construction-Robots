@@ -20,19 +20,10 @@ enum class UpgradeType(
     SWARM_INTELLIGENCE(3, "tooltip.cbbees.upgrade.swarm_intelligence", IUpgrade { ctx, count ->
         ctx.maxActiveRobots += count * 2
     }),
-    POLLEN_LINK(1, "tooltip.cbbees.upgrade.pollen_link", IUpgrade { ctx, count ->
-        if (count > 0) ctx.wirelessLinkEnabled = true
-    }),
-    LONG_RANGE_SCOUT(2, "tooltip.cbbees.upgrade.long_range_scout", IUpgrade { ctx, count ->
-        ctx.workRange += count * 16.0
-    }),
     HONEY_EFFICIENCY(2, "tooltip.cbbees.upgrade.honey_efficiency", IUpgrade { ctx, count ->
         ctx.breakSpeedMultiplier -= count * 0.25
         ctx.carryCapacity += count * 2
-        ctx.airConsumptionMultiplier -= count * 0.15
-    }),
-    STINGER_PRECISION(1, "tooltip.cbbees.upgrade.stinger_precision", IUpgrade { ctx, count ->
-        if (count > 0) ctx.precisionEnabled = true
+        ctx.fuelConsumptionMultiplier -= count * 0.15
     }),
     SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
@@ -63,10 +54,7 @@ enum class UpgradeType(
  * Upgrades modify the behavior of bees deployed from the beehive:
  * - Rapid Wings: +25% bee speed per upgrade (max 4)
  * - Swarm Intelligence: +2 concurrent bees per upgrade (max 3)
- * - Pollen Link: Connect to nearby storage (1 only)
- * - Long-Range Scout: +16 blocks work radius per upgrade (max 2)
  * - Honey Efficiency: Increased carry capacity and break speed (max 2)
- * - Stinger Precision: Bees can place redstone/rails correctly (1 only)
  * - Soft Touch: Deconstruction preserves blocks (1 only)
  */
 open class BeeUpgradeItem(
@@ -109,12 +97,6 @@ class RapidWingsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.RAP
 
 class SwarmIntelligenceUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SWARM_INTELLIGENCE, properties)
 
-class PollenLinkUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.POLLEN_LINK, properties)
-
-class LongRangeScoutUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.LONG_RANGE_SCOUT, properties)
-
 class HoneyEfficiencyUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONEY_EFFICIENCY, properties)
-
-class StingerPrecisionUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.STINGER_PRECISION, properties)
 
 class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT_TOUCH, properties)

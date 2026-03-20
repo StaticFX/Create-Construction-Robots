@@ -1,26 +1,24 @@
 package de.devin.cbbees.content.backpack
 
+import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
-import de.devin.cbbees.content.domain.task.BeeTask
-import de.devin.cbbees.content.domain.task.TaskStatus
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
-import de.devin.cbbees.network.TaskProgressSyncPacket
+import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.NonNullList
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.RegistryFriendlyByteBuf
-import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.Container
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerData
 import net.minecraft.world.inventory.MenuType
+import net.minecraft.world.inventory.SimpleContainerData
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.component.ItemContainerContents
-import net.neoforged.neoforge.network.PacketDistributor
 import top.theillusivec4.curios.api.CuriosApi
 
 /**
@@ -36,6 +34,7 @@ class BeehiveContainer : AbstractContainerMenu {
     private val playerInventory: Inventory
     val backpackStack: ItemStack
     private val backpackInventory: Container
+    val fuelData: ContainerData
 
     // Constructor for client-side (from network) - used by Registrate
     constructor(type: MenuType<*>, containerId: Int, playerInventory: Inventory, extraData: RegistryFriendlyByteBuf)
@@ -45,6 +44,7 @@ class BeehiveContainer : AbstractContainerMenu {
         val slotIndex = extraData.readVarInt()
         this.backpackStack = playerInventory.getItem(slotIndex)
         this.backpackInventory = SimpleContainer(PortableBeehiveItem.TOTAL_SLOTS)
+        this.fuelData = SimpleContainerData(2)
 
         setupSlots()
     }
@@ -55,6 +55,15 @@ class BeehiveContainer : AbstractContainerMenu {
         this.playerInventory = playerInventory
         this.backpackStack = backpackStack
         this.backpackInventory = SimpleContainer(PortableBeehiveItem.TOTAL_SLOTS)
+        this.fuelData = object : ContainerData {
+            override fun get(index: Int): Int = when (index) {
+                0 -> backpackStack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+                1 -> CBeesConfig.portableMaxHoney.get()
+                else -> 0
+            }
+            override fun set(index: Int, value: Int) {}
+            override fun getCount(): Int = 2
+        }
 
         // Load contents from the backpack item
         val contents = backpackStack.get(DataComponents.CONTAINER)
@@ -70,32 +79,32 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     private fun setupSlots() {
+        addDataSlots(fuelData)
+
         // Updated positions for Create-style GUI (FILTER + PLAYER_INVENTORY backgrounds)
         // FILTER background is 214x99, PLAYER_INVENTORY is 176x108
         // 4px gap between them
 
-        // Robot slots (1 row of 4) - positioned in FILTER background area
-        // Centered: (214 - (4 * 22)) / 2 = 63
+        // Robot slots (2 slots, stacked vertically) - positions from custom texture
+        val beeSlotPositions = listOf(8 to 24, 8 to 51)
         for (i in 0 until PortableBeehiveItem.ROBOT_SLOTS) {
-            val x = 63 + (i * 22)
-            val y = 30
+            val (x, y) = beeSlotPositions[i]
             addSlot(RobotSlot(backpackInventory, i, x, y))
         }
 
-        // Upgrade slots (1 row of 6 below robots)
-        // Centered: (214 - (6 * 22)) / 2 = 41
+        // Upgrade slots (4 slots in a row) - positions from custom texture
+        val upgradeSlotPositions = listOf(99 to 38, 120 to 38, 141 to 38, 162 to 38)
         for (i in 0 until PortableBeehiveItem.UPGRADE_SLOTS) {
-            val x = 41 + (i * 22)
-            val y = 60
+            val (x, y) = upgradeSlotPositions[i]
             addSlot(UpgradeSlot(backpackInventory, PortableBeehiveItem.ROBOT_SLOTS + i, x, y))
         }
 
         // Add player inventory slots
-        // FILTER height (99) + gap (4) = 103, then PLAYER_INVENTORY starts
-        // PLAYER_INVENTORY is centered: (214 - 176) / 2 = 19 offset
-        // Player inventory slots start at y=103+18=121 (18px from top of PLAYER_INVENTORY for label)
-        val invX = 19 + 7  // Center offset + standard inventory padding
-        val invY = 103 + 18
+        // Custom background height (102) + gap (4) = 106, then PLAYER_INVENTORY starts
+        // PLAYER_INVENTORY is centered: (200 - 176) / 2 = 12 offset
+        // Player inventory slots start at y=106+18=124 (18px from top of PLAYER_INVENTORY for label)
+        val invX = 12 + 8  // Center offset + standard inventory padding
+        val invY = 106 + 17
         for (row in 0 until 3) {
             for (col in 0 until 9) {
                 addSlot(Slot(playerInventory, col + row * 9 + 9, invX + col * 18, invY + row * 18))
@@ -197,50 +206,13 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     override fun clickMenuButton(player: Player, id: Int): Boolean {
-        // Logic removed as per requirement to move Start button to Schematic HUD
+        if (id == 0) {
+            // Accept button — save and close
+            saveBackpackContents()
+            player.closeContainer()
+            return true
+        }
         return false
     }
 
-    private var syncTickCounter = 0
-
-    override fun broadcastChanges() {
-        super.broadcastChanges()
-
-        // Send task progress sync every 10 ticks (0.5 seconds)
-        syncTickCounter++
-        if (syncTickCounter >= 10) {
-            syncTickCounter = 0
-            sendTaskProgressSync()
-        }
-    }
-
-    private fun sendTaskProgressSync() {
-        val player = playerInventory.player
-        if (player !is ServerPlayer) return
-
-        val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
-        if (jobs.isNotEmpty()) {
-            val totalTasks = jobs.sumOf { it.tasks.size }
-            val completedTasks = jobs.sumOf { it.tasks.count { t -> t.status == TaskStatus.COMPLETED } }
-
-            // jobProgress map: jobId -> (completed, total)
-            val jobProgress =
-                jobs.associate { it.jobId to (it.tasks.count { t -> t.status == TaskStatus.COMPLETED } to it.tasks.size) }
-
-            val packet = TaskProgressSyncPacket(
-                globalTotal = totalTasks,
-                globalCompleted = completedTasks,
-                jobProgress = jobProgress
-            )
-            PacketDistributor.sendToPlayer(player, packet)
-        } else {
-            // No active tasks - send empty progress
-            val packet = TaskProgressSyncPacket(
-                globalTotal = 0,
-                globalCompleted = 0,
-                jobProgress = emptyMap()
-            )
-            PacketDistributor.sendToPlayer(player, packet)
-        }
-    }
 }

@@ -1,68 +1,91 @@
 package de.devin.cbbees.content.schematics.client
 
-import com.simibubi.create.foundation.gui.AllGuiTextures
-import com.simibubi.create.foundation.gui.AllIcons
-import com.simibubi.create.foundation.gui.widget.IconButton
-import net.createmod.catnip.gui.AbstractSimiScreen
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.components.ObjectSelectionList
-import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
+import org.lwjgl.glfw.GLFW
 
 /**
  * Popup screen for selecting or creating a group path for a schematic.
- * Used from the Schematic & Quill save dialog (via mixin) and from the main browser.
+ * Used from the main browser and from the Schematic & Quill save dialog (via mixin).
  *
- * @param callback Called with the selected group path when confirmed (empty string = root)
+ * Renders as a centered panel with:
+ * - Scrollable list of existing groups
+ * - Text field for creating a new group
+ * - Confirm / Cancel buttons
+ *
+ * @param callback Called with the selected group path when confirmed (empty string = root).
+ *                 The callback is responsible for any group persistence — this screen only
+ *                 picks the path. After calling the callback, this screen returns to [parentScreen].
  * @param currentGroup The currently assigned group path (pre-selected in the list)
+ * @param parentScreen Screen to return to on close/cancel. Null = close all screens.
  */
 @OnlyIn(Dist.CLIENT)
 class GroupPickerScreen(
     private val callback: (String) -> Unit,
-    private val currentGroup: String = ""
-) : AbstractSimiScreen(Component.translatable("gui.cbbees.group_picker.title")) {
+    private val currentGroup: String = "",
+    private val parentScreen: Screen? = null
+) : Screen(Component.translatable("gui.cbbees.group_picker.title")) {
 
-    private val background = AllGuiTextures.SCHEMATIC_PROMPT
+    companion object {
+        private const val PANEL_WIDTH = 220
+        private const val PANEL_HEIGHT = 200
+    }
+
+    private var panelLeft = 0
+    private var panelTop = 0
+
     private var groupList: GroupSelectionList? = null
     private var newGroupField: EditBox? = null
     private var selectedPath: String = currentGroup
 
     override fun init() {
-        setWindowSize(background.width, background.height + 80)
         super.init()
 
-        val x = guiLeft
-        val y = guiTop
+        panelLeft = (width - PANEL_WIDTH) / 2
+        panelTop = (height - PANEL_HEIGHT) / 2
+
+        val innerLeft = panelLeft + 10
+        val innerWidth = PANEL_WIDTH - 20
 
         // Scrollable list of existing groups
-        val listWidth = background.width - 20
+        val listTop = panelTop + 28
+        val listHeight = 100
         groupList = GroupSelectionList(
-            minecraft!!, listWidth, 80, y + 20, 14, x + 10
+            minecraft!!, innerWidth, listHeight, listTop, 16, innerLeft
         )
         addWidget(groupList!!)
 
-        // Add root entry
-        groupList!!.addEntry(GroupEntry("", Component.translatable("gui.cbbees.group_picker.root")))
+        // Populate list
+        groupList!!.addGroupEntry(
+            GroupEntry(
+                "",
+                Component.translatable("gui.cbbees.group_picker.root")
+            )
+        )
 
-        // Add all existing group paths
         for (path in SchematicGroupManager.getAllGroupPaths().sorted()) {
-            val indent = "  ".repeat(path.count { it == '/' })
+            val depth = path.count { it == '/' }
+            val indent = "  ".repeat(depth)
             val displayName = path.substringAfterLast("/")
-            groupList!!.addEntry(GroupEntry(path, Component.literal("$indent$displayName")))
+            groupList!!.addGroupEntry(GroupEntry(path, Component.literal("$indent$displayName")))
         }
 
         // Pre-select current group
         groupList!!.children().find { it.path == currentGroup }?.let {
-            groupList!!.setSelected(it)
+            groupList!!.selected = it
         }
 
-        // New group text field
+        // "Or create new" text field
+        val fieldY = panelTop + 148
         newGroupField = EditBox(
-            font, x + 10, y + 108, background.width - 20, 16,
+            font, innerLeft, fieldY, innerWidth, 16,
             Component.translatable("gui.cbbees.group_picker.new_group")
         )
         newGroupField!!.setMaxLength(200)
@@ -70,68 +93,120 @@ class GroupPickerScreen(
         newGroupField!!.setHint(Component.translatable("gui.cbbees.group_picker.new_group_hint"))
         addRenderableWidget(newGroupField!!)
 
-        // Confirm button
-        val confirmBtn = IconButton(x + background.width - 33, y + background.height + 80 - 33, AllIcons.I_CONFIRM)
-        confirmBtn.setToolTip(Component.translatable("gui.cbbees.group_picker.confirm"))
-        confirmBtn.withCallback<IconButton>(Runnable { confirm() })
-        addRenderableWidget(confirmBtn)
+        // Buttons at bottom of panel
+        val buttonY = panelTop + PANEL_HEIGHT - 24
+        val buttonWidth = (innerWidth - 6) / 2
 
-        // Cancel button
-        val cancelBtn = IconButton(x + 7, y + background.height + 80 - 33, AllIcons.I_TRASH)
-        cancelBtn.setToolTip(Component.translatable("gui.cbbees.group_picker.cancel"))
-        cancelBtn.withCallback<IconButton>(Runnable { onClose() })
-        addRenderableWidget(cancelBtn)
+        addRenderableWidget(Button.builder(Component.translatable("gui.cbbees.group_picker.confirm")) {
+            confirm()
+        }.bounds(innerLeft, buttonY, buttonWidth, 20).build())
+
+        addRenderableWidget(Button.builder(Component.translatable("gui.cbbees.group_picker.cancel")) {
+            onClose()
+        }.bounds(innerLeft + buttonWidth + 6, buttonY, buttonWidth, 20).build())
     }
 
     private fun confirm() {
         val newGroup = newGroupField?.value?.trim() ?: ""
         val result = if (newGroup.isNotEmpty()) {
-            // User typed a new group path — use it
             newGroup.trim('/')
         } else {
-            // Use the selected path from the list
             selectedPath
         }
         callback(result)
-        onClose()
+        // Return to parent (don't call onClose() which would null the screen
+        // after the callback may have already set a different screen)
+        minecraft?.setScreen(parentScreen)
     }
 
-    override fun renderWindow(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
-        val x = guiLeft
-        val y = guiTop
+    override fun onClose() {
+        // Return to parent screen instead of closing everything
+        minecraft?.setScreen(parentScreen)
+    }
 
-        // Draw extended background
-        background.render(graphics, x, y)
+    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick)
+
+        // Panel background
+        guiGraphics.fill(
+            panelLeft - 1, panelTop - 1,
+            panelLeft + PANEL_WIDTH + 1, panelTop + PANEL_HEIGHT + 1, 0xFF333333.toInt()
+        )
+        guiGraphics.fill(
+            panelLeft, panelTop,
+            panelLeft + PANEL_WIDTH, panelTop + PANEL_HEIGHT, 0xFF1a1a2e.toInt()
+        )
 
         // Title
-        graphics.drawString(
+        guiGraphics.drawCenteredString(
             font, title,
-            x + (background.width - font.width(title)) / 2,
-            y + 5,
-            0x505050, false
+            panelLeft + PANEL_WIDTH / 2, panelTop + 6, 0xFFFFFF
         )
 
         // "Existing groups:" label
-        graphics.drawString(font,
+        guiGraphics.drawString(
+            font,
             Component.translatable("gui.cbbees.group_picker.existing"),
-            x + 10, y + 20 - 10, 0x606060, false
+            panelLeft + 10, panelTop + 18, 0xAAAAAA, false
         )
 
         // Render the group list
-        groupList?.render(graphics, mouseX, mouseY, partialTicks)
+        groupList?.render(guiGraphics, mouseX, mouseY, partialTick)
 
         // "Or create new:" label
-        graphics.drawString(font,
+        guiGraphics.drawString(
+            font,
             Component.translatable("gui.cbbees.group_picker.or_create"),
-            x + 10, y + 96, 0x606060, false
+            panelLeft + 10, panelTop + 136, 0xAAAAAA, false
         )
+
+        // Text input background highlight
+        val fieldX = panelLeft + 9
+        val fieldY = panelTop + 147
+        val fieldW = PANEL_WIDTH - 18
+        guiGraphics.fill(fieldX, fieldY, fieldX + fieldW, fieldY + 18, 0x60000000)
     }
 
+    override fun renderBackground(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        renderTransparentBackground(guiGraphics)
+    }
+
+    // Forward mouse events to the group list
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         groupList?.let {
             if (it.mouseClicked(mouseX, mouseY, button)) return true
         }
         return super.mouseClicked(mouseX, mouseY, button)
+    }
+
+    override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
+        groupList?.let {
+            if (it.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+    }
+
+    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
+        groupList?.let {
+            if (it.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+    }
+
+    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        groupList?.let {
+            if (it.mouseReleased(mouseX, mouseY, button)) return true
+        }
+        return super.mouseReleased(mouseX, mouseY, button)
+    }
+
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+        // Enter confirms
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            confirm()
+            return true
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers)
     }
 
     // --- Inner classes ---
@@ -147,18 +222,32 @@ class GroupPickerScreen(
             mouseX: Int, mouseY: Int, hovered: Boolean, partialTick: Float
         ) {
             val selected = groupList?.selected === this
+
+            // Use the full list width for the highlight (not the narrower row width)
+            val list = groupList ?: return
+            val hlLeft = list.getRowLeft()
+            val hlRight = hlLeft + list.getRowWidth() + 12
+
+            if (selected) {
+                guiGraphics.fill(hlLeft, top, hlRight, top + height, 0x50FFFFFF)
+            } else if (hovered) {
+                guiGraphics.fill(hlLeft, top, hlRight, top + height, 0x20FFFFFF)
+            }
+
             val color = when {
                 selected -> 0xFFFF00
                 path.isEmpty() -> 0xAAAAAA
                 hovered -> 0xFFFFFF
                 else -> 0xCCCCCC
             }
-            guiGraphics.drawString(font, display, left + 2, top + 2, color, false)
+            guiGraphics.drawString(font, display, left + 2, top + 3, color, false)
         }
 
         override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
             groupList?.setSelected(this)
             selectedPath = path
+            // Clear the new group field when selecting from the list
+            newGroupField?.value = ""
             return true
         }
     }
@@ -175,6 +264,17 @@ class GroupPickerScreen(
         override fun getRowLeft(): Int = listLeft
         override fun getRowWidth(): Int = this.width - 12
 
-        public override fun addEntry(entry: GroupEntry): Int = super.addEntry(entry)
+        // Suppress the default white selection box — we draw our own in the entry
+        override fun isSelectedItem(index: Int): Boolean = false
+
+        fun addGroupEntry(entry: GroupEntry): Int = super.addEntry(entry)
+
+        // Suppress the default full-screen dark background and separators
+        override fun renderWidget(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+            guiGraphics.enableScissor(listLeft, this.y, listLeft + this.width, this.y + this.height)
+            guiGraphics.fill(listLeft, this.y, listLeft + this.width, this.y + this.height, 0x40000000)
+            renderListItems(guiGraphics, mouseX, mouseY, partialTick)
+            guiGraphics.disableScissor()
+        }
     }
 }

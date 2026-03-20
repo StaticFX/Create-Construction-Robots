@@ -50,14 +50,14 @@ class RechargeSpringBehavior : Behavior<MechanicalBeeEntity>(
             val baseTicks = CBeesConfig.springRechargeTicks.get()
             val rechargeTicks = (baseTicks / ctx.springEfficiency).toInt().coerceAtLeast(20)
 
-            // Portable beehive: consume air for rewind
+            // Portable beehive: consume honey for rewind
             if (hive is PortableBeeHive) {
-                val airCost = CBeesConfig.portableAirPerRewind.get()
-                if (!hive.hasAir(airCost)) {
-                    BeeDebug.log(entity, "Not enough air for spring recharge")
+                val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+                if (!hive.hasHoney(honeyCost)) {
+                    BeeDebug.log(entity, "Not enough honey for spring recharge")
                     return
                 }
-                hive.consumeAir(airCost)
+                hive.consumeHoney(honeyCost)
             }
 
             entity.rechargeFinishTick = gameTime + rechargeTicks

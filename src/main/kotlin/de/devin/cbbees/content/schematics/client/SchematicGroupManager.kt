@@ -90,6 +90,14 @@ object SchematicGroupManager {
         save()
     }
 
+    /** Transfers group assignment from one filename to another (used when renaming). */
+    fun renameEntry(oldFilename: String, newFilename: String) {
+        ensureLoaded()
+        val group = groups.remove(oldFilename) ?: return
+        groups[newFilename] = group
+        save()
+    }
+
     /** Prunes entries for schematic files that no longer exist on disk. */
     fun reconcile(available: List<String>) {
         ensureLoaded()

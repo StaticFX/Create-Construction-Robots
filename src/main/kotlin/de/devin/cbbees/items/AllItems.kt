@@ -1,5 +1,8 @@
 package de.devin.cbbees.items
 
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.AllItems
+import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
@@ -8,6 +11,10 @@ import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.upgrades.*
+import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
+import net.minecraft.data.recipes.RecipeCategory
+import net.minecraft.data.recipes.ShapedRecipeBuilder
+import net.minecraft.world.item.Items
 import net.minecraft.world.item.Rarity
 
 
@@ -62,10 +69,37 @@ object AllItems {
 
     // ===== Backpack Upgrades =====
 
+    val UPGRADE_TEMPLATE: ItemEntry<UpgradeTemplateItem> = CreateBuzzyBeez.REGISTRATE
+        .item("upgrade_template") { props ->
+            UpgradeTemplateItem(props)
+        }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.ANDESITE_ALLOY.get())
+                .define('V', Items.HONEYCOMB)
+                .pattern(" W ")
+                .pattern("WVW")
+                .pattern(" V ")
+                .unlockedBy("has_honey_comb", RegistrateRecipeProvider.has(Items.HONEYCOMB))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .register()
+
     // Rapid Wings - +25% bee speed (max 4)
     val RAPID_WINGS: ItemEntry<RapidWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("rapid_wings") { props ->
             RapidWingsUpgrade(props)
+        }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.SUGAR)
+                .define('B', AllItems.PROPELLER.get())
+                .pattern(" B ")
+                .pattern("VWV")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
@@ -74,22 +108,15 @@ object AllItems {
     val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("swarm_intelligence") { props ->
             SwarmIntelligenceUpgrade(props)
-        }
-        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
-        .register()
-
-    // Pollen Link - connect to nearby storage
-    val POLLEN_LINK: ItemEntry<PollenLinkUpgrade> = CreateBuzzyBeez.REGISTRATE
-        .item("pollen_link") { props ->
-            PollenLinkUpgrade(props)
-        }
-        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
-        .register()
-
-    // Long-Range Scout - +16 blocks work radius
-    val LONG_RANGE_SCOUT: ItemEntry<LongRangeScoutUpgrade> = CreateBuzzyBeez.REGISTRATE
-        .item("long_range_scout") { props ->
-            LongRangeScoutUpgrade(props)
+        }.recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', AllItems.PRECISION_MECHANISM)
+                .define('B', AllItems.ELECTRON_TUBE.get())
+                .pattern(" V ")
+                .pattern("BWB")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
@@ -98,22 +125,34 @@ object AllItems {
     val HONEY_EFFICIENCY: ItemEntry<HoneyEfficiencyUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("honey_efficiency") { props ->
             HoneyEfficiencyUpgrade(props)
+        }.recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.HONEY_BOTTLE)
+                .define('B', AllItems.PROPELLER.get())
+                .pattern(" B ")
+                .pattern("VWV")
+                .pattern(" V ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
-        .register()
-
-    // Stinger Precision - Bees can place redstone/rails correctly
-    val STINGER_PRECISION: ItemEntry<StingerPrecisionUpgrade> = CreateBuzzyBeez.REGISTRATE
-        .item("stinger_precision") { props ->
-            StingerPrecisionUpgrade(props)
-        }
-        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
     // Soft Touch - Deconstruction preserves blocks
     val SOFT_TOUCH: ItemEntry<SoftTouchUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("soft_touch") { props ->
             SoftTouchUpgrade(props)
+        }.recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.FEATHER)
+                .define('B', AllItems.STURDY_SHEET)
+                .pattern(" V ")
+                .pattern("VWV")
+                .pattern("BBB")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()

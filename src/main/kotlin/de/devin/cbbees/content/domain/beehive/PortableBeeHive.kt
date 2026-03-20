@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.domain.beehive
 
-import com.simibubi.create.content.equipment.armor.BacktankUtil
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
+import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
@@ -39,7 +39,12 @@ class PortableBeeHive(val player: Player) : BeeHive {
 
         val beeItem = consumeBee()
         if (beeItem.isEmpty) return false
-        return spawnBee(beeItem, batch)
+        val spawned = spawnBee(beeItem, batch)
+        if (!spawned) {
+            // Return the bee to the backpack if deployment failed
+            addBee(beeItem)
+        }
+        return spawned
     }
 
     private fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
@@ -49,13 +54,11 @@ class PortableBeeHive(val player: Player) : BeeHive {
             this.networkId = this@PortableBeeHive.network().id
         }
 
-        // Rewind spring — costs Backtank air proportional to deficit
-        val deficit = 1.0f - bee.springTension
-        if (deficit > 0f) {
-            val airCost = (deficit * CBeesConfig.portableAirPerRewind.get()).toInt()
-            if (!hasAir(airCost)) return false
-            consumeAir(airCost)
-        }
+        // Always charge honey to wind the spring for deployment
+        val ctx = getBeeContext()
+        val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+        if (!hasHoney(honeyCost)) return false
+        consumeHoney(honeyCost)
         bee.springTension = 1.0f
 
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
@@ -98,26 +101,24 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return (backpack.item as PortableBeehiveItem).getBeeContext(backpack)
     }
 
-    fun consumeAir(amount: Int): Int {
+    fun consumeHoney(amount: Int): Int {
         if (player.isCreative) return amount
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return 0
-
-        val available = BacktankUtil.getAir(backpack)
-        val toConsume = minOf(amount, available)
-        BacktankUtil.consumeAir(player, backpack, toConsume)
+        val stored = backpack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+        val toConsume = minOf(amount, stored)
+        backpack.set(AllDataComponents.HONEY_FUEL.get(), stored - toConsume)
         return toConsume
     }
 
-    fun hasAir(amount: Int): Boolean {
+    fun hasHoney(amount: Int): Boolean {
         if (player.isCreative) return true
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return false
-        return BacktankUtil.getAir(backpack) >= amount
+        return backpack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0) >= amount
     }
 
     fun addBee(item: ItemStack): Boolean {
-        if (player.isCreative) return true
         val backpackItemStack = getBackpackStack()
         if (backpackItemStack.isEmpty) return false
         return (backpackItemStack.item as PortableBeehiveItem).addRobot(backpackItemStack, item)
@@ -126,10 +127,6 @@ class PortableBeeHive(val player: Player) : BeeHive {
     override fun consumeBee(): ItemStack {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return ItemStack.EMPTY
-
-        // Creative mode players don't consume bees, return a mechanical bee
-        if (player.isCreative) return ItemStack(AllItems.MECHANICAL_BEE.get())
-
         return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
     }
 
@@ -137,10 +134,6 @@ class PortableBeeHive(val player: Player) : BeeHive {
     override fun getAvailableBeeCount(): Int {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return 0
-
-        // Creative mode players have infinite bees (represented by a large number)
-        if (player.isCreative) return 100
-
         return (backpack.item as PortableBeehiveItem).getTotalRobotCount(backpack)
     }
 

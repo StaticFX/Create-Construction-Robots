@@ -3,17 +3,13 @@ package de.devin.cbbees.mixin;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
-import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
-import de.devin.cbbees.network.SelectSchematicPacket;
 import de.devin.cbbees.network.StartConstructionPacket;
 import de.devin.cbbees.network.StopTasksPacket;
 import de.devin.cbbees.network.UnselectSchematicPacket;
 import de.devin.cbbees.registry.AllKeys;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -31,11 +27,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Mixin for {@link SchematicHandler} providing:
  * <ul>
- *   <li>RMB interception for the custom Construct / Unselect tools</li>
+ *   <li>RMB interception for the custom Construct / Unselect tools (state 3 only)</li>
  *   <li>R-key shortcut for construction (Construction Planner only)</li>
  *   <li>Backspace shortcut for stopping tasks</li>
- *   <li>Suppresses Create's GUI overlay during browsing preview (our HUD shown instead)</li>
  * </ul>
+ *
+ * <p>Note: During state 2 (browsing preview), Create's SchematicHandler is dormant
+ * (no data on the item), so none of these injections fire. They only apply to
+ * state 3 (deployed) when Create is active.</p>
  */
 @Mixin(value = SchematicHandler.class, remap = false)
 public abstract class SchematicHandlerHudMixin {
@@ -44,42 +43,15 @@ public abstract class SchematicHandlerHudMixin {
     @Shadow public abstract boolean isDeployed();
 
     /* ------------------------------------------------------------------ */
-    /*  Suppress Create's GUI overlay during browsing preview               */
-    /* ------------------------------------------------------------------ */
-
-    /**
-     * Cancels Create's schematic HUD (tool selection, hotbar overlay, tool overlay)
-     * while the player is browsing schematics — our own HUD is shown instead.
-     */
-    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
-            at = @At("HEAD"), cancellable = true)
-    private void ccr$suppressHudDuringBrowsing(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        if (ConstructionPlannerHandler.INSTANCE.isBrowsingPreview()) {
-            ci.cancel();
-        }
-    }
-
-    /* ------------------------------------------------------------------ */
     /*  Construction packet helper                                         */
     /* ------------------------------------------------------------------ */
 
     /**
      * Reads placement data from the client-side ItemStack and sends a
-     * StartConstructionPacket. If the player is in browsing preview mode,
-     * first syncs the schematic filename to the server via SelectSchematicPacket
-     * so the server has the correct file before construction starts.
+     * StartConstructionPacket. Only used in state 3 (deployed).
      */
     @Unique
     private void ccr$sendConstructionPacket(ItemStack stack) {
-        // If browsing preview is active, sync filename to server first
-        if (ConstructionPlannerHandler.INSTANCE.isBrowsingPreview()) {
-            String filename = stack.get(AllDataComponents.SCHEMATIC_FILE);
-            if (filename != null) {
-                PacketDistributor.sendToServer(new SelectSchematicPacket(filename));
-            }
-            ConstructionPlannerHandler.INSTANCE.clearBrowsingPreview();
-        }
-
         BlockPos anchor = stack.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
         Rotation rotation = stack.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
         Mirror mirror = stack.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
@@ -87,7 +59,7 @@ public abstract class SchematicHandlerHudMixin {
     }
 
     /* ------------------------------------------------------------------ */
-    /*  RMB — custom tool actions                                          */
+    /*  RMB — custom tool actions (state 3 only)                           */
     /* ------------------------------------------------------------------ */
 
     /**
@@ -134,7 +106,7 @@ public abstract class SchematicHandlerHudMixin {
     }
 
     /* ------------------------------------------------------------------ */
-    /*  Key shortcuts                                                      */
+    /*  Key shortcuts (state 3 only)                                       */
     /* ------------------------------------------------------------------ */
 
     @Inject(method = "onKeyInput", at = @At("HEAD"))
