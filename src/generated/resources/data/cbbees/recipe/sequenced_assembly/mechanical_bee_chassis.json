@@ -1,0 +1,62 @@
+{
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "minecraft:honeycomb"
+  },
+  "loops": 5,
+  "results": [
+    {
+      "id": "cbbees:mechanical_bee_chassis"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_bee"
+        },
+        {
+          "item": "create:electron_tube"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_bee"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_bee"
+        },
+        {
+          "item": "create:brass_sheet"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_bee"
+        }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_bee"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_bee"
+        }
+      ]
+    }
+  ],
+  "transitional_item": {
+    "id": "cbbees:incomplete_mechanical_bee"
+  }
+}

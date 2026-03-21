@@ -56,7 +56,8 @@ class PortableBeeHive(val player: Player) : BeeHive {
 
         // Always charge honey to wind the spring for deployment
         val ctx = getBeeContext()
-        val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+        val honeyCost =
+            (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
         if (!hasHoney(honeyCost)) return false
         consumeHoney(honeyCost)
         bee.springTension = 1.0f

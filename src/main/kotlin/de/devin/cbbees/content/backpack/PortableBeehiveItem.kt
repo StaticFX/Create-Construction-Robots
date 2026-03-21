@@ -105,7 +105,8 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
         // Shift+RMB: try to load honey from the other hand
         if (player.isShiftKeyDown) {
-            val otherHand = if (usedHand == InteractionHand.MAIN_HAND) InteractionHand.OFF_HAND else InteractionHand.MAIN_HAND
+            val otherHand =
+                if (usedHand == InteractionHand.MAIN_HAND) InteractionHand.OFF_HAND else InteractionHand.MAIN_HAND
             val fuelStack = player.getItemInHand(otherHand)
             val fuelValue = getHoneyFuelValue(fuelStack)
             if (fuelValue > 0) {

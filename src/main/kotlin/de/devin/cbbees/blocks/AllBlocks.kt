@@ -37,22 +37,27 @@ object AllBlocks {
     val LOGISTICS_PORT = CreateBuzzyBeez.REGISTRATE.block("logistics_port", ::LogisticPortBlock)
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() } // Important: so it doesn't "cull" the chest behind it
+        .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
         .item()
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', AllItems.TRANSMITTER.get())
                 .define('V', CreateAllBlocks.BRASS_FUNNEL.get())
                 .define('B', CreateAllBlocks.BRASS_CASING.get())
+                .pattern("W")
+                .pattern("V")
+                .pattern("B")
                 .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
-        .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/logistics_port/block")) }
+        .model { _, _ -> } // Hand-written item model in resources
         .build()
         .register()
 
     val CARGO_PORT = CreateBuzzyBeez.REGISTRATE.block("cargo_port", ::TransportPortBlock)
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() }
+        .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
         .item()
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
@@ -65,6 +70,7 @@ object AllBlocks {
                 .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
+        .model { _, _ -> } // Hand-written item model in resources
         .build()
         .register()
 

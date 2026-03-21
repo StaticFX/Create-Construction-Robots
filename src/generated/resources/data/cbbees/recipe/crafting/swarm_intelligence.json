@@ -3,22 +3,21 @@
   "category": "misc",
   "key": {
     "B": {
-      "item": "create:brass_casing"
+      "item": "create:electron_tube"
     },
     "V": {
-      "item": "create:item_vault"
+      "item": "create:precision_mechanism"
     },
     "W": {
-      "item": "create:transmitter"
+      "item": "cbbees:upgrade_template"
     }
   },
   "pattern": [
-    "W",
-    "V",
-    "B"
+    " V ",
+    "BWB"
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:cargo_port"
+    "id": "cbbees:swarm_intelligence"
   }
 }

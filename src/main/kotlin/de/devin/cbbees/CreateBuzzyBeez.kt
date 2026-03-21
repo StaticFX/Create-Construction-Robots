@@ -110,10 +110,16 @@ object CreateBuzzyBeez {
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
             MOD_BUS.addListener<RegisterGuiLayersEvent> { event ->
-                event.registerAbove(VanillaGuiLayers.CHAT, asResource("construction_planner_hud")) { guiGraphics, deltaTracker ->
+                event.registerAbove(
+                    VanillaGuiLayers.CHAT,
+                    asResource("construction_planner_hud")
+                ) { guiGraphics, deltaTracker ->
                     ConstructionPlannerHUD.renderHUD(guiGraphics, deltaTracker)
                 }
-                event.registerAbove(VanillaGuiLayers.CHAT, asResource("deconstruction_planner_hud")) { guiGraphics, deltaTracker ->
+                event.registerAbove(
+                    VanillaGuiLayers.CHAT,
+                    asResource("deconstruction_planner_hud")
+                ) { guiGraphics, deltaTracker ->
                     DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
                 }
             }

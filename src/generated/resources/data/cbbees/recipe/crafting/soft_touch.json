@@ -3,22 +3,22 @@
   "category": "misc",
   "key": {
     "B": {
-      "item": "create:brass_casing"
+      "item": "create:sturdy_sheet"
     },
     "V": {
-      "item": "create:item_vault"
+      "item": "minecraft:feather"
     },
     "W": {
-      "item": "create:transmitter"
+      "item": "cbbees:upgrade_template"
     }
   },
   "pattern": [
-    "W",
-    "V",
-    "B"
+    " V ",
+    "VWV",
+    "BBB"
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:cargo_port"
+    "id": "cbbees:soft_touch"
   }
 }

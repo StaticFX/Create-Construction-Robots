@@ -3,22 +3,22 @@
   "category": "misc",
   "key": {
     "B": {
-      "item": "create:brass_casing"
+      "item": "create:propeller"
     },
     "V": {
-      "item": "create:item_vault"
+      "item": "minecraft:sugar"
     },
     "W": {
-      "item": "create:transmitter"
+      "item": "cbbees:upgrade_template"
     }
   },
   "pattern": [
-    "W",
-    "V",
-    "B"
+    " B ",
+    "VWV",
+    " B "
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:cargo_port"
+    "id": "cbbees:rapid_wings"
   }
 }

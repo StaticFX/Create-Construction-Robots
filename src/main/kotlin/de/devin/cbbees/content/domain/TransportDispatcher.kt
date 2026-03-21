@@ -96,7 +96,10 @@ object TransportDispatcher : SavedData() {
         }
     }
 
-    private fun spawnMechanicalBumbleBee(hive: MechanicalBeehiveBlockEntity, task: TransportTask): MechanicalBumbleBeeEntity? {
+    private fun spawnMechanicalBumbleBee(
+        hive: MechanicalBeehiveBlockEntity,
+        task: TransportTask
+    ): MechanicalBumbleBeeEntity? {
         val level = hive.world
 
         val bee = MechanicalBumbleBeeEntity(AllEntityTypes.MECHANICAL_BUMBLE_BEE.get(), level).apply {

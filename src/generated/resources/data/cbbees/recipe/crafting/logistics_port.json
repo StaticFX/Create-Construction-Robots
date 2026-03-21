@@ -6,7 +6,7 @@
       "item": "create:brass_casing"
     },
     "V": {
-      "item": "create:item_vault"
+      "item": "create:brass_funnel"
     },
     "W": {
       "item": "create:transmitter"
@@ -19,6 +19,6 @@
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:cargo_port"
+    "id": "cbbees:logistics_port"
   }
 }

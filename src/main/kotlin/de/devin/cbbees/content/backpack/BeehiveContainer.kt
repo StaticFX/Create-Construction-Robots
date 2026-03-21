@@ -61,6 +61,7 @@ class BeehiveContainer : AbstractContainerMenu {
                 1 -> CBeesConfig.portableMaxHoney.get()
                 else -> 0
             }
+
             override fun set(index: Int, value: Int) {}
             override fun getCount(): Int = 2
         }

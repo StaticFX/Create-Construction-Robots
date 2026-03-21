@@ -3,22 +3,22 @@
   "category": "misc",
   "key": {
     "B": {
-      "item": "create:brass_casing"
+      "item": "create:propeller"
     },
     "V": {
-      "item": "create:item_vault"
+      "item": "minecraft:honey_bottle"
     },
     "W": {
-      "item": "create:transmitter"
+      "item": "cbbees:upgrade_template"
     }
   },
   "pattern": [
-    "W",
-    "V",
-    "B"
+    " B ",
+    "VWV",
+    " V "
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:cargo_port"
+    "id": "cbbees:honey_efficiency"
   }
 }

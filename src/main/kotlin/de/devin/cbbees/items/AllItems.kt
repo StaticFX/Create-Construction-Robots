@@ -2,6 +2,7 @@ package de.devin.cbbees.items
 
 import com.simibubi.create.AllBlocks
 import com.simibubi.create.AllItems
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem
 import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.ItemEntry
 import de.devin.cbbees.CreateBuzzyBeez
@@ -14,6 +15,7 @@ import de.devin.cbbees.content.upgrades.*
 import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.Rarity
 
@@ -26,6 +28,7 @@ object AllItems {
         .item("portable_beehive") { props ->
             PortableBeehiveItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
@@ -34,6 +37,7 @@ object AllItems {
         .item("mechanical_bee") { props ->
             MechanicalBeeItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .properties {
             it.stacksTo(MechanicalBeeItem.MAX_STACK_SIZE)
                 .rarity(Rarity.UNCOMMON)
@@ -45,6 +49,7 @@ object AllItems {
         .item("mechanical_bumble_bee") { props ->
             MechanicalBumbleBeeItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .properties {
             it.stacksTo(MechanicalBumbleBeeItem.MAX_STACK_SIZE)
                 .rarity(Rarity.UNCOMMON)
@@ -56,6 +61,7 @@ object AllItems {
         .item("construction_planner") { props ->
             ConstructionPlannerItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
@@ -64,6 +70,7 @@ object AllItems {
         .item("deconstruction_planner") { props ->
             DeconstructionPlannerItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
@@ -73,6 +80,7 @@ object AllItems {
         .item("upgrade_template") { props ->
             UpgradeTemplateItem(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', AllItems.ANDESITE_ALLOY.get())
@@ -90,6 +98,7 @@ object AllItems {
         .item("rapid_wings") { props ->
             RapidWingsUpgrade(props)
         }
+        .model { _, _ -> } // Hand-written model in resources
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', UPGRADE_TEMPLATE.get())
@@ -108,7 +117,9 @@ object AllItems {
     val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("swarm_intelligence") { props ->
             SwarmIntelligenceUpgrade(props)
-        }.recipe { c, p ->
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', UPGRADE_TEMPLATE.get())
                 .define('V', AllItems.PRECISION_MECHANISM)
@@ -125,7 +136,9 @@ object AllItems {
     val HONEY_EFFICIENCY: ItemEntry<HoneyEfficiencyUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("honey_efficiency") { props ->
             HoneyEfficiencyUpgrade(props)
-        }.recipe { c, p ->
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', UPGRADE_TEMPLATE.get())
                 .define('V', Items.HONEY_BOTTLE)
@@ -143,7 +156,9 @@ object AllItems {
     val SOFT_TOUCH: ItemEntry<SoftTouchUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("soft_touch") { props ->
             SoftTouchUpgrade(props)
-        }.recipe { c, p ->
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
                 .define('W', UPGRADE_TEMPLATE.get())
                 .define('V', Items.FEATHER)
@@ -155,6 +170,17 @@ object AllItems {
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
+    val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
+        .item("mechanical_bee_chassis") { props -> Item(props) }
+        .model { _, _ -> } // TODO: add texture/model
+        .register()
+
+    // Transitional item used during sequenced assembly
+    val INCOMPLETE_MECHANICAL_BEE = CreateBuzzyBeez.REGISTRATE
+        .item("incomplete_mechanical_bee") { props -> SequencedAssemblyItem(props) }
         .register()
 
 }
