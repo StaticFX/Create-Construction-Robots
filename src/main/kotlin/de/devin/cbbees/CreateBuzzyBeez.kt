@@ -24,7 +24,7 @@ import de.devin.cbbees.datagen.CCRDatagen
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.AllPackets
 import de.devin.cbbees.network.CCRServerEvents
-import de.devin.cbbees.ponder.CCRPonderPlugin
+import de.devin.cbbees.ponder.CBBPonderPlugin
 import de.devin.cbbees.registry.AllBlockEntityTypes
 import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.registry.AllCBeesFanProcessingTypes
@@ -163,7 +163,7 @@ object CreateBuzzyBeez {
         LOGGER.log(Level.INFO, "Initializing client...")
 
         // Register Ponder plugin
-        PonderIndex.addPlugin(CCRPonderPlugin())
+        PonderIndex.addPlugin(CBBPonderPlugin())
     }
 
     /**

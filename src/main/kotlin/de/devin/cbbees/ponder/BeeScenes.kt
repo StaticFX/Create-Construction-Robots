@@ -1,18 +1,22 @@
 package de.devin.cbbees.ponder
 
+import com.simibubi.create.AllItems
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
-import com.tterrag.registrate.util.nullness.NonNullSupplier
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.PortType
+import de.devin.cbbees.content.logistics.transport.TransportMode
+import de.devin.cbbees.content.logistics.transport.TransportPortBlock
 import de.devin.cbbees.registry.AllEntityTypes
+import net.createmod.catnip.math.Pointing
 import net.createmod.ponder.api.PonderPalette
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
 import net.minecraft.core.Direction
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
 object BeeScenes {
@@ -46,30 +50,14 @@ object BeeScenes {
             .placeNearTarget()
             .pointAt(util.vector().blockSurface(hivePos, Direction.WEST))
 
-        scene.idle(60)
+        scene.idle(80)
 
-        scene.overlay().showText(60)
-            .text("Beehives receive a unique Network ID when placed down: 0161")
+        scene.overlay().showText(120)
+            .text("Bees will spawn from it when a new task is available. Bees will also return to their hives when there are no more tasks.")
             .placeNearTarget()
             .pointAt(util.vector().blockSurface(hivePos, Direction.WEST))
 
-        scene.idle(60)
-
-        val hive2Pos = util.grid().at(0, 1, 2)
-
-        scene.world().showSection(util.select().position(hive2Pos), Direction.DOWN)
-        scene.world().setKineticSpeed(util.select().position(hive2Pos), 64f)
-
-        scene.idle(10)
-
-        scene.overlay().showOutlineWithText(util.select().position(hive2Pos), 60)
-            .text("Beehives placed in the same network join the same network.")
-            .placeNearTarget()
-            .pointAt(util.vector().blockSurface(hive2Pos, Direction.DOWN))
-
-        scene.idle(60)
-
-        scene.world().hideSection(util.select().position(hive2Pos), Direction.UP)
+        scene.idle(130)
 
         val funnelPos = util.grid().at(2, 2, 2)
         scene.world().showSection(util.select().position(funnelPos), Direction.DOWN)
@@ -77,11 +65,108 @@ object BeeScenes {
         scene.idle(10)
 
         scene.overlay().showOutlineWithText(util.select().position(funnelPos), 60)
-            .text("The funnel is used to insert bees into your network.")
+            .text("A funnel can be used to insert bees into your beehives.")
             .placeNearTarget()
+            .attachKeyFrame()
             .pointAt(util.vector().blockSurface(funnelPos, Direction.DOWN))
 
-        scene.idle(60)
+        scene.idle(80)
+
+        val boundingBox = AABB(0.0, 1.0, 0.0, 5.0, 1.0, 5.0)
+
+        scene.overlay().chaseBoundingBoxOutline(PonderPalette.BLUE, Object(), boundingBox, 100)
+
+        scene.idle(20)
+
+        scene.overlay().showText(90)
+            .text("A Beehive's range is shown when looking at it. It scales with the supplied RPM.")
+            .placeNearTarget()
+            .attachKeyFrame()
+            .pointAt(util.vector().blockSurface(hivePos, Direction.WEST))
+
+        scene.idle(90)
+
+        scene.markAsFinished()
+    }
+
+    fun mechanicalBeehiveNetworks(builder: SceneBuilder, util: SceneBuildingUtil) {
+        val scene = CreateSceneBuilder(builder)
+        scene.title("mechanical_beehive_networks", "Mechanical Beehive Networks")
+        scene.configureBasePlate(0, 0, 5)
+        scene.showBasePlate()
+        scene.idle(5)
+
+        val hive1Pos = util.grid().at(3, 1, 2)
+        scene.world().showSection(util.select().position(hive1Pos), Direction.DOWN)
+        scene.world().setKineticSpeed(util.select().position(hive1Pos), 64f)
+
+        scene.idle(15)
+
+        scene.overlay().showOutlineWithText(util.select().position(hive1Pos), 90)
+            .text("Mechanical Beehives will generate a unique network ID when placed.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(hive1Pos, Direction.DOWN))
+
+        scene.idle(110)
+
+        val boundingBox = AABB(1.0, 1.0, 0.0, 6.0, 1.0, 5.0)
+
+        scene.overlay().chaseBoundingBoxOutline(PonderPalette.BLUE, Object(), boundingBox, 730)
+
+        scene.idle(10)
+
+        scene.overlay().showOutlineWithText(util.select().position(hive1Pos), 120)
+            .text("The range of a Beehive also determines its network range. Any hive placed in that range will join the same network.")
+            .placeNearTarget()
+            .attachKeyFrame()
+            .pointAt(util.vector().blockSurface(hive1Pos, Direction.DOWN))
+
+        scene.idle(140)
+
+
+        val hivePose2 = util.grid().at(3, 1, 0)
+        scene.world().showSection(util.select().position(hivePose2), Direction.DOWN)
+
+        val boundingBox2 = AABB(1.0, 1.0, -2.0, 6.0, 1.0, 3.0)
+        scene.overlay().chaseBoundingBoxOutline(PonderPalette.BLUE, Object(), boundingBox2, 120)
+
+        scene.idle(20)
+
+        scene.overlay().showOutlineWithText(util.select().position(hivePose2), 90)
+            .text("Hives extend the range of your network.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(hivePose2, Direction.DOWN))
+
+        scene.idle(110)
+
+        scene.overlay().showOutlineWithText(util.select().position(hivePose2), 120)
+            .text("All hives in a network can contribute to the same task. Closer hives are prioritized.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(hivePose2, Direction.DOWN))
+
+        scene.idle(140)
+
+        val portPos = util.grid().at(1, 1, 2)
+        val port2Pos = util.grid().at(0, 1, 2)
+
+        scene.world().showSection(util.select().position(portPos), Direction.DOWN)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
+            .text("Ports can join the network when placed inside its range.")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
+
+        scene.idle(150)
+
+        scene.world().showSection(util.select().position(port2Pos), Direction.DOWN)
+
+        scene.overlay().showOutlineWithText(util.select().position(port2Pos), 120)
+            .text("Ports placed outside of the range can't be accessed by bees.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port2Pos, Direction.DOWN))
+
+        scene.idle(150)
 
         scene.markAsFinished()
     }
@@ -103,19 +188,23 @@ object BeeScenes {
 
         scene.idle(5)
 
-        scene.overlay().showOutlineWithText(util.select().position(portPos), 90)
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
             .text("The Logistics Port can be placed on any kind of inventory. A green bulb means it can interact with the inventory.")
             .placeNearTarget()
             .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
 
-        scene.idle(90)
+        scene.idle(120)
 
-        scene.overlay().showOutlineWithText(util.select().position(portPos), 60)
+        val wrench = AllItems.WRENCH.asStack()
+        scene.overlay().showControls(util.vector().blockSurface(portPos, Direction.NORTH), Pointing.LEFT, 110)
+            .withItem(wrench)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 90)
             .text("You can switch the port type to INSERT, by interacting with a wrench, to make it accept items.")
             .placeNearTarget()
-            .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
+            .attachKeyFrame()
 
-        scene.idle(10)
+        scene.idle(40)
 
         scene.world().modifyBlock(portPos, { state ->
             state.setValue(
@@ -125,6 +214,8 @@ object BeeScenes {
         }, false)
 
         scene.idle(50)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
 
         scene.markAsFinished()
     }
@@ -170,12 +261,12 @@ object BeeScenes {
         scene.world().showSection(util.select().position(portPos), Direction.DOWN)
         scene.world().showSection(util.select().position(hivePos), Direction.DOWN)
 
-        scene.overlay().showOutlineWithText(util.select().position(portPos), 60)
-            .text("When a Bee is spawned to work on a task, it will automatically find a Logistics Port to gather its items. Ports with a higher priority will be preferred.")
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 140)
+            .text("When a bee is spawned to work on a task, it will automatically find a Logistics Port to gather its items. Ports with a higher priority will be preferred.")
             .placeNearTarget()
             .pointAt(util.vector().blockSurface(hivePos, Direction.DOWN))
 
-        scene.idle(60)
+        scene.idle(140)
 
         val beeSpawn = util.vector().centerOf(hivePos).add(0.0, 1.0, 0.0)
         val bee = scene.world().createEntity { level ->
@@ -186,11 +277,12 @@ object BeeScenes {
             entity
         }
 
-        scene.overlay().showOutlineWithText(util.select().position(portPos), 60)
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
             .text("When a bee focuses on a port, it will start moving towards it, the port will signal this with a glowing bulb.")
             .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
             .placeNearTarget()
             .attachKeyFrame()
+
 
         scene.world().modifyBlock(portPos, { state ->
             state.setValue(
@@ -205,31 +297,258 @@ object BeeScenes {
         val portTarget = util.vector().centerOf(portPos).add(0.0, 0.5, 0.0)
         flyEntity(scene, bee, beeSpawn, portTarget, 60)
 
-        scene.idle(20)
+        scene.idle(80)
 
         scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
-            .text("The bee will pickup the items from the port, and then fly to its destination.")
+            .text("The bee will pick up the items from the port and then fly to its destination.")
 
-        scene.idle(60)
+        scene.idle(100)
 
         // Fly bee from port to wood placement
         val woodPos = util.grid().at(3, 1, 3)
         val woodTarget = util.vector().centerOf(woodPos).add(0.0, 1.0, 0.0)
         flyEntity(scene, bee, portTarget, woodTarget, 50)
 
+        scene.idle(50)
+
         scene.world().showSection(util.select().position(woodPos), Direction.DOWN)
 
         scene.idle(20)
 
+        scene.overlay().showOutlineWithText(util.select().position(hivePos), 120)
+            .text("When finished, the bee will look for a new task or fly back to its hive.")
+            .attachKeyFrame()
+            .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
+            .placeNearTarget()
+
+        scene.idle(50)
+
         // Fly bee back to hive
         flyEntity(scene, bee, woodTarget, beeSpawn, 50)
+
+        scene.idle(70)
 
         // Remove the bee when it arrives home
         scene.world().modifyEntity(bee) { it.discard() }
 
-        scene.idle(20)
+        scene.markAsFinished()
+    }
+
+    fun cargoPortIntro(builder: SceneBuilder, util: SceneBuildingUtil) {
+        val scene = CreateSceneBuilder(builder)
+        scene.title("cargo_port_intro", "The Cargo Port")
+        scene.configureBasePlate(0, 0, 5)
+        scene.showBasePlate()
+        scene.idle(5)
+
+        val vaultPos = util.grid().at(2, 1, 2)
+        val portPos = util.grid().at(2, 2, 2)
+
+        scene.world().showSection(util.select().position(vaultPos), Direction.DOWN)
+        scene.world().showSection(util.select().position(portPos), Direction.DOWN)
+
+        scene.idle(10)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
+            .text("The Cargo Port is used to move items around your network using the Mechanical Bumble Bee.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
+
+        scene.idle(145)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
+            .text("The Cargo Port can be placed on any kind of inventory. A green bulb means it can interact with the inventory.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(portPos, Direction.DOWN))
+
+        scene.idle(145)
+
+        val wrench = AllItems.WRENCH.asStack()
+        scene.overlay().showControls(portPos.center.add(.5, 0.0, 0.0), Pointing.RIGHT, 110)
+            .withItem(wrench)
+
+        scene.overlay().showOutlineWithText(util.select().position(portPos), 90)
+            .text("You can switch the port type to INSERT, by interacting with a wrench, to make it accept items.")
+            .placeNearTarget()
+            .attachKeyFrame()
+
+        scene.idle(40)
+
+        scene.world().modifyBlock(portPos, { state ->
+            state.setValue(
+                TransportPortBlock.TRANSPORT_MODE,
+                TransportMode.REQUESTER
+            ) as BlockState
+        }, false)
+
+        scene.idle(90)
 
         scene.markAsFinished()
     }
+
+    fun cargoPortWithBees(builder: SceneBuilder, util: SceneBuildingUtil) {
+        val scene = CreateSceneBuilder(builder)
+        scene.title("cargo_port_with_bees", "The Cargo Port with Bees")
+        scene.configureBasePlate(0, 0, 5)
+        scene.showBasePlate()
+        scene.idle(5)
+
+        val vault1Pos = util.grid().at(3, 1, 1)
+        val vault21Pos = util.grid().at(1, 1, 3)
+
+        val port1pos = util.grid().at(3, 2, 1)
+        val port2pos = util.grid().at(1, 2, 3)
+
+        scene.world().showSection(util.select().position(vault1Pos), Direction.DOWN)
+        scene.world().showSection(util.select().position(vault21Pos), Direction.DOWN)
+        scene.world().showSection(util.select().position(port1pos), Direction.DOWN)
+        scene.world().showSection(util.select().position(port2pos), Direction.DOWN)
+
+        scene.overlay().showOutlineWithText(util.select().position(port1pos), 90)
+            .text("Cargo ports can be configured for a certain frequency.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port1pos, Direction.DOWN))
+
+        val redstone = Items.REDSTONE
+
+        scene.idle(120)
+
+        scene.overlay().showControls(util.vector().blockSurface(port1pos, Direction.NORTH), Pointing.LEFT, 40)
+            .withItem(redstone.defaultInstance)
+
+        scene.idle(50)
+
+        scene.overlay().showControls(util.vector().blockSurface(port2pos, Direction.NORTH), Pointing.LEFT, 40)
+            .withItem(redstone.defaultInstance)
+
+        scene.idle(50)
+
+        scene.overlay().showLine(PonderPalette.GREEN, port1pos.center, port2pos.center, 110)
+
+        scene.idle(20)
+
+        scene.overlay().showOutlineWithText(util.select().position(port1pos), 90)
+            .text("When cargo ports have matching frequencies, a line will be displayed between them.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port1pos, Direction.DOWN))
+
+        scene.idle(100)
+
+        scene.overlay().showOutlineWithText(util.select().position(port1pos), 90)
+            .text("When a Cargo Port is placed inside a network, it will periodically scan for new items.")
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port1pos, Direction.DOWN))
+
+        scene.idle(100)
+
+        scene.overlay().showOutlineWithText(util.select().position(port1pos), 90)
+            .text("When a new item is detected, a new task will be created for pickup.")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port1pos, Direction.DOWN))
+
+        scene.idle(110)
+
+        val beeSpawn = util.vector().centerOf(port1pos).add(0.0, 1.0, 0.0)
+        val bee = scene.world().createEntity { level ->
+            val entity = AllEntityTypes.MECHANICAL_BUMBLE_BEE.create(level)!!
+            entity.setPos(beeSpawn.x, beeSpawn.y, beeSpawn.z)
+            entity.isNoAi = true
+            entity.noPhysics = true
+            entity
+        }
+
+        scene.idle(30)
+
+        scene.overlay().showOutlineWithText(util.select().position(port1pos), 90)
+            .text("A Mechanical Bumble Bee will pick it up and bring it to the closest matching requesting Cargo Port.")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().blockSurface(port1pos, Direction.DOWN))
+
+        scene.idle(30)
+
+        flyEntity(scene, bee, beeSpawn, util.vector().centerOf(port2pos).add(0.0, 1.0, 0.0), 50)
+
+        scene.idle(70)
+
+        scene.markAsFinished()
+    }
+
+    fun mechanicalBee(builder: SceneBuilder, util: SceneBuildingUtil) {
+        val scene = CreateSceneBuilder(builder)
+        scene.title("mechanical_bee", "The Mechanical Bees")
+        scene.configureBasePlate(0, 0, 5)
+        scene.showBasePlate()
+        scene.idle(5)
+
+        val beeSpawn = util.vector().centerOf(util.grid().at(2, 2, 2))
+        val beeSpawn2 = util.vector().centerOf(util.grid().at(1, 2, 2))
+
+        scene.world().createEntity { level ->
+            val entity = AllEntityTypes.MECHANICAL_BEE.create(level)!!
+            entity.setPos(beeSpawn.x, beeSpawn.y, beeSpawn.z)
+            entity.yRot = 180f
+            entity.yRotO = 180f
+            entity.yHeadRot = 180f
+            entity.yHeadRotO = 180f
+            entity.yBodyRot = 180f
+            entity.yBodyRotO = 180f
+            entity.isNoAi = true
+            entity.noPhysics = true
+            entity
+        }
+
+        scene.world().createEntity { level ->
+            val entity = AllEntityTypes.MECHANICAL_BUMBLE_BEE.create(level)!!
+            entity.setPos(beeSpawn2.x, beeSpawn2.y, beeSpawn2.z)
+            entity.yRot = 180f
+            entity.yRotO = 180f
+            entity.yHeadRot = 180f
+            entity.yHeadRotO = 180f
+            entity.yBodyRot = 180f
+            entity.yBodyRotO = 180f
+            entity.isNoAi = true
+            entity.noPhysics = true
+            entity
+        }
+
+        scene.idle(20)
+
+        val mechanicalBeeSelection = util.select().position(2, 2, 2)
+
+        scene.overlay().showOutlineWithText(mechanicalBeeSelection, 90)
+            .text("Mechanical Bees have an internal spring, which is consumed when flying and finishing tasks.")
+            .placeNearTarget()
+
+        scene.idle(110)
+
+        scene.overlay().showOutlineWithText(mechanicalBeeSelection, 120)
+            .text("The spring is recharged when empty at the Bees spawn hive.")
+            .placeNearTarget()
+
+        scene.idle(130)
+
+        scene.overlay().showOutlineWithText(mechanicalBeeSelection, 120)
+            .text("The Mechanical Bee can place/destroy blocks.")
+            .attachKeyFrame()
+            .placeNearTarget()
+
+        scene.idle(130)
+
+        val mechanicalBumbleBeeSelection = util.select().position(1, 2, 2)
+
+
+        scene.overlay().showOutlineWithText(mechanicalBumbleBeeSelection, 120)
+            .text("The Mechanical Bumble Bee can pick up items from cargo ports and transport them to other Cargo Ports.")
+            .attachKeyFrame()
+            .placeNearTarget()
+
+
+        scene.idle(130)
+
+        scene.markAsFinished()
+    }
+
 
 }
