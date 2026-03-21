@@ -11,7 +11,7 @@ import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.items.AllItems as CBeesItems
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -80,8 +80,8 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 1.0)
-                .add(Attributes.FLYING_SPEED, 6.0)
-                .add(Attributes.MOVEMENT_SPEED, 3.0)
+                .add(Attributes.FLYING_SPEED, 1.5)
+                .add(Attributes.MOVEMENT_SPEED, 0.75)
         }
     }
 
@@ -264,6 +264,10 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     fun getOwnerUUID(): UUID? = entityData.get(OWNER_UUID).orElse(null)
 
+    fun setHomeId(uuid: UUID) {
+        this.entityData.set(BEEHIVE_ID, Optional.of(uuid))
+    }
+
     override fun tick() {
         super.tick()
         if (level().isClientSide) return
@@ -285,7 +289,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
         // Drain spring while flying
         if (deltaMovement.lengthSqr() > 0.001) {
-            consumeSpring(CBeesConfig.springDrainFlight.get())
+            consumeSpring(CBBeesConfig.springDrainFlight.get())
         }
     }
 
@@ -309,11 +313,16 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
 
     // Mechanical bees fly through water — no swimming, no water drag
     override fun isInWater(): Boolean = false
+
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushedByFluid(): Boolean = false
 
-    override fun push(entity: Entity) { /* no-op */ }
-    override fun doPush(entity: Entity) { /* no-op */ }
+    override fun push(entity: Entity) { /* no-op */
+    }
+
+    override fun doPush(entity: Entity) { /* no-op */
+    }
+
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
 
@@ -452,10 +461,26 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     /**
+     * Drops all items in the bee's inventory on the ground at its current position.
+     */
+    fun dropInventory() {
+        for (i in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(i)
+            if (!stack.isEmpty) {
+                val drop = ItemEntity(level(), x, y, z, stack.copy())
+                level().addFreshEntity(drop)
+                inventory.setItem(i, ItemStack.EMPTY)
+            }
+        }
+    }
+
+    /**
      * Drops a robot item at the current position and removes the entity.
      * Used when the home cannot be found or is full.
      */
     fun dropBeeItemAndDiscard() {
+        dropInventory()
+
         val beeItemStack = ItemStack(CBeesItems.MECHANICAL_BEE.get(), 1)
         val itemEntity = ItemEntity(
             level(),

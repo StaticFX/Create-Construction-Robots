@@ -7,7 +7,7 @@ import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.items.AllItems
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -58,13 +58,13 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
             SynchedEntityData.defineId(MechanicalBumbleBeeEntity::class.java, EntityDataSerializers.FLOAT)
 
         const val WORK_RANGE: Double = 2.5
-        const val INVENTORY_SIZE: Int = 9
+        const val INVENTORY_SIZE: Int = 3
 
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 1.0)
-                .add(Attributes.FLYING_SPEED, 4.0)
-                .add(Attributes.MOVEMENT_SPEED, 2.0)
+                .add(Attributes.FLYING_SPEED, 1.0)
+                .add(Attributes.MOVEMENT_SPEED, 0.5)
         }
     }
 
@@ -156,6 +156,10 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
         return navigation
     }
 
+    fun setHomeId(uuid: UUID) {
+        this.entityData.set(BEEHIVE_ID, Optional.of(uuid))
+    }
+
     fun beehive(): BeeHive? {
         val brain = this.getBrain()
         val fromMemory = brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).getOrNull()
@@ -187,7 +191,7 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
 
         // Drain spring while flying
         if (deltaMovement.lengthSqr() > 0.001) {
-            consumeSpring(CBeesConfig.springDrainFlight.get())
+            consumeSpring(CBBeesConfig.springDrainFlight.get())
         }
     }
 
@@ -205,11 +209,16 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
 
     // Fly through water — no swimming, no water drag
     override fun isInWater(): Boolean = false
+
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushedByFluid(): Boolean = false
 
-    override fun push(entity: Entity) { /* no-op */ }
-    override fun doPush(entity: Entity) { /* no-op */ }
+    override fun push(entity: Entity) { /* no-op */
+    }
+
+    override fun doPush(entity: Entity) { /* no-op */
+    }
+
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
 

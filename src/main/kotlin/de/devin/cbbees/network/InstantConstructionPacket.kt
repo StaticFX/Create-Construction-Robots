@@ -73,9 +73,14 @@ class InstantConstructionPacket(
                 val name = payload.schematicName
                 if (name.contains("..") || name.contains("/") || name.contains("\\")) return@enqueueWork
 
+                val owner = player.gameProfile.name
+
+                // Ensure the schematic file exists in the server's uploaded directory
+                ensureSchematicUploaded(owner, name)
+
                 // Set all schematic data components for loading
                 mainHand.set(AllDataComponents.SCHEMATIC_FILE, name)
-                mainHand.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
+                mainHand.set(AllDataComponents.SCHEMATIC_OWNER, owner)
                 mainHand.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
                 mainHand.set(AllDataComponents.SCHEMATIC_ANCHOR, payload.anchor)
                 mainHand.set(AllDataComponents.SCHEMATIC_ROTATION, payload.rotation)

@@ -9,7 +9,7 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllEffects
@@ -44,12 +44,14 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     private var homeId = UUID.randomUUID()
 
-    /** Set of active bee UUIDs (server side only) */
-    private val activeBees = mutableSetOf<UUID>()
+    /** Active bee UUIDs grouped by job ID (server side only) */
+    private val activeBeesByJob = mutableMapOf<UUID, MutableSet<UUID>>()
 
-    override fun getActiveBeeCount(): Int = activeBees.size
+    override fun getActiveBeeCount(): Int = activeBeesByJob.values.sumOf { it.size }
 
-    val beeInventory = object : ItemStackHandler(9) {
+    fun getActiveBeeCountForJob(jobId: UUID): Int = activeBeesByJob[jobId]?.size ?: 0
+
+    val beeInventory = object : ItemStackHandler(1) {
         override fun onContentsChanged(slot: Int) = sync()
         override fun isItemValid(slot: Int, stack: ItemStack) =
             stack.item is MechanicalBeeItem || stack.item is MechanicalBumbleBeeItem
@@ -62,7 +64,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun onLoad() {
         super.onLoad()
-        if (level != null) {
+        if (level != null && getSpeed() != 0f) {
             addToNetwork(level!!)
         }
     }
@@ -79,6 +81,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             this.springTension = 1.0f
         }
 
+        bee.setHomeId(this.homeId)
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
         bee.getBrain().setMemory(BeeMemoryModules.CURRENT_TASK.get(), batch)
@@ -93,7 +96,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         }
 
         level!!.addFreshEntity(bee)
-        activeBees.add(bee.uuid)
+        activeBeesByJob.getOrPut(batch.job.jobId) { mutableSetOf() }.add(bee.uuid)
         sync()
 
         return true
@@ -101,7 +104,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getAvailableBeeCount() <= 0) return false
-        if (getActiveBeeCount() >= getBeeContext().maxActiveRobots) return false
+        if (getActiveBeeCountForJob(batch.job.jobId) >= getBeeContext().maxActiveRobots) return false
 
         this.setChanged()
 
@@ -121,9 +124,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
-        if (activeBees.remove(bee.uuid)) {
-            sync()
+        var found = false
+        val iter = activeBeesByJob.iterator()
+        while (iter.hasNext()) {
+            val (_, bees) = iter.next()
+            if (bees.remove(bee.uuid)) {
+                found = true
+                if (bees.isEmpty()) iter.remove()
+                break
+            }
         }
+        if (found) sync()
     }
 
     override fun walkTarget(): WalkTarget {
@@ -146,7 +157,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun onSpeedChanged(previousSpeed: Float) {
         super.onSpeedChanged(previousSpeed)
-        if (level != null && !level!!.isClientSide) {
+        if (level == null || level!!.isClientSide) return
+
+        if (getSpeed() == 0f) {
+            // No RPM — remove from network
+            ServerBeeNetworkManager.unregisterWorker(this.id)
+        } else if (previousSpeed == 0f) {
+            // Just started receiving RPM — join network
+            ServerBeeNetworkManager.registerWorker(this)
+        } else {
+            // RPM changed — re-register so the network picks up the new range
+            ServerBeeNetworkManager.unregisterWorker(this.id)
             ServerBeeNetworkManager.registerWorker(this)
         }
     }
@@ -157,14 +178,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         tag.putUUID("NetworkId", networkId)
 
         val activeBeesList = ListTag()
-        activeBees.forEach { uuid ->
-            val comp = CompoundTag()
-            comp.putUUID("Id", uuid)
-            activeBeesList.add(comp)
+        activeBeesByJob.forEach { (jobId, bees) ->
+            bees.forEach { beeId ->
+                val comp = CompoundTag()
+                comp.putUUID("Id", beeId)
+                comp.putUUID("JobId", jobId)
+                activeBeesList.add(comp)
+            }
         }
         tag.put("ActiveBees", activeBeesList)
 
-        tag.putInt("ActiveBeeCount", activeBees.size)
+        tag.putInt("ActiveBeeCount", getActiveBeeCount())
         tag.put("BeeInv", beeInventory.serializeNBT(registries))
 
         val instList = ListTag()
@@ -185,13 +209,14 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             networkId = tag.getUUID("NetworkId")
         }
 
-        activeBees.clear()
+        activeBeesByJob.clear()
         if (tag.contains("ActiveBees", Tag.TAG_LIST.toInt())) {
             val list = tag.getList("ActiveBees", Tag.TAG_COMPOUND.toInt())
             for (i in 0 until list.size) {
                 val comp = list.getCompound(i)
                 if (comp.hasUUID("Id")) {
-                    activeBees.add(comp.getUUID("Id"))
+                    val jobId = if (comp.hasUUID("JobId")) comp.getUUID("JobId") else UUID(0, 0)
+                    activeBeesByJob.getOrPut(jobId) { mutableSetOf() }.add(comp.getUUID("Id"))
                 }
             }
         }
@@ -208,12 +233,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val context = BeeContext()
 
         val rpm = abs(getSpeed())
+        val speedDiv = CBBeesConfig.hiveRpmSpeedDivisor.get()
+        val robotDiv = CBBeesConfig.hiveRpmRobotDivisor.get()
+        val baseRange = CBBeesConfig.hiveBaseRange.get()
+        val rangePerRpm = CBBeesConfig.hiveRangePerRpm.get()
+
         if (rpm > 0) {
-            context.speedMultiplier *= (1.0 + (rpm / 256.0))
-            context.springEfficiency = 1.0 + (rpm / 256.0)
-            val extraRobots = (rpm / 8.0).toInt()
+            context.speedMultiplier *= (1.0 + (rpm / speedDiv))
+            context.springEfficiency = 1.0 + (rpm / speedDiv)
+            val extraRobots = (rpm / robotDiv).toInt()
             context.maxActiveRobots += extraRobots
-            context.workRange = (6 + rpm.toDouble())
+            context.workRange = baseRange + rpm * rangePerRpm
             context.maxContributedBees += extraRobots
         } else {
             context.maxActiveRobots = 0
@@ -222,7 +252,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         }
 
         // Cap at config limit
-        context.maxActiveRobots = minOf(context.maxActiveRobots, CBeesConfig.maxBeesPerHive.get())
+        context.maxActiveRobots = minOf(context.maxActiveRobots, CBBeesConfig.maxBeesPerHive.get())
 
         return context
     }
@@ -321,7 +351,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         Lang.builder("cbbees").translate("gui.goggles.beehive.flying")
             .style(ChatFormatting.GRAY)
             .add(
-                Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(activeBees.count().toDouble()))
+                Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(getActiveBeeCount().toDouble()))
             )
             .forGoggles(tooltip, 1)
 

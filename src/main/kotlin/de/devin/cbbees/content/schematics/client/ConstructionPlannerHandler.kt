@@ -83,6 +83,9 @@ object ConstructionPlannerHandler {
         val player = Minecraft.getInstance().player
         val stack = player?.mainHandItem
 
+        // Pump upload chunks
+        SchematicUploader.tick()
+
         // Not holding a planner — pause preview rendering but keep internal state
         if (stack == null || !AllItems.CONSTRUCTION_PLANNER.isIn(stack)) {
             if (isBrowsingPreview) {
@@ -261,12 +264,19 @@ object ConstructionPlannerHandler {
      * Sets schematic data on the item and transitions to state 3 (Create's deploy).
      * The anchor comes from the hover preview if available, otherwise from a fresh
      * raycast (needed when confirming from the full-screen GUI where the preview is inactive).
+     *
+     * If the schematic file hasn't been uploaded to the server yet, starts a chunked
+     * upload first. The [SelectSchematicPacket] is sent after the upload completes (or
+     * immediately if the file already exists on the server). NeoForge guarantees packet
+     * ordering, so the server will have the file by the time it processes the select packet.
      */
     private fun deploySchematic(filename: String): Boolean {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return false
         val stack = player.mainHandItem
         if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
+
+        if (SchematicUploader.isUploading()) return false
 
         val centerAnchor = SchematicHoverPreview.anchorPos ?: run {
             // Hover preview inactive (e.g. confirming from GUI) — raycast from player
@@ -288,41 +298,51 @@ object ConstructionPlannerHandler {
         // Convert center anchor to corner anchor for Create's placement system
         val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
 
-        // Set all data components on the client item — Create will pick this up
-        stack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-        stack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-        stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
-        stack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor)
-        stack.set(AllDataComponents.SCHEMATIC_ROTATION, rotation)
-        stack.set(AllDataComponents.SCHEMATIC_MIRROR, mirror)
+        // Closure that finishes deployment — called immediately or after upload completes
+        val finishDeploy = {
+            val currentStack = player.mainHandItem
+            if (AllItems.CONSTRUCTION_PLANNER.isIn(currentStack)) {
+                // Set all data components on the client item — Create will pick this up
+                currentStack.set(AllDataComponents.SCHEMATIC_FILE, filename)
+                currentStack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
+                currentStack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
+                currentStack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor)
+                currentStack.set(AllDataComponents.SCHEMATIC_ROTATION, rotation)
+                currentStack.set(AllDataComponents.SCHEMATIC_MIRROR, mirror)
 
-        // Write bounds so Create can render properly
-        try {
-            SchematicItem.writeSize(player.level(), stack)
-        } catch (_: Exception) {}
+                // Write bounds so Create can render properly
+                try {
+                    SchematicItem.writeSize(player.level(), currentStack)
+                } catch (_: Exception) {}
 
-        // Don't call handler.deploy() directly — activeSchematicItem won't be set yet.
-        // Create's tick() will run findBlueprintInHand() (via our mixin), detect the
-        // filename change, and call init() → loadSettings() + deploy() + setupRenderer().
+                // Sync all data to server so inventory sync doesn't clobber client state
+                PacketDistributor.sendToServer(SelectSchematicPacket(filename, anchor, rotation, mirror))
 
-        // Sync all data to server so inventory sync doesn't clobber client state
-        PacketDistributor.sendToServer(SelectSchematicPacket(filename, anchor, rotation, mirror))
+                player.displayClientMessage(
+                    Component.translatable(
+                        "gui.cbbees.construction_planner.selected",
+                        filename.removeSuffix(".nbt")
+                    ).withStyle { it.withColor(0xFFFF00) },
+                    true
+                )
+            }
+        }
 
-        // Clear our browsing state — Create takes over on next tick
+        val owner = player.gameProfile.name
+        if (SchematicUploader.isAlreadyUploaded(owner, filename)) {
+            finishDeploy()
+        } else {
+            SchematicUploader.startUpload(filename, finishDeploy)
+        }
+
+        // Clear our browsing state — Create takes over on next tick (or after upload)
         clearBrowsingPreview()
-
-        player.displayClientMessage(
-            Component.translatable(
-                "gui.cbbees.construction_planner.selected",
-                filename.removeSuffix(".nbt")
-            ).withStyle { it.withColor(0xFFFF00) },
-            true
-        )
         return true
     }
 
     /**
      * Shift+RMB: instantly places and starts construction at the crosshair position.
+     * If the schematic needs uploading, the construction packet is sent after upload.
      * @return true if the action was dispatched
      */
     fun instantConstruct(): Boolean {
@@ -332,24 +352,40 @@ object ConstructionPlannerHandler {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return false
 
+        if (SchematicUploader.isUploading()) return false
+
         val centerAnchor = SchematicHoverPreview.anchorPos ?: return false
         val rotation = SchematicHoverPreview.currentRotation
         val mirror = SchematicHoverPreview.currentMirror
 
         // Convert center anchor to corner anchor for server placement
         val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
+        val filename = entry.filename
 
-        PacketDistributor.sendToServer(
-            InstantConstructionPacket(entry.filename, anchor, rotation, mirror)
-        )
+        val sendConstruction = {
+            PacketDistributor.sendToServer(
+                InstantConstructionPacket(filename, anchor, rotation, mirror)
+            )
 
-        player.displayClientMessage(
-            Component.translatable("cbbees.construction.started_instant", entry.filename.removeSuffix(".nbt"))
-                .withStyle { it.withColor(0x00FF00) },
-            true
-        )
+            player.displayClientMessage(
+                Component.translatable("cbbees.construction.started_instant", filename.removeSuffix(".nbt"))
+                    .withStyle { it.withColor(0x00FF00) },
+                true
+            )
+        }
 
-        clearBrowsingPreview()
+        val owner = player.gameProfile.name
+        if (SchematicUploader.isAlreadyUploaded(owner, filename)) {
+            sendConstruction()
+        } else {
+            SchematicUploader.startUpload(filename, sendConstruction)
+        }
+
+        // Keep browsingFilename so tick() restores the ghost preview on the next frame.
+        // Unlike deploySchematic(), instant construction never sets SCHEMATIC_DEPLOYED on
+        // the item, so the handler stays in state 1/2 and can immediately re-show the ghost.
+        isBrowsingPreview = false
+        SchematicHoverPreview.clear()
         return true
     }
 

@@ -21,4 +21,9 @@ class CBBGlueingRecipeGen(
         it.require(AllItems.MECHANICAL_BEE_CHASSIS.get())
             .output(AllItems.MECHANICAL_BEE.get())
     }
+
+    val MECHANICAL_BUMBLE_BEE = create("mechanical_bumble_bee") {
+        it.require(AllItems.MECHANICAL_BUMBLE_BEE_CHASSIS.get())
+            .output(AllItems.MECHANICAL_BUMBLE_BEE.get())
+    }
 }

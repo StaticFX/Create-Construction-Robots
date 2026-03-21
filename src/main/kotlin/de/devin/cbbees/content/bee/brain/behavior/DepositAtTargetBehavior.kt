@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -56,7 +56,7 @@ class DepositAtTargetBehavior : Behavior<MechanicalBumbleBeeEntity>(
                     level.addFreshEntity(itemEntity)
                 }
                 entity.removeFromInventory(item, item.count)
-                entity.consumeSpring(CBeesConfig.springDrainDeposit.get())
+                entity.consumeSpring(CBBeesConfig.springDrainDeposit.get())
                 BeeDebug.logForEntity(entity, "Bumble", "Deposited ${item.count}x ${item.item} at target $targetPos")
             }
         } else {

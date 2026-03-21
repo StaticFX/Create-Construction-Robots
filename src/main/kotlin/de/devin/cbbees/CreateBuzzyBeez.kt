@@ -5,7 +5,7 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.blocks.AllBlocks
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
@@ -75,7 +75,7 @@ object CreateBuzzyBeez {
     val LOGGER: Logger = LogManager.getLogger(ID)
 
     init {
-        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.COMMON, CBeesConfig.SPEC)
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.COMMON, CBBeesConfig.SPEC)
 
         REGISTRATE.registerEventListeners(MOD_BUS)
 

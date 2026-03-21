@@ -5,7 +5,7 @@ import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.content.upgrades.UpgradeType
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.registry.AllMenuTypes
 import net.minecraft.ChatFormatting
@@ -112,7 +112,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
             if (fuelValue > 0) {
                 if (!level.isClientSide) {
                     val current = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-                    val max = CBeesConfig.portableMaxHoney.get()
+                    val max = CBBeesConfig.portableMaxHoney.get()
                     if (current >= max) {
                         player.displayClientMessage(Component.translatable("cbbees.beehive.honey_full"), true)
                     } else {
@@ -140,9 +140,9 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     private fun getHoneyFuelValue(stack: ItemStack): Int = when (stack.item) {
-        Items.HONEY_BOTTLE -> CBeesConfig.honeyBottleFuelValue.get()
-        Items.HONEYCOMB -> CBeesConfig.honeycombFuelValue.get()
-        Items.HONEY_BLOCK -> CBeesConfig.honeyBlockFuelValue.get()
+        Items.HONEY_BOTTLE -> CBBeesConfig.honeyBottleFuelValue.get()
+        Items.HONEYCOMB -> CBBeesConfig.honeycombFuelValue.get()
+        Items.HONEY_BLOCK -> CBBeesConfig.honeyBlockFuelValue.get()
         else -> 0
     }
 
@@ -185,12 +185,12 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     override fun isBarVisible(stack: ItemStack): Boolean {
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
         return honey < maxHoney
     }
 
     override fun getBarWidth(stack: ItemStack): Int {
-        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
         if (maxHoney <= 0) return 0
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
         return (13.0f * honey / maxHoney).roundToInt()
@@ -218,7 +218,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         )
 
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-        val maxHoney = CBeesConfig.portableMaxHoney.get()
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.beehive.honey", honey, maxHoney)
                 .withStyle(ChatFormatting.GOLD)
@@ -382,7 +382,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
         // Creative mode players always have full honey
         if (player.isCreative) {
-            stack.set(AllDataComponents.HONEY_FUEL.get(), CBeesConfig.portableMaxHoney.get())
+            stack.set(AllDataComponents.HONEY_FUEL.get(), CBBeesConfig.portableMaxHoney.get())
         }
     }
 

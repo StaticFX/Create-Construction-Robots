@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -61,8 +61,12 @@ class PickUpFromSourceBehavior : Behavior<MechanicalBumbleBeeEntity>(
                         port.addItemStack(remainder)
                     }
                     pickedUp = true
-                    entity.consumeSpring(CBeesConfig.springDrainPickup.get())
-                    BeeDebug.logForEntity(entity, "Bumble", "Picked up ${item.count}x ${item.item} from source at $sourcePos")
+                    entity.consumeSpring(CBBeesConfig.springDrainPickup.get())
+                    BeeDebug.logForEntity(
+                        entity,
+                        "Bumble",
+                        "Picked up ${item.count}x ${item.item} from source at $sourcePos"
+                    )
                 }
             }
 

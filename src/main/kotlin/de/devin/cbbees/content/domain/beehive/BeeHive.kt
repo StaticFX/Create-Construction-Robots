@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.domain.beehive
 
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -106,6 +106,27 @@ interface BeeHive : INetworkComponent {
      * @return optionally next task batch to be processed, or null if all tasks are completed.
      */
     fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch?
+
+    /**
+     * Called when a bee arrives at the hive to recharge its spring.
+     * Handles any fuel consumption and returns the recharge duration in ticks.
+     *
+     * @param ctx the bee context providing spring efficiency and fuel multipliers
+     * @return recharge duration in ticks
+     */
+    fun rechargeSpring(ctx: BeeContext): Int {
+        val baseTicks = CBBeesConfig.springRechargeTicks.get()
+        return (baseTicks / ctx.springEfficiency).toInt().coerceAtLeast(20)
+    }
+
+    /**
+     * Called when a bee returns to the hive, to charge fuel proportional to the
+     * spring deficit. No-op for block-based hives (kinetic power is free).
+     *
+     * @param springDeficit fraction of spring that needs refilling (0.0–1.0)
+     * @param ctx the bee context providing fuel multipliers
+     */
+    fun chargeReturnFuel(springDeficit: Float, ctx: BeeContext) {}
 
     /**
      * Called when a bee from this source is spawned.

@@ -21,14 +21,25 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     private var _pos: BlockPos = initialPos
     override val pos: BlockPos get() = _pos
 
+    /** When true, items were already dropped in onActivate — execute() is a no-op. */
+    private var alreadyDropped = false
+
     override fun onActivate(bee: MechanicalBeeEntity) {
         val port = bee.network()?.findDropOff(ItemStack.EMPTY)
         if (port != null) {
             _pos = port.pos
+        } else {
+            // No port available — drop items immediately and skip flying anywhere
+            BeeDebug.log(bee, "DropOff: no port available, dropping items on ground")
+            bee.dropInventory()
+            _pos = bee.blockPosition()
+            alreadyDropped = true
         }
     }
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        if (alreadyDropped) return true
+
         val contents = bee.getInventoryContents()
         if (contents.isEmpty()) return true
 

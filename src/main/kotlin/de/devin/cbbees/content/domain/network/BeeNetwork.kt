@@ -73,8 +73,7 @@ class BeeNetwork(
     fun dispatchBatch(batch: TaskBatch) {
         val candidates = hives.filter {
             topology.isOperationalRange(it, batch.targetPosition) &&
-                    it.getAvailableBeeCount() > 0 &&
-                    it.getActiveBeeCount() < it.getBeeContext().maxActiveRobots
+                    it.getAvailableBeeCount() > 0
         }.sortedBy { it.pos.distSqr(batch.targetPosition) }
 
         for (hive in candidates) {

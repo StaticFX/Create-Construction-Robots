@@ -27,6 +27,17 @@ object AllItems {
     val PORTABLE_BEEHIVE: ItemEntry<PortableBeehiveItem> = CreateBuzzyBeez.REGISTRATE
         .item("portable_beehive") { props ->
             PortableBeehiveItem(props)
+        }.recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.BRASS_INGOT.get())
+                .define('V', de.devin.cbbees.blocks.AllBlocks.MECHANICAL_BEEHIVE.get())
+                .define('B', Items.GLASS_BOTTLE.asItem())
+                .define('C', AllBlocks.BRASS_CASING.asItem())
+                .pattern("CVC")
+                .pattern("WBW")
+                .pattern(" W ")
+                .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(AllBlocks.BRASS_CASING.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .model { _, _ -> } // Hand-written model in resources
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
@@ -62,6 +73,18 @@ object AllItems {
             ConstructionPlannerItem(props)
         }
         .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', Items.PAPER)
+                .define('H', Items.HONEYCOMB)
+                .pattern(" E ")
+                .pattern("BPB")
+                .pattern(" H ")
+                .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
@@ -71,6 +94,18 @@ object AllItems {
             DeconstructionPlannerItem(props)
         }
         .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', Items.PAPER)
+                .define('S', Items.SHEARS)
+                .pattern(" E ")
+                .pattern("BPB")
+                .pattern(" S ")
+                .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
@@ -175,12 +210,27 @@ object AllItems {
     // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
     val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee_chassis") { props -> Item(props) }
-        .model { _, _ -> } // TODO: add texture/model
+        .model { _, _ -> }
         .register()
 
     // Transitional item used during sequenced assembly
     val INCOMPLETE_MECHANICAL_BEE = CreateBuzzyBeez.REGISTRATE
         .item("incomplete_mechanical_bee") { props -> SequencedAssemblyItem(props) }
+        .register()
+
+    // Mechanical Bumble Bee Chassis - output of sequenced assembly, glued into mechanical bumble bee
+    val MECHANICAL_BUMBLE_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
+        .item("mechanical_bumble_bee_chassis") { props -> Item(props) }
+        .model { _, _ -> }
+        .register()
+
+    // Transitional item used during bumble bee sequenced assembly
+    val INCOMPLETE_MECHANICAL_BUMBLE_BEE = CreateBuzzyBeez.REGISTRATE
+        .item("incomplete_mechanical_bumble_bee") { props -> SequencedAssemblyItem(props) }
+        .register()
+
+    val INCOMPLETE_MECHANICAL_BEEHIVE = CreateBuzzyBeez.REGISTRATE
+        .item("incomplete_mechanical_beehive") { props -> SequencedAssemblyItem(props) }
         .register()
 
 }

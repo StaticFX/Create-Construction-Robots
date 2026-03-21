@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.domain.action.impl
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -32,7 +32,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (level !is ServerLevel) return false
 
-        val shouldPickUp = CBeesConfig.beePickupItems.get()
+        val shouldPickUp = CBBeesConfig.beePickupItems.get()
 
         if (shouldPickUp) {
             val state = level.getBlockState(pos)
@@ -56,7 +56,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         return true
     }
 
-    override fun shouldReturnAfter(context: BeeContext): Boolean = CBeesConfig.beePickupItems.get()
+    override fun shouldReturnAfter(context: BeeContext): Boolean = CBBeesConfig.beePickupItems.get()
 
     override fun getDescription(): String {
         return "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"

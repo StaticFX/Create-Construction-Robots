@@ -25,7 +25,7 @@ class CargoFrequencySlot(first: Boolean) : ValueBoxTransform.Dual(first) {
 
         if (face != AttachFace.WALL) {
             val isFloor = face == AttachFace.FLOOR
-            val location = VecHelper.voxelSpace(8.0, if (isFloor) 5.5 else 10.5, 5.0)
+            val location = VecHelper.voxelSpace(8.0, if (isFloor) 5.6 else 10.4, 5.0)
                 .add(slotOffset, 0.0, 0.0)
             return VecHelper.rotateCentered(
                 location,
@@ -35,7 +35,7 @@ class CargoFrequencySlot(first: Boolean) : ValueBoxTransform.Dual(first) {
         }
 
         // Wall placement
-        val location = VecHelper.voxelSpace(8.0, 11.0, 5.5)
+        val location = VecHelper.voxelSpace(8.0, 11.0, 5.6)
             .add(slotOffset, 0.0, 0.0)
         return VecHelper.rotateCentered(location, horizontalAngle.toDouble(), Direction.Axis.Y)
     }

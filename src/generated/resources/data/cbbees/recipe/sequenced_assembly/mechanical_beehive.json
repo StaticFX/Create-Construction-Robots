@@ -1,11 +1,11 @@
 {
   "type": "create:sequenced_assembly",
   "ingredient": {
-    "item": "minecraft:honeycomb"
+    "item": "minecraft:beehive"
   },
   "results": [
     {
-      "id": "cbbees:mechanical_bee_chassis"
+      "id": "cbbees:mechanical_beehive"
     }
   ],
   "sequence": [
@@ -13,7 +13,7 @@
       "type": "create:deploying",
       "ingredients": [
         {
-          "item": "cbbees:incomplete_mechanical_bee"
+          "item": "cbbees:incomplete_mechanical_beehive"
         },
         {
           "item": "create:electron_tube"
@@ -21,7 +21,7 @@
       ],
       "results": [
         {
-          "id": "cbbees:incomplete_mechanical_bee"
+          "id": "cbbees:incomplete_mechanical_beehive"
         }
       ]
     },
@@ -29,15 +29,15 @@
       "type": "create:deploying",
       "ingredients": [
         {
-          "item": "cbbees:incomplete_mechanical_bee"
+          "item": "cbbees:incomplete_mechanical_beehive"
         },
         {
-          "item": "create:brass_sheet"
+          "item": "create:cogwheel"
         }
       ],
       "results": [
         {
-          "id": "cbbees:incomplete_mechanical_bee"
+          "id": "cbbees:incomplete_mechanical_beehive"
         }
       ]
     },
@@ -45,17 +45,17 @@
       "type": "create:pressing",
       "ingredients": [
         {
-          "item": "cbbees:incomplete_mechanical_bee"
+          "item": "cbbees:incomplete_mechanical_beehive"
         }
       ],
       "results": [
         {
-          "id": "cbbees:incomplete_mechanical_bee"
+          "id": "cbbees:incomplete_mechanical_beehive"
         }
       ]
     }
   ],
   "transitional_item": {
-    "id": "cbbees:incomplete_mechanical_bee"
+    "id": "cbbees:incomplete_mechanical_beehive"
   }
 }

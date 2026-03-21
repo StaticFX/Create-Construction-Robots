@@ -1,10 +1,8 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -14,7 +12,6 @@ import net.minecraft.world.entity.ai.memory.MemoryStatus
  * WORK-activity behavior that handles spring recharge for Bumble Bees.
  *
  * Same as [RechargeSpringBehavior] but for transport bees.
- * Uses flat recharge time (no RPM scaling — bumble bees have no BeeContext).
  */
 class BumbleRechargeSpringBehavior : Behavior<MechanicalBumbleBeeEntity>(
     mapOf(
@@ -44,19 +41,8 @@ class BumbleRechargeSpringBehavior : Behavior<MechanicalBumbleBeeEntity>(
 
         // Phase 1: Need to reach hive first
         if (entity.blockPosition().closerThan(hive.pos, 4.0)) {
-            // At hive — initiate recharge (flat rate, no RPM scaling for bumble bees)
-            val rechargeTicks = CBeesConfig.springRechargeTicks.get()
-
-            // Portable beehive: consume honey for rewind
-            if (hive is PortableBeeHive) {
-                val ctx = hive.getBeeContext()
-                val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-                if (!hive.hasHoney(honeyCost)) {
-                    BeeDebug.logForEntity(entity, "Bumble", "Not enough honey for spring recharge")
-                    return
-                }
-                hive.consumeHoney(honeyCost)
-            }
+            val ctx = hive.getBeeContext()
+            val rechargeTicks = hive.rechargeSpring(ctx)
 
             entity.rechargeFinishTick = gameTime + rechargeTicks
             BeeDebug.logForEntity(entity, "Bumble", "Recharging spring at hive ($rechargeTicks ticks)")

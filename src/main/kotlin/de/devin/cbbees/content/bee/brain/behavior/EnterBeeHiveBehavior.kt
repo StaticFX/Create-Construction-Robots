@@ -1,10 +1,9 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
+import de.devin.cbbees.items.AllItems
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.entity.ai.behavior.Behavior
@@ -27,17 +26,11 @@ class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
 
         BeeDebug.log(entity, "Entering hive")
 
-        // Recharge spring on reentry — consume honey from portable beehive
-        if (hive is PortableBeeHive) {
-            val deficit = 1.0f - entity.springTension
-            if (deficit > 0f) {
-                val ctx = entity.getBeeContext()
-                val honeyCost = (deficit * CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-                hive.consumeHoney(honeyCost)
-            }
-        }
+        val deficit = 1.0f - entity.springTension
+        val ctx = entity.getBeeContext()
+        hive.chargeReturnFuel(deficit, ctx)
 
-        val success = hive.returnBee(ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get()))
+        val success = hive.returnBee(ItemStack(AllItems.MECHANICAL_BEE.get()))
 
         if (success) {
             entity.discard()

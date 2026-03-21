@@ -77,6 +77,13 @@ class StartConstructionPacket(
                 mainHand.set(AllDataComponents.SCHEMATIC_MIRROR, payload.mirror)
                 mainHand.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
 
+                // Ensure schematic file exists in uploaded directory
+                val schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE)
+                val schematicOwner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER)
+                if (schematicFile != null && schematicOwner != null) {
+                    ensureSchematicUploaded(schematicOwner, schematicFile)
+                }
+
                 val schematicStack = mainHand
                 val bridge = SchematicCreateBridge(player.level())
                 if (!bridge.loadSchematic(schematicStack)) {

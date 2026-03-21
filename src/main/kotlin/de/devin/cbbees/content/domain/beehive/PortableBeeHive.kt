@@ -5,15 +5,10 @@ import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
-import de.devin.cbbees.config.CBeesConfig
-import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
@@ -36,6 +31,7 @@ class PortableBeeHive(val player: Player) : BeeHive {
         if (getAvailableBeeCount() <= 0) {
             return false
         }
+        if (getActiveBeeCount() >= getBeeContext().maxActiveRobots) return false
 
         val beeItem = consumeBee()
         if (beeItem.isEmpty) return false
@@ -57,11 +53,11 @@ class PortableBeeHive(val player: Player) : BeeHive {
         // Always charge honey to wind the spring for deployment
         val ctx = getBeeContext()
         val honeyCost =
-            (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-        if (!hasHoney(honeyCost)) return false
+            (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
         consumeHoney(honeyCost)
         bee.springTension = 1.0f
 
+        bee.setHomeId(player.uuid)
         bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
         bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
         bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(batch))
@@ -100,6 +96,21 @@ class PortableBeeHive(val player: Player) : BeeHive {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return BeeContext()
         return (backpack.item as PortableBeehiveItem).getBeeContext(backpack)
+    }
+
+    override fun rechargeSpring(ctx: BeeContext): Int {
+        val honeyCost =
+            (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+        consumeHoney(honeyCost)
+        return super.rechargeSpring(ctx)
+    }
+
+    override fun chargeReturnFuel(springDeficit: Float, ctx: BeeContext) {
+        if (springDeficit <= 0f) return
+        val honeyCost =
+            (springDeficit * CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt()
+                .coerceAtLeast(1)
+        consumeHoney(honeyCost)
     }
 
     fun consumeHoney(amount: Int): Int {
@@ -150,18 +161,10 @@ class PortableBeeHive(val player: Player) : BeeHive {
 
 
     private fun getBackpackStack(): ItemStack {
-        // 1. Check Curios slots for backpack
         val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
         if (curiosResult.isPresent) {
             return curiosResult.get().stack()
         }
-
-        // 3. Check main inventory as fallback
-        for (i in 0 until player.inventory.containerSize) {
-            val stack = player.inventory.getItem(i)
-            if (stack.item is PortableBeehiveItem) return stack
-        }
-
         return ItemStack.EMPTY
     }
 }

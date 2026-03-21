@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -73,9 +73,9 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         if (done) {
             // Drain spring based on action type
             val drain = if (task.action is RemoveBlockAction)
-                CBeesConfig.springDrainBreak.get()
+                CBBeesConfig.springDrainBreak.get()
             else
-                CBeesConfig.springDrainPlace.get()
+                CBBeesConfig.springDrainPlace.get()
             owner.consumeSpring(drain)
 
             task.complete()
@@ -96,7 +96,10 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         } else {
-            BeeDebug.log(owner, "Task failed — releasing batch (retry ${batch.retryCount + 1}/${TaskBatch.MAX_RETRIES})")
+            BeeDebug.log(
+                owner,
+                "Task failed — releasing batch (retry ${batch.retryCount + 1}/${TaskBatch.MAX_RETRIES})"
+            )
             owner.network()?.releaseReservations(owner.uuid)
             batch.release(gameTick = gameTime)
             owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())

@@ -1,0 +1,35 @@
+{
+  "parent": "minecraft:story/root",
+  "display": {
+    "icon": {
+      "id": "cbbees:mechanical_bee"
+    },
+    "title": {
+      "translate": "advancement.cbbees.bzzzzzzz"
+    },
+    "description": {
+      "translate": "advancement.cbbees.bzzzzzzz.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_mechanical_bee": {
+      "conditions": {
+        "items": [
+          {
+            "items": "cbbees:mechanical_bee"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "has_mechanical_bee"
+    ]
+  ]
+}

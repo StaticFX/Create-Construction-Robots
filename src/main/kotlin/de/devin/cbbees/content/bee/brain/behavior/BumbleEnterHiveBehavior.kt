@@ -29,6 +29,10 @@ class BumbleEnterHiveBehavior : Behavior<MechanicalBumbleBeeEntity>(
 
         BeeDebug.logForEntity(entity, "Bumble", "Entering hive")
 
+        val deficit = 1.0f - entity.springTension
+        val ctx = hive.getBeeContext()
+        hive.chargeReturnFuel(deficit, ctx)
+
         val success = hive.returnBee(ItemStack(AllItems.MECHANICAL_BUMBLE_BEE.get()))
 
         if (success) {

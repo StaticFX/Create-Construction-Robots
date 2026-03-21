@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "minecraft:item/ender_pearl"
+    "layer0": "cbbees:item/incomplete_mechanical_bumble_bee"
   }
 }

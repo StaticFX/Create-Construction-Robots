@@ -38,6 +38,7 @@ object CCRServerEvents {
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         for (player in server.playerList.players) {
             HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
+            NetworkSyncPacket.sendTo(player)
         }
     }
 
@@ -61,5 +62,6 @@ object CCRServerEvents {
         GlobalJobPool.clear()
         TransportDispatcher.clear()
         BeeDebug.clear()
+        PlannerUploadPacket.shutdown()
     }
 }

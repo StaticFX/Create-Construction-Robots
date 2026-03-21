@@ -66,31 +66,37 @@ object TransportDispatcher : SavedData() {
                     .sortedByDescending { it.priority() }
                     .firstOrNull() ?: continue
 
+                // Collect up to INVENTORY_SIZE distinct stacks for a single trip
+                val itemsToTransport = mutableListOf<ItemStack>()
                 for (slot in 0 until handler.slots) {
+                    if (itemsToTransport.size >= MechanicalBumbleBeeEntity.INVENTORY_SIZE) break
+
                     val stack = handler.getStackInSlot(slot)
                     if (stack.isEmpty) continue
-
-                    // Skip items that are already reserved by another bee
                     if (!provider.hasAvailableItemStack(stack)) continue
 
-                    val task = TransportTask(
-                        sourcePos = provider.pos,
-                        targetPos = requester.pos,
-                        items = listOf(stack.copy())
-                    )
+                    itemsToTransport.add(stack.copy())
+                }
 
-                    val hive = hivesWithBumbles
-                        .sortedBy { it.pos.distSqr(provider.pos) }
-                        .firstOrNull { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
-                        ?: break // no more bumble bees available in any hive
+                if (itemsToTransport.isEmpty()) continue
 
-                    val beeItem = hive.consumeBeeOfType(MechanicalBumbleBeeItem::class.java)
-                    if (beeItem.isEmpty) continue
+                val task = TransportTask(
+                    sourcePos = provider.pos,
+                    targetPos = requester.pos,
+                    items = itemsToTransport
+                )
 
-                    val bee = spawnMechanicalBumbleBee(hive, task)
-                    if (bee != null) {
-                        provider.reserve(bee.uuid, task.items, hive.world.gameTime)
-                    }
+                val hive = hivesWithBumbles
+                    .sortedBy { it.pos.distSqr(provider.pos) }
+                    .firstOrNull { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
+                    ?: break // no more bumble bees available in any hive
+
+                val beeItem = hive.consumeBeeOfType(MechanicalBumbleBeeItem::class.java)
+                if (beeItem.isEmpty) continue
+
+                val bee = spawnMechanicalBumbleBee(hive, task)
+                if (bee != null) {
+                    provider.reserve(bee.uuid, task.items, hive.world.gameTime)
                 }
             }
         }
@@ -108,6 +114,7 @@ object TransportDispatcher : SavedData() {
             this.springTension = 1.0f
         }
 
+        bee.setHomeId(hive.id)
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), hive.pos)
         bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(hive))
         bee.getBrain().setMemory(BeeMemoryModules.TRANSPORT_TASK.get(), task)

@@ -48,6 +48,11 @@ object AllPackets {
             BeeDebugSyncPacket.STREAM_CODEC,
             BeeDebugSyncPacket.Companion::handle
         )
+        registrar.playToClient(
+            NetworkSyncPacket.TYPE,
+            NetworkSyncPacket.STREAM_CODEC,
+            NetworkSyncPacket.Companion::handle
+        )
         registrar.playToServer(
             SelectSchematicPacket.TYPE,
             SelectSchematicPacket.STREAM_CODEC,
@@ -62,6 +67,11 @@ object AllPackets {
             InstantConstructionPacket.TYPE,
             InstantConstructionPacket.STREAM_CODEC,
             InstantConstructionPacket.Companion::handle
+        )
+        registrar.playToServer(
+            PlannerUploadPacket.TYPE,
+            PlannerUploadPacket.STREAM_CODEC,
+            PlannerUploadPacket.Companion::handle
         )
     }
 }

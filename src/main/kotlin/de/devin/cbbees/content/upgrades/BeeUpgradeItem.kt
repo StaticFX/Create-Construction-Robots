@@ -1,10 +1,8 @@
 package de.devin.cbbees.content.upgrades
 
-import net.minecraft.ChatFormatting
-import net.minecraft.network.chat.Component
+import de.devin.cbbees.config.CBBeesConfig
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.TooltipFlag
 
 /**
  * Enum defining all upgrade types for the Constructor Backpack.
@@ -15,15 +13,15 @@ enum class UpgradeType(
     val logic: IUpgrade
 ) {
     RAPID_WINGS(4, "tooltip.cbbees.upgrade.rapid_wings", IUpgrade { ctx, count ->
-        ctx.speedMultiplier += count * 0.25
+        ctx.speedMultiplier += count * CBBeesConfig.rapidWingsSpeedBonus.get()
     }),
     SWARM_INTELLIGENCE(3, "tooltip.cbbees.upgrade.swarm_intelligence", IUpgrade { ctx, count ->
-        ctx.maxActiveRobots += count * 2
+        ctx.maxActiveRobots += count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
     }),
     HONEY_EFFICIENCY(2, "tooltip.cbbees.upgrade.honey_efficiency", IUpgrade { ctx, count ->
-        ctx.breakSpeedMultiplier -= count * 0.25
-        ctx.carryCapacity += count * 2
-        ctx.fuelConsumptionMultiplier -= count * 0.15
+        ctx.breakSpeedMultiplier -= count * CBBeesConfig.honeyEfficiencyBreakSpeedReduction.get()
+        ctx.carryCapacity += count * CBBeesConfig.honeyEfficiencyCarryBonus.get()
+        ctx.fuelConsumptionMultiplier -= count * CBBeesConfig.honeyEfficiencyFuelReduction.get()
     }),
     SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
@@ -36,7 +34,7 @@ enum class UpgradeType(
         fun fromBackpack(stack: ItemStack): BeeContext {
             val context = BeeContext()
             val item = stack.item as? de.devin.cbbees.content.backpack.PortableBeehiveItem ?: return context
-            
+
             val upgradeCounts = item.getUpgrades(stack)
             for ((type, count) in upgradeCounts) {
                 if (count > 0) {
@@ -50,7 +48,7 @@ enum class UpgradeType(
 
 /**
  * Base class for all backpack upgrade items.
- * 
+ *
  * Upgrades modify the behavior of bees deployed from the beehive:
  * - Rapid Wings: +25% bee speed per upgrade (max 4)
  * - Swarm Intelligence: +2 concurrent bees per upgrade (max 3)
@@ -60,36 +58,7 @@ enum class UpgradeType(
 open class BeeUpgradeItem(
     val upgradeType: UpgradeType,
     properties: Properties
-) : Item(properties) {
-    
-    override fun appendHoverText(
-        stack: ItemStack,
-        context: TooltipContext,
-        tooltipComponents: MutableList<Component>,
-        tooltipFlag: TooltipFlag
-    ) {
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
-        
-        // Add upgrade description
-        tooltipComponents.add(
-            Component.translatable(upgradeType.descriptionKey)
-                .withStyle(ChatFormatting.GRAY)
-        )
-        
-        // Add max stack info
-        if (upgradeType.maxStackInBackpack > 1) {
-            tooltipComponents.add(
-                Component.translatable("tooltip.cbbees.upgrade.max_stack", upgradeType.maxStackInBackpack)
-                    .withStyle(ChatFormatting.DARK_GRAY)
-            )
-        } else {
-            tooltipComponents.add(
-                Component.translatable("tooltip.cbbees.upgrade.unique")
-                    .withStyle(ChatFormatting.DARK_GRAY)
-            )
-        }
-    }
-}
+) : Item(properties)
 
 // Specific upgrade implementations
 

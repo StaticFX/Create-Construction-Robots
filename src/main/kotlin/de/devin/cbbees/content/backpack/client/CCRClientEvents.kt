@@ -4,6 +4,7 @@ import de.devin.cbbees.content.backpack.BeehiveTooltipData
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent
+import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.bus.api.SubscribeEvent
 
 /**
@@ -30,5 +31,13 @@ object BeeNetworkClientEvents {
     @JvmStatic
     fun onLoggingOut(event: ClientPlayerNetworkEvent.LoggingOut) {
         ClientBeeNetworkManager.clear()
+    }
+
+    @SubscribeEvent
+    @JvmStatic
+    fun onDimensionChange(event: PlayerEvent.PlayerChangedDimensionEvent) {
+        if (event.entity.level().isClientSide) {
+            ClientBeeNetworkManager.clear()
+        }
     }
 }

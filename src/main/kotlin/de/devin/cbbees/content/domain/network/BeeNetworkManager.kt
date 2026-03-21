@@ -240,18 +240,23 @@ object ServerBeeNetworkManager {
 object ClientBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
 
+    /**
+     * Authoritative map of network UUID → component positions from the server.
+     * Used to verify client-side grouping and detect desync.
+     */
+    private val serverSnapshot = mutableMapOf<UUID, List<BlockPos>>()
+
     fun getNetworks(): List<BeeNetwork> = networks
 
     fun clear() {
         val size = networks.size
         networks.clear()
+        serverSnapshot.clear()
         CreateBuzzyBeez.LOGGER.info("Cleared $size client networks")
     }
 
     fun getNetwork(id: UUID): BeeNetwork {
         return networks.find { it.id == id } ?: run {
-            // Lazy-create proxy network on client if it's missing
-            // This allows the client to group hives/ports by ID even without full topology
             val net = BeeNetwork(id)
             networks.add(net)
             net
@@ -263,5 +268,50 @@ object ClientBeeNetworkManager {
         if (component.network().components.isEmpty()) {
             networks.remove(component.network())
         }
+    }
+
+    /**
+     * Applies an authoritative snapshot from the server. Reassigns any client-side
+     * components that are in the wrong network, and removes stale networks.
+     */
+    fun applyServerSnapshot(snapshot: Map<UUID, List<BlockPos>>) {
+        serverSnapshot.clear()
+        serverSnapshot.putAll(snapshot)
+
+        // Build a lookup: position → authoritative network UUID
+        val posToNetwork = mutableMapOf<BlockPos, UUID>()
+        for ((netId, positions) in snapshot) {
+            for (pos in positions) {
+                posToNetwork[pos] = netId
+            }
+        }
+
+        // Collect all current client components
+        val allComponents = networks.flatMap { it.components }.toList()
+
+        // Reassign components that are in the wrong network
+        for (component in allComponents) {
+            val correctNetworkId = posToNetwork[component.pos]
+            if (correctNetworkId != null && correctNetworkId != component.networkId) {
+                // Component is in the wrong network — move it
+                val oldNet = networks.find { it.components.contains(component) }
+                oldNet?.removeComponent(component)
+                component.networkId = correctNetworkId
+                getNetwork(correctNetworkId).components.add(component)
+            }
+        }
+
+        // Remove empty networks
+        networks.removeAll { it.components.isEmpty() }
+    }
+
+    /**
+     * Returns the server-authoritative network ID for a position, if known.
+     */
+    fun getServerNetworkId(pos: BlockPos): UUID? {
+        for ((netId, positions) in serverSnapshot) {
+            if (pos in positions) return netId
+        }
+        return null
     }
 }

@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -113,7 +113,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
                         // Put back what didn't fit
                         targetPort.addItemStack(remainder)
                     }
-                    entity.consumeSpring(CBeesConfig.springDrainPickup.get())
+                    entity.consumeSpring(CBBeesConfig.springDrainPickup.get())
                     BeeDebug.log(entity, "Picked up ${item.count}x ${item.item} from port at $portPos")
                 }
             }

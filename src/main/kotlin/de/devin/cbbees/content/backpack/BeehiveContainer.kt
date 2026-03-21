@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.backpack
 
-import de.devin.cbbees.config.CBeesConfig
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
@@ -58,7 +58,7 @@ class BeehiveContainer : AbstractContainerMenu {
         this.fuelData = object : ContainerData {
             override fun get(index: Int): Int = when (index) {
                 0 -> backpackStack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-                1 -> CBeesConfig.portableMaxHoney.get()
+                1 -> CBBeesConfig.portableMaxHoney.get()
                 else -> 0
             }
 

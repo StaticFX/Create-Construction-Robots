@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "minecraft:glass_bottle"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    },
+    "V": {
+      "item": "cbbees:mechanical_beehive"
+    },
+    "W": {
+      "item": "create:brass_ingot"
+    }
+  },
+  "pattern": [
+    "CVC",
+    "WBW",
+    " W "
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:portable_beehive"
+  }
+}

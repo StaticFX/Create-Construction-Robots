@@ -1,10 +1,8 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.config.CBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -45,20 +43,8 @@ class RechargeSpringBehavior : Behavior<MechanicalBeeEntity>(
 
         // Phase 1: Need to reach hive first
         if (entity.blockPosition().closerThan(hive.pos, 4.0)) {
-            // At hive — initiate recharge
             val ctx = entity.getBeeContext()
-            val baseTicks = CBeesConfig.springRechargeTicks.get()
-            val rechargeTicks = (baseTicks / ctx.springEfficiency).toInt().coerceAtLeast(20)
-
-            // Portable beehive: consume honey for rewind
-            if (hive is PortableBeeHive) {
-                val honeyCost = (CBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-                if (!hive.hasHoney(honeyCost)) {
-                    BeeDebug.log(entity, "Not enough honey for spring recharge")
-                    return
-                }
-                hive.consumeHoney(honeyCost)
-            }
+            val rechargeTicks = hive.rechargeSpring(ctx)
 
             entity.rechargeFinishTick = gameTime + rechargeTicks
             BeeDebug.log(entity, "Recharging spring at hive ($rechargeTicks ticks)")
