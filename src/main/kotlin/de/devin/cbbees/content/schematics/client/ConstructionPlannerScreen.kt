@@ -2,6 +2,7 @@ package de.devin.cbbees.content.schematics.client
 
 import com.simibubi.create.CreateClient
 import de.devin.cbbees.network.InstantConstructionPacket
+import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -121,6 +122,16 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             onClose()
         }.bounds(listLeft + buttonWidth * 2 + 18, buttonY, buttonWidth, 20).build()
         addRenderableWidget(cancelButton)
+
+        // Browse Online button — opens the external schematic browser
+        val browseOnlineButton = Button.builder(Component.translatable("gui.cbbees.browse_online.button")) {
+            val source = ExternalSchematicSource.active
+            if (source != null) {
+                minecraft?.setScreen(BrowseOnlineScreen(source, this))
+            }
+        }.bounds(width - MARGIN - buttonWidth - 10, buttonY, buttonWidth + 10, 20).build()
+        browseOnlineButton.active = ExternalSchematicSource.active != null
+        addRenderableWidget(browseOnlineButton)
 
         // Back button — visible only when inside a group
         backButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.back")) {

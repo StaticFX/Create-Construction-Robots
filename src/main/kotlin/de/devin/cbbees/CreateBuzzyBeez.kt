@@ -20,6 +20,8 @@ import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
 import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
+import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
+import de.devin.cbbees.content.schematics.external.NoOpSchematicSource
 import de.devin.cbbees.datagen.CCRDatagen
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.AllPackets
@@ -64,6 +66,7 @@ import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
 @Mod(CreateBuzzyBeez.ID)
 object CreateBuzzyBeez {
     const val ID = "cbbees"
+    const val MOD_VERSION = "1.1.0"
 
     val REGISTRATE: CreateRegistrate = CreateRegistrate.create(ID)
         .setTooltipModifierFactory { item ->
@@ -164,6 +167,9 @@ object CreateBuzzyBeez {
 
         // Register Ponder plugin
         PonderIndex.addPlugin(CBBPonderPlugin())
+
+        // Register external schematic source for testing
+        ExternalSchematicSource.active = NoOpSchematicSource
     }
 
     /**
