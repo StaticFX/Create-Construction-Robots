@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -31,7 +32,11 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
         }
 
         val workRange = owner.workRange
-        return !owner.blockPosition().closerThan(task.targetPos, workRange)
+        val close = owner.blockPosition().closerThan(task.targetPos, workRange)
+        if (action is DropOffItemsAction) {
+            BeeDebug.log(owner, "MoveTo(DropOff): beePos=${owner.blockPosition()}, target=${task.targetPos}, close=$close, workRange=$workRange")
+        }
+        return !close
     }
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
@@ -39,7 +44,11 @@ class MoveToTaskBehavior : Behavior<MechanicalBeeEntity>(
         val task = batch.getCurrentTask() ?: return
         val moveTo = task.targetPos
 
-        BeeDebug.log(entity, "Flying to task at $moveTo")
+        if (task.action is DropOffItemsAction) {
+            BeeDebug.log(entity, "MoveTo(DropOff): flying to $moveTo")
+        } else {
+            BeeDebug.log(entity, "Flying to task at $moveTo")
+        }
 
         entity.brain.setMemory(
             MemoryModuleType.WALK_TARGET,

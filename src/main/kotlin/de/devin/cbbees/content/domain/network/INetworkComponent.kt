@@ -29,8 +29,8 @@ interface INetworkComponent {
     fun onNetworkIdChanged(old: UUID, new: UUID) {
         val level = (this as? SmartBlockEntity)?.level ?: return
         if (level.isClientSide) {
-            ClientBeeNetworkManager.getNetwork(old).components.remove(this)
-            ClientBeeNetworkManager.getNetwork(new).components.add(this)
+            ClientBeeNetworkManager.getNetwork(old).removeComponent(this)
+            ClientBeeNetworkManager.getNetwork(new).addComponentClient(this)
         }
     }
 
@@ -53,7 +53,7 @@ interface INetworkComponent {
         if (!level.isClientSide) {
             ServerBeeNetworkManager.registerComponent(this)
         } else {
-            ClientBeeNetworkManager.getNetwork(networkId).components.add(this)
+            ClientBeeNetworkManager.getNetwork(networkId).addComponentClient(this)
         }
     }
 

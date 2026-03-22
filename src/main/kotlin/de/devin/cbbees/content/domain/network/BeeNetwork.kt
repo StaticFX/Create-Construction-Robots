@@ -9,6 +9,7 @@ import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.entity.BlockEntity
 import java.util.*
 
 class BeeNetwork(
@@ -35,6 +36,25 @@ class BeeNetwork(
         _reservablePorts = null
     }
 
+    /**
+     * Removes components whose block entity no longer exists at their position in the world.
+     * Guards against ghost components that weren't properly unregistered.
+     */
+    fun purgeStaleComponents() {
+        val removed = _components.removeAll { comp ->
+            val be = comp as? BlockEntity ?: return@removeAll false
+            // Check if the block entity is marked as removed
+            if (be.isRemoved) return@removeAll true
+            // Check if the world still has this exact block entity at the position
+            val worldBe = be.level?.getBlockEntity(be.blockPos)
+            worldBe !== be
+        }
+        if (removed) {
+            de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("[NET] Purged stale component(s) from network $id")
+            invalidateComponentCaches()
+        }
+    }
+
     val hives: List<BeeHive> get() = _hives ?: components.filterIsInstance<BeeHive>().also { _hives = it }
     val ports: List<LogisticsPort> get() = _ports ?: components.filterIsInstance<LogisticsPort>().also { _ports = it }
     val transportPorts: List<TransportPort> get() = _transportPorts ?: components.filterIsInstance<TransportPort>().also { _transportPorts = it }
@@ -43,15 +63,19 @@ class BeeNetwork(
     /**
      * The aggregate operational range of all anchors in this network.
      */
-    fun isInRange(pos: BlockPos): Boolean =
-        components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
+    fun isInRange(pos: BlockPos): Boolean {
+        purgeStaleComponents()
+        return components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
+    }
 
     /**
-     * Checks if any anchor is within networking range for logistics attachment.
-     * Uses topology to allow custom reconnection semantics (e.g., min radius when unpowered).
+     * Checks if any block-based anchor is within range for logistics attachment.
+     * Only considers block entities (mechanical beehives), not portable beehives.
      */
-    fun isInLogisticsRange(pos: BlockPos): Boolean =
-        components.any { c -> topology.isAnchor(c) && topology.isLogisticsRange(c, pos) }
+    fun isInLogisticsRange(pos: BlockPos): Boolean {
+        purgeStaleComponents()
+        return components.any { c -> c is BlockEntity && topology.isAnchor(c) && topology.isLogisticsRange(c, pos) }
+    }
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
         return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
@@ -95,20 +119,29 @@ class BeeNetwork(
     }
 
     fun canConnect(component: INetworkComponent): Boolean {
-        if (components.isEmpty()) return true
+        purgeStaleComponents()
+        if (components.isEmpty()) {
+            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: network $id is EMPTY → true")
+            return true
+        }
         val firstComp = components.first()
         if (component.world != firstComp.world) return false
 
         val isAnchor = topology.isAnchor(component)
         if (isAnchor) {
-            // No anchors yet? Accept the first one regardless
             if (components.none { topology.isAnchor(it) }) return true
-            // Connect to any existing anchor via topology rule
             return components.any { other -> topology.isAnchor(other) && topology.canConnectAnchors(component, other) }
         }
 
         // Non-anchors (e.g. logistics ports) must be within logistics range of any anchor
-        return isInLogisticsRange(component.pos)
+        val inRange = isInLogisticsRange(component.pos)
+        val anchors = components.filter { topology.isAnchor(it) }
+        for (anchor in anchors) {
+            val anchorInWorkRange = anchor.isInWorkRange(component.pos)
+            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: port at ${component.pos} vs anchor at ${anchor.pos}, isInWorkRange=$anchorInWorkRange")
+        }
+        de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
+        return inRange
     }
 
     private fun anchorsConnected(c1: INetworkComponent, c2: INetworkComponent): Boolean =
@@ -120,6 +153,17 @@ class BeeNetwork(
             if (level == null) level = component.world
             component.networkId = id
             component.sync()
+        }
+    }
+
+    /**
+     * Adds a component without setting its networkId or syncing.
+     * Used on the client where the networkId is already set by the server.
+     */
+    fun addComponentClient(component: INetworkComponent) {
+        if (components.add(component)) {
+            invalidateComponentCaches()
+            if (level == null) level = component.world
         }
     }
 

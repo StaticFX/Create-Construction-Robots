@@ -22,29 +22,45 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        val isDropOff = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
+            ?.getCurrentTask()?.action is DropOffItemsAction
+
         if (owner.springTension <= 0f) {
-            BeeDebug.log(owner, "Execute: spring depleted — returning to hive")
+            if (isDropOff) BeeDebug.log(owner, "Execute(DropOff): BLOCKED by spring=0")
+            else BeeDebug.log(owner, "Execute: spring depleted — returning to hive")
             return false
         }
 
         val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
         val task = batch.getCurrentTask()
         if (task == null) {
-            BeeDebug.log(owner, "Execute: no current task in batch")
+            if (isDropOff) BeeDebug.log(owner, "Execute(DropOff): BLOCKED — no current task")
+            else BeeDebug.log(owner, "Execute: no current task in batch")
             return false
         }
 
+        if (isDropOff) {
+            BeeDebug.log(owner, "Execute(DropOff): checking — beePos=${owner.blockPosition()}, targetPos=${task.targetPos}, spring=${owner.springTension}")
+        }
+
         // Check if task is within the bee's current network range
-        val network = owner.network()
-        if (network != null && !network.isInRange(task.targetPos)) {
-            BeeDebug.log(owner, "Execute: task at ${task.targetPos} out of network range")
-            return false
+        // Skip for DropOffItemsAction — it's a cleanup action that must always execute
+        if (task.action !is DropOffItemsAction) {
+            val network = owner.network()
+            if (network != null && !network.isInRange(task.targetPos)) {
+                BeeDebug.log(owner, "Execute: task at ${task.targetPos} out of network range")
+                return false
+            }
         }
 
         val workRange = owner.workRange
         val inRange = owner.blockPosition().closerThan(task.targetPos, workRange)
 
         if (!inRange) {
+            if (isDropOff) {
+                val dist = owner.blockPosition().distSqr(task.targetPos)
+                BeeDebug.log(owner, "Execute(DropOff): BLOCKED by proximity — dist²=$dist, workRange=$workRange")
+            }
             return false
         }
 
@@ -55,7 +71,8 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
             return false
         }
 
-        BeeDebug.log(owner, "Execute: ready to run ${task.action.getDescription()}")
+        if (isDropOff) BeeDebug.log(owner, "Execute(DropOff): PASSED all checks")
+        else BeeDebug.log(owner, "Execute: ready to run ${task.action.getDescription()}")
         return true
     }
 
