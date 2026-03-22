@@ -63,9 +63,11 @@ class StartDeconstructionPacket(
                     )
                     job.addBatches(tasks)
 
-                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
-                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                    val portableHive = ServerBeeNetworkManager.findPortableHive(player.uuid)
+                    if (portableHive != null) {
+                        ServerBeeNetworkManager.reconnectPortableHive(portableHive)
                     }
+
                     GlobalJobPool.dispatchNewJob(job)
                     player.displayClientMessage(
                         Component.translatable("cbbees.deconstruction.started", tasks.size),

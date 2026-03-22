@@ -57,6 +57,10 @@ object ConstructionRenderer {
 
     private var lastDataVersion = -1L
 
+    /** Throttle removePlacedBlocks to avoid per-update world lookups. */
+    private var lastBlockCheckTick = 0L
+    private const val BLOCK_CHECK_INTERVAL = 20L // Check every second
+
     private class JobRenderer(
         val renderer: SchematicRenderer,
         val schematicLevel: SchematicLevel,
@@ -108,9 +112,12 @@ object ConstructionRenderer {
         }
 
         val dataVersion = ClientJobCache.version
-        if (dataVersion != lastDataVersion) {
-            rebuildCache(jobs, level)
+        val gameTick = level.gameTime
+        val shouldCheckBlocks = gameTick - lastBlockCheckTick >= BLOCK_CHECK_INTERVAL
+        if (dataVersion != lastDataVersion || shouldCheckBlocks) {
+            rebuildCache(jobs, level, shouldCheckBlocks)
             lastDataVersion = dataVersion
+            if (shouldCheckBlocks) lastBlockCheckTick = gameTick
         }
 
         val poseStack = event.poseStack
@@ -136,65 +143,45 @@ object ConstructionRenderer {
         RenderSystem.enableCull()
     }
 
-    private fun rebuildCache(jobs: List<ClientJobInfo>, clientLevel: Level) {
+    private fun rebuildCache(jobs: List<ClientJobInfo>, clientLevel: Level, checkBlocks: Boolean) {
         val activeJobIds = jobs.map { it.jobId }.toSet()
         outlineCache.keys.removeAll { it !in activeJobIds }
         outlineBoundsCache.keys.removeAll { it !in activeJobIds }
         rendererCache.keys.removeAll { it !in activeJobIds }
 
         for (job in jobs) {
-            // Build outline from ghost block positions (all batches including completed)
-            val allJobPositions = mutableSetOf<BlockPos>()
-            for (batch in job.batches) {
-                for ((pos, _) in batch.ghostBlocks) {
-                    allJobPositions.add(pos)
-                }
-            }
-
-            // Calculate bounds from ALL positions and merge with cached max (never shrink)
-            if (allJobPositions.isNotEmpty()) {
-                val newBounds = AABB(
-                    allJobPositions.minOf { it.x }.toDouble(),
-                    allJobPositions.minOf { it.y }.toDouble(),
-                    allJobPositions.minOf { it.z }.toDouble(),
-                    allJobPositions.maxOf { it.x } + 1.0,
-                    allJobPositions.maxOf { it.y } + 1.0,
-                    allJobPositions.maxOf { it.z } + 1.0
-                )
-                val existing = outlineBoundsCache[job.jobId]
-                val bounds = if (existing != null) {
-                    AABB(
-                        minOf(existing.minX, newBounds.minX),
-                        minOf(existing.minY, newBounds.minY),
-                        minOf(existing.minZ, newBounds.minZ),
-                        maxOf(existing.maxX, newBounds.maxX),
-                        maxOf(existing.maxY, newBounds.maxY),
-                        maxOf(existing.maxZ, newBounds.maxZ)
-                    )
-                } else {
-                    newBounds
-                }
-                outlineBoundsCache[job.jobId] = bounds
-
-                val outline = AABBOutline(bounds)
-                outline.params
-                    .colored(0x6886c5)
-                    .withFaceTexture(AllSpecialTextures.CHECKERED)
-                    .lineWidth(1 / 16f)
-                outlineCache[job.jobId] = outline
-            }
-
             // Build schematic renderer (once per job), then update when blocks change
             val existing = rendererCache[job.jobId]
             if (existing != null) {
-                // Remove blocks that are now placed in the real world
-                if (removePlacedBlocks(existing.schematicLevel, clientLevel)) {
+                // Only check placed blocks periodically (not on every data version bump)
+                if (checkBlocks && removePlacedBlocks(existing.schematicLevel, clientLevel)) {
                     existing.renderer.update()
                 }
             } else {
                 val renderer = buildSchematicRenderer(job, clientLevel)
                 if (renderer != null) {
                     rendererCache[job.jobId] = renderer
+
+                    // Build outline from actual block positions (not schematicLevel.bounds
+                    // which always includes origin due to BoundingBox(BlockPos.ZERO) init)
+                    val positions = renderer.schematicLevel.blockMap.keys
+                    if (positions.isEmpty()) continue
+                    val anchor = renderer.anchor
+                    val bounds = AABB(
+                        (positions.minOf { it.x } + anchor.x).toDouble(),
+                        (positions.minOf { it.y } + anchor.y).toDouble(),
+                        (positions.minOf { it.z } + anchor.z).toDouble(),
+                        (positions.maxOf { it.x } + anchor.x + 1).toDouble(),
+                        (positions.maxOf { it.y } + anchor.y + 1).toDouble(),
+                        (positions.maxOf { it.z } + anchor.z + 1).toDouble()
+                    )
+                    outlineBoundsCache[job.jobId] = bounds
+                    val outline = AABBOutline(bounds)
+                    outline.params
+                        .colored(0x6886c5)
+                        .withFaceTexture(AllSpecialTextures.CHECKERED)
+                        .lineWidth(1 / 16f)
+                    outlineCache[job.jobId] = outline
                 }
             }
         }

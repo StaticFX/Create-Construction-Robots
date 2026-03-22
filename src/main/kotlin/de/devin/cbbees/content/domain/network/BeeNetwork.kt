@@ -20,12 +20,25 @@ class BeeNetwork(
 
     var level: net.minecraft.world.level.Level? = null
 
-    val components = mutableSetOf<INetworkComponent>()
+    private val _components = mutableSetOf<INetworkComponent>()
+    val components: MutableSet<INetworkComponent> get() = _components
 
-    val hives: List<BeeHive> get() = components.filterIsInstance<BeeHive>()
-    val ports: List<LogisticsPort> get() = components.filterIsInstance<LogisticsPort>()
-    val transportPorts: List<TransportPort> get() = components.filterIsInstance<TransportPort>()
-    val reservablePorts: List<ReservablePort> get() = components.filterIsInstance<ReservablePort>()
+    private var _hives: List<BeeHive>? = null
+    private var _ports: List<LogisticsPort>? = null
+    private var _transportPorts: List<TransportPort>? = null
+    private var _reservablePorts: List<ReservablePort>? = null
+
+    private fun invalidateComponentCaches() {
+        _hives = null
+        _ports = null
+        _transportPorts = null
+        _reservablePorts = null
+    }
+
+    val hives: List<BeeHive> get() = _hives ?: components.filterIsInstance<BeeHive>().also { _hives = it }
+    val ports: List<LogisticsPort> get() = _ports ?: components.filterIsInstance<LogisticsPort>().also { _ports = it }
+    val transportPorts: List<TransportPort> get() = _transportPorts ?: components.filterIsInstance<TransportPort>().also { _transportPorts = it }
+    val reservablePorts: List<ReservablePort> get() = _reservablePorts ?: components.filterIsInstance<ReservablePort>().also { _reservablePorts = it }
 
     /**
      * The aggregate operational range of all anchors in this network.
@@ -103,6 +116,7 @@ class BeeNetwork(
 
     fun addComponent(component: INetworkComponent) {
         if (components.add(component)) {
+            invalidateComponentCaches()
             if (level == null) level = component.world
             component.networkId = id
             component.sync()
@@ -110,12 +124,15 @@ class BeeNetwork(
     }
 
     fun removeComponent(component: INetworkComponent) {
-        components.remove(component)
+        if (components.remove(component)) {
+            invalidateComponentCaches()
+        }
     }
 
     fun merge(other: BeeNetwork) {
         other.components.forEach { addComponent(it) }
         other.components.clear()
+        other.invalidateComponentCaches()
     }
 
     /**

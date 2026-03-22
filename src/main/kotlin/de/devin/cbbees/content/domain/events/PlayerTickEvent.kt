@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.events
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
@@ -47,6 +48,10 @@ class PlayerTickEvent {
     }
 
     private fun hasPortableHive(player: net.minecraft.world.entity.player.Player): Boolean {
-        return CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }.isPresent
+        // Check Curios back slot
+        val curios = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
+        if (curios.isPresent) return true
+        // Check chestplate armor slot
+        return player.inventory.armor[2].item is PortableBeehiveItem
     }
 }

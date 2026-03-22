@@ -18,6 +18,8 @@ class TaskBatch(
 
     var status: TaskStatus = TaskStatus.PENDING
     var assignedNetworkId: UUID? = null
+    /** UUID of the bee currently working on this batch. */
+    var assignedBeeId: UUID? = null
 
     val priority: Int get() = tasks.maxOfOrNull { it.priority } ?: 0
 
@@ -27,6 +29,10 @@ class TaskBatch(
 
     /** Game tick when this batch was last released. Used for cooldown. */
     var lastReleasedTick: Long = 0L
+        private set
+
+    /** Game tick when this batch was picked up or started. Used for stale detection. */
+    var startedAtTick: Long = 0L
         private set
 
     private var currentIndex = 0
@@ -58,6 +64,7 @@ class TaskBatch(
     fun release(resetNetwork: Boolean = true, gameTick: Long = 0L) {
         currentIndex = 0
         status = TaskStatus.PENDING
+        assignedBeeId = null
         tasks.forEach { it.release() }
         retryCount++
         lastReleasedTick = gameTick
@@ -68,6 +75,8 @@ class TaskBatch(
 
     fun assignToRobot(bee: MechanicalBeeEntity) {
         status = TaskStatus.IN_PROGRESS
+        assignedBeeId = bee.uuid
+        startedAtTick = bee.level().gameTime
         tasks.forEach { it.assignToRobot(bee) }
     }
 }

@@ -62,10 +62,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
         val missing = computeMissingItems(owner, batch)
         if (missing.isNotEmpty()) {
-            BeeDebug.log(
-                owner,
-                "Gather: need ${missing.size} item type(s): ${missing.joinToString { "${it.count}x ${it.item}" }}"
-            )
+            BeeDebug.log(owner, "Gather: need ${missing.size} item type(s)")
         }
         return missing.isNotEmpty()
     }
