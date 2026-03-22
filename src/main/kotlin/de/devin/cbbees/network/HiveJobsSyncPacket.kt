@@ -225,10 +225,10 @@ class HiveJobsSyncPacket(
             val be = level.getBlockEntity(hivePos) as? MechanicalBeehiveBlockEntity ?: return
             val net = ServerBeeNetworkManager.getNetworkFor(be) ?: return
 
-            val statsActive = net.hives.sumOf { h -> h.getActiveBeeCount() }
-
-            val statsStored = net.hives.sumOf { it.getAvailableBeeCount() }
-            val statsMax = net.hives.sumOf { it.getBeeContext().maxActiveRobots }
+            val hiveList = net.hives
+            val statsActive = hiveList.sumOf { it.getActiveBeeCount() }
+            val statsStored = hiveList.sumOf { it.getAvailableBeeCount() }
+            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveRobots }
 
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { job ->
@@ -243,16 +243,16 @@ class HiveJobsSyncPacket(
 
                     val reason = StuckReasonResolver.firstReasonOrNull(net, job)
 
+                    // Only send ghost blocks if no schematic placement is available
+                    // (client can derive ghosts from the placement data itself)
+                    val hasPlacement = job.schematicPlacement != null
                     val batches = job.batches.map { b ->
-                        val beeIds = b.tasks.mapNotNull { it.mechanicalBee?.uuid }
                         ClientBatchInfo(
                             status = b.status.name,
                             target = b.targetPosition,
-                            required = b.tasks.map { it.action }
-                                .filterIsInstance<ItemConsumingAction>()
-                                .flatMap { it.requiredItems },
-                            assignedBeeIds = beeIds,
-                            ghostBlocks = collectGhostBlocks(b)
+                            required = emptyList(),
+                            assignedBeeIds = emptyList(),
+                            ghostBlocks = if (hasPlacement) emptyMap() else collectGhostBlocks(b)
                         )
                     }
                     ClientJobInfo(
@@ -274,25 +274,28 @@ class HiveJobsSyncPacket(
         fun sendPlayerSnapshotTo(player: ServerPlayer) {
             val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
-                .map { job ->
+            if (jobs.isEmpty()) return
+
+            val clientJobs = jobs.map { job ->
+                    val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
                     val batches = job.batches.map { b ->
                         ClientBatchInfo(
                             b.status.name, b.targetPosition, emptyList(), emptyList(),
-                            ghostBlocks = collectGhostBlocks(b)
+                            ghostBlocks = emptyMap()
                         )
                     }
                     ClientJobInfo(
                         job.jobId,
                         job.jobId.toString().substring(0, 6).uppercase(),
                         job.status.name,
-                        0,
+                        completed,
                         job.tasks.size,
                         null,
                         batches,
                         schematicPlacement = job.schematicPlacement
                     )
                 }
-            val snapshot = HiveSnapshot(ClientNetworkInfo("Personal", 0, 0, 0), jobs)
+            val snapshot = HiveSnapshot(ClientNetworkInfo("Personal", 0, 0, 0), clientJobs)
             PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(BlockPos.ZERO, snapshot))
         }
     }

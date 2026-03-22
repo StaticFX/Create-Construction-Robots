@@ -17,6 +17,7 @@ import de.devin.cbbees.util.ServerSide
 object CCRServerEvents {
 
     private var tickCounter = 0
+    private var syncCounter = 0
 
     /**
      * Called every server tick.
@@ -26,7 +27,7 @@ object CCRServerEvents {
     fun onServerTick(event: ServerTickEvent.Post) {
         tickCounter++
 
-        // Send sync every 10 ticks (0.5 seconds)
+        // Core logic every 10 ticks (0.5 seconds)
         if (tickCounter < 10) return
         tickCounter = 0
 
@@ -36,9 +37,15 @@ object CCRServerEvents {
         GlobalJobPool.tick(gameTime)
         TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
-        for (player in server.playerList.players) {
-            HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-            NetworkSyncPacket.sendTo(player)
+
+        // Sync packets every 40 ticks (2 seconds) to reduce network and serialization overhead
+        syncCounter++
+        if (syncCounter >= 4) {
+            syncCounter = 0
+            for (player in server.playerList.players) {
+                HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
+                NetworkSyncPacket.sendTo(player)
+            }
         }
     }
 

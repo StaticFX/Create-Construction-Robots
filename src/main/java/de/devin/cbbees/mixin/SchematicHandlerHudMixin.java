@@ -84,6 +84,8 @@ public abstract class SchematicHandlerHudMixin {
 
         if (tool == ConstructionToolState.CustomTool.CONSTRUCT) {
             ccr$sendConstructionPacket(mainHand);
+            // Clear client state immediately so Create deactivates cleanly
+            ConstructionPlannerItem.Companion.clearSchematic(mainHand);
             mc.player.displayClientMessage(
                 Component.translatable("gui.cbbees.schematic.construction_started")
                     .withStyle(style -> style.withColor(0x00FF00)),
@@ -120,6 +122,8 @@ public abstract class SchematicHandlerHudMixin {
                 ItemStack mainHand = mc.player.getMainHandItem();
                 if (AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(mainHand)) {
                     ccr$sendConstructionPacket(mainHand);
+                    // Clear client state immediately so Create deactivates cleanly
+                    ConstructionPlannerItem.Companion.clearSchematic(mainHand);
                     mc.player.displayClientMessage(
                         Component.translatable("gui.cbbees.schematic.construction_started")
                             .withStyle(style -> style.withColor(0x00FF00)),

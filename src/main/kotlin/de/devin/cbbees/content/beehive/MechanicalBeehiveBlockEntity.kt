@@ -137,6 +137,32 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         if (found) sync()
     }
 
+    /**
+     * Removes active bee entries for entities that no longer exist in the world.
+     * Called by the watchdog to prevent ghost bee counts from blocking new dispatches.
+     */
+    fun cleanupOrphanedBees() {
+        val level = this.level ?: return
+        var cleaned = false
+        val iter = activeBeesByJob.iterator()
+        while (iter.hasNext()) {
+            val (_, bees) = iter.next()
+            val beeIter = bees.iterator()
+            while (beeIter.hasNext()) {
+                val beeId = beeIter.next()
+                // Check if entity exists by scanning loaded entities
+                val entity = (level as? net.minecraft.server.level.ServerLevel)
+                    ?.getEntity(beeId)
+                if (entity == null || !entity.isAlive) {
+                    beeIter.remove()
+                    cleaned = true
+                }
+            }
+            if (bees.isEmpty()) iter.remove()
+        }
+        if (cleaned) sync()
+    }
+
     override fun walkTarget(): WalkTarget {
         return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 2)
     }

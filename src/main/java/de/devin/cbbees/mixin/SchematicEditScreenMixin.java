@@ -6,6 +6,7 @@ import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.network.StartConstructionPacket;
 import net.createmod.catnip.gui.AbstractSimiScreen;
@@ -54,6 +55,8 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
             Rotation rotation = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
             Mirror mirror = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
             PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+            // Clear client state immediately so Create deactivates cleanly
+            ConstructionPlannerItem.Companion.clearSchematic(activeItem);
             if (Minecraft.getInstance().screen != null) {
                 Minecraft.getInstance().screen.onClose();
             }

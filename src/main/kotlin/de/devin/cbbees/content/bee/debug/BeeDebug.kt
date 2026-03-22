@@ -31,8 +31,10 @@ object BeeDebug {
 
     /**
      * Sends a debug message about a bee to all nearby players with debug enabled.
+     * Uses lazy message evaluation to avoid string concatenation when debug is off.
      */
     fun log(bee: MechanicalBeeEntity, message: String) {
+        if (enabledPlayers.isEmpty()) return
         val springPct = (bee.springTension * 100).toInt()
         logForEntity(bee, "Bee", "Spring: $springPct% | $message")
     }

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
@@ -19,12 +20,18 @@ import de.devin.cbbees.util.ServerSide
 object GlobalJobPool : SavedData() {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
-    /** Redispatch every 4 calls of tick() = every 2 seconds (tick() is called every 10 server ticks). */
+    private var watchdogCounter = 0
+    /** Redispatch every 4 calls of tick() = every 4 seconds (tick() is called every 10 server ticks). */
     private const val REDISPATCH_INTERVAL = 4
+    /** Watchdog runs every 20 calls = every 10 seconds. */
+    private const val WATCHDOG_INTERVAL = 20
+    /** Batches stuck in IN_PROGRESS/PICKED for longer than this are released (30 seconds). */
+    private const val STALE_BATCH_TICKS = 600L
 
     fun clear() {
         jobBacklog.clear()
         redispatchCounter = 0
+        watchdogCounter = 0
     }
 
     fun tick(gameTime: Long = 0L) {
@@ -36,6 +43,67 @@ object GlobalJobPool : SavedData() {
         if (redispatchCounter >= REDISPATCH_INTERVAL) {
             redispatchCounter = 0
             redispatchPendingBatches(gameTime)
+        }
+
+        watchdogCounter++
+        if (watchdogCounter >= WATCHDOG_INTERVAL) {
+            watchdogCounter = 0
+            healStaleBatches(gameTime)
+        }
+    }
+
+    /**
+     * Self-healing watchdog: detects batches stuck in IN_PROGRESS or PICKED state
+     * where the assigned bee no longer exists, and releases them for retry.
+     */
+    private fun healStaleBatches(gameTime: Long) {
+        var healedCount = 0
+
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+
+            for (batch in job.batches) {
+                if (batch.status != TaskStatus.IN_PROGRESS && batch.status != TaskStatus.PICKED) continue
+                if (batch.startedAtTick == 0L) continue // legacy batch without timestamp
+
+                val elapsed = gameTime - batch.startedAtTick
+                if (elapsed < STALE_BATCH_TICKS) continue
+
+                // Check if the assigned bee still exists
+                val beeId = batch.assignedBeeId
+                val serverLevel = job.level as? net.minecraft.server.level.ServerLevel
+                val beeAlive = if (beeId != null && serverLevel != null) {
+                    serverLevel.getEntity(beeId)?.isAlive == true
+                } else false
+
+                if (!beeAlive) {
+                    batch.release(gameTick = gameTime)
+                    healedCount++
+                }
+            }
+        }
+
+        // Also clean up orphaned active bee tracking in hives
+        cleanupOrphanedBees(gameTime)
+
+        if (healedCount > 0) {
+            CreateBuzzyBeez.LOGGER.debug("[Watchdog] Healed $healedCount stale batches")
+        }
+    }
+
+    /**
+     * Scans all hives and removes active bee entries for entities that no longer exist.
+     * This prevents hives from thinking they have active bees when the entities are gone.
+     */
+    private fun cleanupOrphanedBees(gameTime: Long) {
+        for (network in ServerBeeNetworkManager.getNetworks()) {
+            for (hive in network.hives) {
+                if (hive is de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity) {
+                    hive.cleanupOrphanedBees()
+                } else if (hive is de.devin.cbbees.content.domain.beehive.PortableBeeHive) {
+                    hive.cleanupOrphanedBees()
+                }
+            }
         }
     }
 
@@ -124,6 +192,8 @@ object GlobalJobPool : SavedData() {
         if (batchesToDistribute.isEmpty()) return
 
         val allNetworks = ServerBeeNetworkManager.getNetworks()
+        var assignedCount = 0
+        var unassignedCount = 0
 
         for (batch in batchesToDistribute) {
             // Find networks that can do this batch
@@ -140,8 +210,13 @@ object GlobalJobPool : SavedData() {
             if (targetNetwork != null) {
                 batch.assignedNetworkId = targetNetwork.id
                 targetNetwork.dispatchBatch(batch)
+                assignedCount++
+            } else {
+                unassignedCount++
             }
         }
+
+        CreateBuzzyBeez.LOGGER.debug("[JobPool] Dispatched job: ${batchesToDistribute.size} batches, $assignedCount assigned, $unassignedCount unassigned, ${allNetworks.size} networks available")
 
         if (!jobBacklog.contains(job)) jobBacklog.add(job)
         this.setDirty()

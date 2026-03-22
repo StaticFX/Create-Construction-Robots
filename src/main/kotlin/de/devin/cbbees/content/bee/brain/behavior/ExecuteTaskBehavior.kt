@@ -50,10 +50,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
         // Check if the task needs items the bee doesn't have
         val action = task.action
         if (action is ItemConsumingAction && !action.hasItems(owner)) {
-            BeeDebug.log(
-                owner,
-                "Execute: missing items for ${action.requiredItems.joinToString { "${it.count}x ${it.item}" }}"
-            )
+            BeeDebug.log(owner, "Execute: missing items for task")
             return false
         }
 

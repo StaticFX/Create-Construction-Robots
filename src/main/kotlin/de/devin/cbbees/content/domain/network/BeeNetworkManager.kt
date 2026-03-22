@@ -56,7 +56,7 @@ object ServerBeeNetworkManager {
         if (nearbyNetworks.isEmpty()) {
             targetNetwork = BeeNetwork(component.networkId, topology)
             networks.add(targetNetwork)
-            CreateBuzzyBeez.LOGGER.info("Created new network with ${component.javaClass.simpleName} id: ${component.networkId}")
+            CreateBuzzyBeez.LOGGER.debug("Created new network with ${component.javaClass.simpleName} id: ${component.networkId}")
         } else {
             targetNetwork = nearbyNetworks.first()
             if (nearbyNetworks.size > 1) {
@@ -64,9 +64,9 @@ object ServerBeeNetworkManager {
                     targetNetwork.merge(other)
                     networks.remove(other)
                 }
-                CreateBuzzyBeez.LOGGER.info("Merged ${nearbyNetworks.size} networks into main network id: ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.debug("Merged ${nearbyNetworks.size} networks into main network id: ${targetNetwork.id}")
             } else {
-                CreateBuzzyBeez.LOGGER.info("Added ${component.javaClass.simpleName} to existing network id: ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.debug("Added ${component.javaClass.simpleName} to existing network id: ${targetNetwork.id}")
             }
         }
 
@@ -218,7 +218,7 @@ object ServerBeeNetworkManager {
                 }
             }
             blockNetwork.addComponent(hive)
-            CreateBuzzyBeez.LOGGER.info("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
+            CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
         } else {
             // No block network nearby
             if (currentNetwork != null && currentNetwork.components.any { it.isAnchor() && it !is PortableBeeHive }) {
@@ -229,7 +229,7 @@ object ServerBeeNetworkManager {
                 }
                 hive.networkId = UUID.randomUUID()
                 registerComponent(hive)
-                CreateBuzzyBeez.LOGGER.info("Detached portable hive for ${hive.player.name.string} into isolated network")
+                CreateBuzzyBeez.LOGGER.debug("Detached portable hive for ${hive.player.name.string} into isolated network")
             }
             // Otherwise already isolated — no-op
         }

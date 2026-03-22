@@ -37,7 +37,8 @@ public abstract class SchematicHandlerFindMixin {
 
         ItemStack stack = player.getMainHandItem();
         if (AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack)
-                && stack.has(AllDataComponents.SCHEMATIC_FILE)) {
+                && stack.has(AllDataComponents.SCHEMATIC_FILE)
+                && stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
             activeSchematicItem = stack;
             activeHotbarSlot = player.getInventory().selected;
             cir.setReturnValue(stack);

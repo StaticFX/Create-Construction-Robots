@@ -3,6 +3,7 @@ package de.devin.cbbees.content.schematics.client
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.CreateClient
 import com.simibubi.create.content.schematics.SchematicItem
+import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.InstantConstructionPacket
@@ -60,6 +61,13 @@ object ConstructionPlannerHandler {
     var isBrowsingPreview = false
         private set
 
+    /**
+     * Tracks whether Create's SchematicHandler has been active for the current deployment.
+     * Used to distinguish "Create hasn't ticked yet" from "Create was active and then stopped"
+     * (e.g. after Print). We only clear on the latter.
+     */
+    private var createWasActive = false
+
     /** Filename currently being previewed. Internal state only. */
     private var browsingFilename: String? = null
 
@@ -88,6 +96,7 @@ object ConstructionPlannerHandler {
 
         // Not holding a planner — pause preview rendering but keep internal state
         if (stack == null || !AllItems.CONSTRUCTION_PLANNER.isIn(stack)) {
+            createWasActive = false
             if (isBrowsingPreview) {
                 isBrowsingPreview = false
                 SchematicHoverPreview.clear()
@@ -95,8 +104,22 @@ object ConstructionPlannerHandler {
             return
         }
 
+        // Detect Create's Print: we were in state 3 (createWasActive) but Create set
+        // DEPLOYED=false while SCHEMATIC_FILE is still on the item. Clear everything.
+        if (createWasActive
+            && !stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)
+            && stack.has(AllDataComponents.SCHEMATIC_FILE)) {
+            createWasActive = false
+            ConstructionPlannerItem.clearSchematic(stack)
+            clearBrowsingPreview()
+            return
+        }
+
         // State 3: deployed → Create owns it, nothing for us to do
         if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
+            if (CreateClient.SCHEMATIC_HANDLER.isActive) {
+                createWasActive = true
+            }
             if (isBrowsingPreview) {
                 isBrowsingPreview = false
                 browsingFilename = null
@@ -182,6 +205,7 @@ object ConstructionPlannerHandler {
     fun clearBrowsingPreview() {
         isBrowsingPreview = false
         browsingFilename = null
+        createWasActive = false
         SchematicHoverPreview.clear()
     }
 

@@ -44,7 +44,6 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
         val random = objects.random
         val mutableBlockPos = objects.mutableBlockPos
         val renderWorld = schematic
-        val bounds = renderWorld.bounds
 
         val sbbBuilder = objects.sbbBuilder
         sbbBuilder.begin()
@@ -52,32 +51,28 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
         renderWorld.renderMode = true
         ModelBlockRenderer.enableCaching()
 
-        for (localPos in BlockPos.betweenClosed(
-            bounds.minX(), bounds.minY(), bounds.minZ(),
-            bounds.maxX(), bounds.maxY(), bounds.maxZ()
-        )) {
+        // Iterate only over blocks that actually exist in the schematic,
+        // not the entire bounding volume (which can be orders of magnitude larger)
+        for ((localPos, state) in renderWorld.blockMap) {
+            if (state.renderShape == RenderShape.INVISIBLE) continue
+
             val pos = mutableBlockPos.setWithOffset(localPos, anchor)
-            val state = renderWorld.getBlockState(pos)
+            val model = dispatcher.getBlockModel(state)
+            val blockEntity = renderWorld.getBlockEntity(localPos)
+            val modelData = if (blockEntity != null) blockEntity.modelData else ModelData.EMPTY
+            val finalModelData = model.getModelData(renderWorld, pos, state, modelData)
+            val seed = state.getSeed(pos)
+            random.setSeed(seed)
+            if (model.getRenderTypes(state, random, finalModelData).contains(layer)) {
+                poseStack.pushPose()
+                poseStack.translate(localPos.x.toDouble(), localPos.y.toDouble(), localPos.z.toDouble())
 
-            // Render ALL blocks except INVISIBLE (unlike parent which only renders MODEL)
-            if (state.renderShape != RenderShape.INVISIBLE) {
-                val model = dispatcher.getBlockModel(state)
-                val blockEntity = renderWorld.getBlockEntity(localPos)
-                val modelData = if (blockEntity != null) blockEntity.modelData else ModelData.EMPTY
-                val finalModelData = model.getModelData(renderWorld, pos, state, modelData)
-                val seed = state.getSeed(pos)
-                random.setSeed(seed)
-                if (model.getRenderTypes(state, random, finalModelData).contains(layer)) {
-                    poseStack.pushPose()
-                    poseStack.translate(localPos.x.toDouble(), localPos.y.toDouble(), localPos.z.toDouble())
+                renderer.tesselateBlock(
+                    renderWorld, model, state, pos, poseStack, sbbBuilder, true,
+                    random, seed, OverlayTexture.NO_OVERLAY, finalModelData, layer
+                )
 
-                    renderer.tesselateBlock(
-                        renderWorld, model, state, pos, poseStack, sbbBuilder, true,
-                        random, seed, OverlayTexture.NO_OVERLAY, finalModelData, layer
-                    )
-
-                    poseStack.popPose()
-                }
+                poseStack.popPose()
             }
         }
 

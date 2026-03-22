@@ -73,6 +73,18 @@ class PortableBeeHive(val player: Player) : BeeHive {
         activeBees.remove(bee.uuid)
     }
 
+    /**
+     * Removes active bee entries for entities that no longer exist in the world.
+     * Called by the watchdog to prevent ghost bee counts from blocking new dispatches.
+     */
+    fun cleanupOrphanedBees() {
+        val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return
+        val removed = activeBees.removeIf { beeId ->
+            val entity = level.getEntity(beeId)
+            entity == null || !entity.isAlive
+        }
+    }
+
     override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
         val nextBatch = GlobalJobPool.workBacklog(this)
 
@@ -161,9 +173,15 @@ class PortableBeeHive(val player: Player) : BeeHive {
 
 
     private fun getBackpackStack(): ItemStack {
+        // Check Curios back slot
         val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
         if (curiosResult.isPresent) {
             return curiosResult.get().stack()
+        }
+        // Check chestplate armor slot
+        val chestplate = player.inventory.armor[2]
+        if (chestplate.item is PortableBeehiveItem) {
+            return chestplate
         }
         return ItemStack.EMPTY
     }

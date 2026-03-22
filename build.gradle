@@ -55,6 +55,9 @@ neoForge {
 
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+
+            // Match typical launcher memory settings to catch perf issues early
+            jvmArguments.addAll '-Xmx2G', '-Xms512M'
         }
 
         server {
