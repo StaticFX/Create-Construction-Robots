@@ -16,6 +16,7 @@
   "item.cbbees.swarm_intelligence": "Swarm Intelligence",
   "item.cbbees.honey_efficiency": "Honey Efficiency",
   "item.cbbees.soft_touch": "Soft Touch",
+  "item.cbbees.drop_items": "Drop Items",
   "item.cbbees.upgrade_template": "Upgrade Template",
   "container.cbbees.portable_beehive": "Portable Beehive",
   "item.cbbees.portable_beehive.tooltip": "Mobile Construction Backpack",
@@ -87,6 +88,7 @@
   "tooltip.cbbees.upgrade.swarm_intelligence": "+2 bees can work simultaneously",
   "tooltip.cbbees.upgrade.honey_efficiency": "Bees have increased carry capacity, break speed and honey efficiency",
   "tooltip.cbbees.upgrade.soft_touch": "Deconstruction preserves blocks intact",
+  "tooltip.cbbees.upgrade.drop_items": "Bees drop items on deconstruction instead of picking them up",
   "tooltip.cbbees.upgrade.max_stack": "Max in hive: %d",
   "tooltip.cbbees.upgrade.unique": "Only one can be installed",
   "cbbees.construction.stopped": "Swarm recalled!",
@@ -263,5 +265,10 @@
   "item.cbbees.soft_touch.tooltip": "Silk Touch Upgrade",
   "item.cbbees.soft_touch.tooltip.summary": "Deconstruction preserves blocks _intact_ instead of destroying them. Deconstructed blocks are returned as their original item. Install in the _Portable Beehive_.",
   "item.cbbees.soft_touch.tooltip.condition1": "Unique",
-  "item.cbbees.soft_touch.tooltip.behaviour1": "Only _1_ can be installed per beehive."
+  "item.cbbees.soft_touch.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
+
+  "item.cbbees.drop_items.tooltip": "Quick Deconstruction Upgrade",
+  "item.cbbees.drop_items.tooltip.summary": "Bees _drop items_ on the ground after breaking blocks instead of picking them up. Skips the return trip, making deconstruction _much faster_. Install in the _Portable Beehive_.",
+  "item.cbbees.drop_items.tooltip.condition1": "Unique",
+  "item.cbbees.drop_items.tooltip.behaviour1": "Only _1_ can be installed per beehive."
 }

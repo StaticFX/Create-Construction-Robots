@@ -19,8 +19,7 @@ interface INetworkComponent {
                 ?: run {
                     ServerBeeNetworkManager.registerComponent(this)
                     ServerBeeNetworkManager.getNetworkFor(this)
-                        ?: BeeNetwork(networkId).apply { addComponent(this@INetworkComponent) }
-                }
+                } ?: BeeNetwork(networkId)
         }
     }
 

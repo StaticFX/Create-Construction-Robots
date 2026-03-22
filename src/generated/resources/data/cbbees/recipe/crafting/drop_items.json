@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:propeller"
+    },
+    "V": {
+      "item": "minecraft:dropper"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " B ",
+    "VWV",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:drop_items"
+  }
+}

@@ -69,6 +69,11 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         }
     }
 
+    override fun remove() {
+        if (level != null) removeFromNetwork(level!!)
+        super.remove()
+    }
+
     override fun destroy() {
         removeFromNetwork(level!!)
         super.destroy()
