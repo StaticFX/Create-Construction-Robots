@@ -12,6 +12,7 @@ data class BeeContext(
     var workRange: Double = CBBeesConfig.defaultWorkRange.get(),
     var maxActiveRobots: Int = CBBeesConfig.defaultMaxActiveRobots.get(),
     var silkTouchEnabled: Boolean = false,
+    var dropItemsEnabled: Boolean = false,
     var breakSpeedMultiplier: Double = 1.0,
     /** Maximum number of bees this source can contribute to a single job */
     var maxContributedBees: Int = CBBeesConfig.defaultMaxActiveRobots.get(),

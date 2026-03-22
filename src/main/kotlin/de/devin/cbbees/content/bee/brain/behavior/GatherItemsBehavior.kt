@@ -5,6 +5,8 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
+import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -14,6 +16,7 @@ import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 import net.minecraft.world.entity.ai.memory.WalkTarget
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import java.util.UUID
 
@@ -81,7 +84,58 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             return
         }
 
-        // Build a plan: for each missing item, find a port that has it
+        val hive = entity.beehive()
+        val isPortable = hive is PortableBeeHive
+
+        // Portable beehive bees: always prefer the player's inventory
+        if (isPortable) {
+            val player = (hive as PortableBeeHive).player
+            val playerItems = missing.filter { playerHasItem(player, it) }
+            if (playerItems.isNotEmpty()) {
+                if (entity.blockPosition().closerThan(player.blockPosition(), entity.workRange)) {
+                    for (item in playerItems) {
+                        if (entity.isInventoryFull()) break
+                        val extracted = extractFromPlayer(player, item)
+                        if (!extracted.isEmpty) {
+                            val remainder = entity.addToInventory(extracted)
+                            if (!remainder.isEmpty) {
+                                player.inventory.add(remainder)
+                            }
+                            entity.consumeSpring(CBBeesConfig.springDrainPickup.get())
+                            BeeDebug.log(entity, "Picked up ${extracted.count}x ${extracted.item} from player")
+                        }
+                    }
+                    return
+                } else {
+                    BeeDebug.log(entity, "Flying to player for ${playerItems.size} item type(s)")
+                    entity.brain.setMemory(
+                        MemoryModuleType.WALK_TARGET,
+                        WalkTarget(player, 1.0f, 1)
+                    )
+                    return
+                }
+            }
+        }
+
+        // Portable beehive bees can only use logistics ports if the network
+        // has a mechanical (block-based) beehive and the task is in that network's range.
+        // Otherwise they are limited to the player's inventory.
+        val canUsePorts = if (isPortable) {
+            val taskPos = batch.targetPosition
+            network.hives.any { it is MechanicalBeehiveBlockEntity && it.isInRange(taskPos) }
+        } else {
+            true
+        }
+
+        if (!canUsePorts) {
+            BeeDebug.log(entity, "No mechanical beehive covers task — player inventory only, releasing batch")
+            network.releaseReservations(entity.uuid)
+            batch.release(gameTick = gameTime)
+            entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+            return
+        }
+
+        // Logistics port gathering
         val gatherPlan = buildGatherPlan(network, missing, entity.uuid)
         if (gatherPlan.isEmpty()) {
             BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
@@ -144,6 +198,36 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
         }
 
         return plan
+    }
+
+    private fun playerHasItem(player: Player, stack: ItemStack): Boolean {
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun extractFromPlayer(player: Player, needed: ItemStack): ItemStack {
+        var remaining = needed.count
+        val result = needed.copy()
+        result.count = 0
+
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, needed)) {
+                val take = minOf(remaining, slot.count)
+                slot.shrink(take)
+                if (slot.isEmpty) player.inventory.setItem(i, ItemStack.EMPTY)
+                result.grow(take)
+                remaining -= take
+                if (remaining <= 0) break
+            }
+        }
+
+        return if (result.count > 0) result else ItemStack.EMPTY
     }
 
     private fun computeMissingItems(

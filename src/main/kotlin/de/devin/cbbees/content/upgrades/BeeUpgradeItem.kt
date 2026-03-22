@@ -25,6 +25,9 @@ enum class UpgradeType(
     }),
     SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
+    }),
+    DROP_ITEMS(1, "tooltip.cbbees.upgrade.drop_items", IUpgrade { ctx, count ->
+        if (count > 0) ctx.dropItemsEnabled = true
     });
 
     companion object {
@@ -69,3 +72,5 @@ class SwarmIntelligenceUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeT
 class HoneyEfficiencyUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONEY_EFFICIENCY, properties)
 
 class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT_TOUCH, properties)
+
+class DropItemsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DROP_ITEMS, properties)

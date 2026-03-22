@@ -51,6 +51,13 @@ object ServerBeeNetworkManager {
             }
         }
 
+        // Non-anchor components (logistics ports) cannot create their own network.
+        // They must join an existing network that has an anchor (mechanical beehive).
+        if (nearbyNetworks.isEmpty() && !component.isAnchor()) {
+            CreateBuzzyBeez.LOGGER.debug("No network with anchor available for ${component.javaClass.simpleName} at ${component.pos}")
+            return
+        }
+
         val targetNetwork: BeeNetwork
 
         if (nearbyNetworks.isEmpty()) {
@@ -289,10 +296,13 @@ object ClientBeeNetworkManager {
         // Collect all current client components
         val allComponents = networks.flatMap { it.components }.toList()
 
-        // Reassign components that are in the wrong network
         for (component in allComponents) {
             val correctNetworkId = posToNetwork[component.pos]
-            if (correctNetworkId != null && correctNetworkId != component.networkId) {
+            if (correctNetworkId == null) {
+                // Component no longer exists on the server — remove it
+                val net = networks.find { it.components.contains(component) }
+                net?.removeComponent(component)
+            } else if (correctNetworkId != component.networkId) {
                 // Component is in the wrong network — move it
                 val oldNet = networks.find { it.components.contains(component) }
                 oldNet?.removeComponent(component)

@@ -207,6 +207,26 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
+    // Drop Items - Deconstruction bees drop items instead of picking them up
+    val DROP_ITEMS: ItemEntry<DropItemsUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("drop_items") { props ->
+            DropItemsUpgrade(props)
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.DROPPER)
+                .define('B', AllItems.PROPELLER.get())
+                .pattern(" B ")
+                .pattern("VWV")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
     val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee_chassis") { props -> Item(props) }

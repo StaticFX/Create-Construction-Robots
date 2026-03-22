@@ -5,6 +5,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.server.level.ServerLevel
@@ -88,8 +89,23 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                     owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
                 }
             } else {
-                BeeDebug.log(owner, "Advancing to next sub-task in batch")
-                batch.getCurrentTask()?.action?.onActivate(owner)
+                val nextTask = batch.getCurrentTask()
+                // Skip DropOffItemsAction when inventory is empty (e.g. drop items upgrade)
+                if (nextTask?.action is DropOffItemsAction && owner.getInventoryContents().isEmpty()) {
+                    BeeDebug.log(owner, "Skipping drop-off (inventory empty)")
+                    nextTask.complete()
+                    if (!batch.advance()) {
+                        val nextBatch = hive.notifyTaskCompleted(nextTask, owner)
+                        if (nextBatch != null) {
+                            owner.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), nextBatch)
+                        } else {
+                            owner.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+                        }
+                    }
+                } else {
+                    BeeDebug.log(owner, "Advancing to next sub-task in batch")
+                    nextTask?.action?.onActivate(owner)
+                }
                 owner.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             }
         } else {

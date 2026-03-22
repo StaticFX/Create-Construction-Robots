@@ -32,6 +32,12 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (level !is ServerLevel) return false
 
+        // Drop Items upgrade: break block and let items drop naturally, skip pickup entirely
+        if (context.dropItemsEnabled) {
+            level.destroyBlock(pos, true)
+            return true
+        }
+
         val shouldPickUp = CBBeesConfig.beePickupItems.get()
 
         if (shouldPickUp) {
@@ -56,7 +62,8 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         return true
     }
 
-    override fun shouldReturnAfter(context: BeeContext): Boolean = CBBeesConfig.beePickupItems.get()
+    override fun shouldReturnAfter(context: BeeContext): Boolean =
+        !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
 
     override fun getDescription(): String {
         return "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
