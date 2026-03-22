@@ -39,22 +39,36 @@ object ServerBeeNetworkManager {
         // Prevent recursive registration if we're already in a network
         if (getNetworkFor(component) != null) return
 
-        val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()
+        CreateBuzzyBeez.LOGGER.info("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
 
-        // Also merge with any network that shares the same networkId, even if it has no anchors yet.
-        // This is crucial for correctly reconstructing networks during world load from NBT.
-        val idNetwork = networks.find { it.id == component.networkId }
-        if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
-            // Only merge by ID if it's the same level
-            if (idNetwork.level == null || idNetwork.level == component.world) {
-                nearbyNetworks.add(idNetwork)
+        val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()
+        CreateBuzzyBeez.LOGGER.info("[NET]   canConnect matched ${nearbyNetworks.size} network(s)")
+        for (net in nearbyNetworks) {
+            CreateBuzzyBeez.LOGGER.info("[NET]     - network ${net.id} (${net.components.size} components)")
+        }
+
+        // Anchors (beehives) can reconnect by saved networkId during world load,
+        // even when no spatial neighbor is found yet. Non-anchors (ports) must
+        // always pass the spatial range check — they get picked up by
+        // scanAndJoinNearbyComponents when a beehive registers.
+        if (component.isAnchor()) {
+            val idNetwork = networks.find { it.id == component.networkId }
+            if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
+                if (idNetwork.level == null || idNetwork.level == component.world) {
+                    nearbyNetworks.add(idNetwork)
+                    CreateBuzzyBeez.LOGGER.info("[NET]   anchor ID-match added network ${idNetwork.id}")
+                }
             }
         }
 
         // Non-anchor components (logistics ports) cannot create their own network.
         // They must join an existing network that has an anchor (mechanical beehive).
         if (nearbyNetworks.isEmpty() && !component.isAnchor()) {
-            CreateBuzzyBeez.LOGGER.debug("No network with anchor available for ${component.javaClass.simpleName} at ${component.pos}")
+            // Assign a unique networkId so orphaned ports with stale saved IDs
+            // don't accidentally appear grouped on the client.
+            component.networkId = UUID.randomUUID()
+            component.sync()
+            CreateBuzzyBeez.LOGGER.info("[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}")
             return
         }
 
@@ -63,7 +77,7 @@ object ServerBeeNetworkManager {
         if (nearbyNetworks.isEmpty()) {
             targetNetwork = BeeNetwork(component.networkId, topology)
             networks.add(targetNetwork)
-            CreateBuzzyBeez.LOGGER.debug("Created new network with ${component.javaClass.simpleName} id: ${component.networkId}")
+            CreateBuzzyBeez.LOGGER.info("[NET]   CREATED new network ${targetNetwork.id}")
         } else {
             targetNetwork = nearbyNetworks.first()
             if (nearbyNetworks.size > 1) {
@@ -71,9 +85,9 @@ object ServerBeeNetworkManager {
                     targetNetwork.merge(other)
                     networks.remove(other)
                 }
-                CreateBuzzyBeez.LOGGER.debug("Merged ${nearbyNetworks.size} networks into main network id: ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.info("[NET]   MERGED ${nearbyNetworks.size} networks into ${targetNetwork.id}")
             } else {
-                CreateBuzzyBeez.LOGGER.debug("Added ${component.javaClass.simpleName} to existing network id: ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.info("[NET]   JOINED existing network ${targetNetwork.id}")
             }
         }
 
@@ -97,6 +111,7 @@ object ServerBeeNetworkManager {
 
     private fun scanAndJoinNearbyComponents(network: BeeNetwork, level: Level, pos: BlockPos, range: Double) {
         val r = range.toInt()
+        CreateBuzzyBeez.LOGGER.info("[NET] scanAndJoin: from $pos, range=$range (r=$r)")
         val minX = (pos.x - r) shr 4
         val maxX = (pos.x + r) shr 4
         val minZ = (pos.z - r) shr 4
@@ -107,13 +122,17 @@ object ServerBeeNetworkManager {
                 val chunk = level.getChunkSource().getChunk(cx, cz, false) ?: continue
                 for (be in chunk.blockEntities.values) {
                     if (be is INetworkComponent && be !in network.components) {
-                        if (network.canConnect(be)) {
+                        val connects = network.canConnect(be)
+                        CreateBuzzyBeez.LOGGER.info("[NET]   scan found ${be.javaClass.simpleName} at ${be.blockPos}, canConnect=$connects")
+                        if (connects) {
                             val other = getNetworkFor(be)
                             if (other != null && other != network) {
                                 network.merge(other)
                                 networks.remove(other)
+                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: merged network ${other.id}")
                             } else {
                                 network.addComponent(be)
+                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: added ${be.javaClass.simpleName} at ${be.blockPos}")
                             }
                         }
                     }
@@ -307,7 +326,7 @@ object ClientBeeNetworkManager {
                 val oldNet = networks.find { it.components.contains(component) }
                 oldNet?.removeComponent(component)
                 component.networkId = correctNetworkId
-                getNetwork(correctNetworkId).components.add(component)
+                getNetwork(correctNetworkId).addComponentClient(component)
             }
         }
 

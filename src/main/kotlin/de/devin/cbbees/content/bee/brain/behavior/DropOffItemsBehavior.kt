@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.util.ItemStackKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
@@ -28,6 +29,11 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
 ) {
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        // Don't interfere when the current task is a DropOffItemsAction —
+        // it has its own player-inventory fallback logic.
+        val batch = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
+        if (batch?.getCurrentTask()?.action is DropOffItemsAction) return false
+
         val excess = getExcessItems(owner)
         if (excess.isEmpty()) return false
         BeeDebug.log(owner, "DropOff: ${excess.size} excess item type(s) in inventory")
@@ -42,8 +48,21 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
         val dropOffPort = network?.findDropOff(excess.first())
 
         if (dropOffPort == null) {
-            BeeDebug.log(entity, "DropOff: no port available, dropping items on ground")
-            dropItems(entity, excess)
+            // Try giving items to the owner player (portable beehive bees)
+            val owner = entity.getOwnerPlayer()
+            if (owner != null) {
+                BeeDebug.log(entity, "DropOff: no port, giving ${excess.size} stack(s) to player ${owner.name.string}")
+                for (item in excess) {
+                    entity.removeFromInventory(item, item.count)
+                    if (!owner.inventory.add(item.copy())) {
+                        val drop = ItemEntity(level, owner.x, owner.y, owner.z, item.copy())
+                        level.addFreshEntity(drop)
+                    }
+                }
+            } else {
+                BeeDebug.log(entity, "DropOff: no port available, dropping items on ground")
+                dropItems(entity, excess)
+            }
             return
         }
 

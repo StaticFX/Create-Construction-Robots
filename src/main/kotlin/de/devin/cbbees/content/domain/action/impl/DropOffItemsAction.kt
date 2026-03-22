@@ -22,25 +22,37 @@ import net.minecraft.world.level.Level
 class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
 
     private var _pos: BlockPos = initialPos
-    override val pos: BlockPos get() = _pos
+    override val pos: BlockPos get() {
+        if (dropAtPlayer) {
+            // Dynamically track the player so the bee follows them
+            bee?.getOwnerPlayer()?.let { _pos = it.blockPosition() }
+        }
+        return _pos
+    }
 
     /** When true, the bee should drop items at the owner player on arrival. */
     private var dropAtPlayer = false
+    private var bee: MechanicalBeeEntity? = null
 
     override fun onActivate(bee: MechanicalBeeEntity) {
-        val port = bee.network()?.findDropOff(ItemStack.EMPTY)
+        this.bee = bee
+        val network = bee.network()
+        BeeDebug.log(bee, "DropOffAction.onActivate: network=${network?.id}, inventory=${bee.getInventoryContents().size} stacks")
+        val port = network?.findDropOff(ItemStack.EMPTY)
         if (port != null) {
             _pos = port.pos
+            BeeDebug.log(bee, "DropOffAction.onActivate: found port at $_pos")
         } else {
             // No port — fly to the owner player instead
             val owner = bee.getOwnerPlayer()
+            BeeDebug.log(bee, "DropOffAction.onActivate: no port, ownerPlayer=${owner?.name?.string}, ownerUUID=${bee.getOwnerUUID()}")
             if (owner != null) {
-                BeeDebug.log(bee, "DropOff: no port, flying to player ${owner.name.string}")
                 _pos = owner.blockPosition()
                 dropAtPlayer = true
+                BeeDebug.log(bee, "DropOffAction.onActivate: dropAtPlayer=true, target=$_pos")
             } else {
                 // No port or owner — drop items on ground immediately
-                BeeDebug.log(bee, "DropOff: no port or owner, dropping items on ground")
+                BeeDebug.log(bee, "DropOffAction.onActivate: no port or owner, dropping items on ground")
                 bee.dropInventory()
                 _pos = bee.blockPosition()
             }
@@ -49,21 +61,28 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
         val contents = bee.getInventoryContents()
-        if (contents.isEmpty()) return true
+        BeeDebug.log(bee, "DropOffAction.execute: contents=${contents.size} stacks, dropAtPlayer=$dropAtPlayer")
+        if (contents.isEmpty()) {
+            BeeDebug.log(bee, "DropOffAction.execute: inventory empty, returning true")
+            return true
+        }
 
         if (dropAtPlayer) {
             val owner = bee.getOwnerPlayer()
+            BeeDebug.log(bee, "DropOffAction.execute: dropAtPlayer=true, owner=${owner?.name?.string}")
             if (owner != null) {
-                BeeDebug.log(bee, "DropOff: giving ${contents.size} stack(s) to player ${owner.name.string}")
                 for (item in contents) {
+                    val added = owner.inventory.add(item.copy())
                     bee.removeFromInventory(item, item.count)
-                    if (!owner.inventory.add(item.copy())) {
+                    BeeDebug.log(bee, "DropOffAction.execute: ${item.count}x ${item.item} added=$added")
+                    if (!added) {
                         val drop = ItemEntity(level, owner.x, owner.y, owner.z, item.copy())
                         level.addFreshEntity(drop)
                     }
                 }
             } else {
                 // Owner logged off — drop at bee's position
+                BeeDebug.log(bee, "DropOffAction.execute: owner null, dropping on ground")
                 for (item in contents) {
                     bee.removeFromInventory(item, item.count)
                     val drop = ItemEntity(level, bee.x, bee.y, bee.z, item.copy())

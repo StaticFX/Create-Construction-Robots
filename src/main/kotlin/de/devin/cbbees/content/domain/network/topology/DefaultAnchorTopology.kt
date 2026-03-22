@@ -25,7 +25,6 @@ object DefaultAnchorTopology : NetworkTopology {
         anchor.isInWorkRange(pos)
 
     override fun isLogisticsRange(anchor: INetworkComponent, pos: BlockPos): Boolean {
-        val r = anchor.getNetworkingRange()
-        return abs(anchor.pos.x - pos.x) <= r && abs(anchor.pos.z - pos.z) <= r
+        return anchor.isInWorkRange(pos)
     }
 }
