@@ -7,6 +7,7 @@ import de.devin.cbbees.items.AllItems
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.entity.ai.behavior.Behavior
+import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 
 class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
@@ -35,7 +36,26 @@ class EnterBeeHiveBehavior : Behavior<MechanicalBeeEntity>(
         if (success) {
             entity.discard()
         } else {
-            entity.dropBeeItemAndDiscard()
+            entity.hiveEntryRetries++
+            BeeDebug.log(entity, "Hive full — retry ${entity.hiveEntryRetries}/${MechanicalBeeEntity.MAX_HIVE_ENTRY_RETRIES}")
+
+            if (entity.hiveEntryRetries >= MechanicalBeeEntity.MAX_HIVE_ENTRY_RETRIES) {
+                BeeDebug.log(entity, "Max retries reached — dropping as item")
+                entity.dropBeeItemAndDiscard()
+                return
+            }
+
+            // Try to find another hive in the network, excluding the one that just rejected us
+            entity.brain.eraseMemory(BeeMemoryModules.HIVE_INSTANCE.get())
+            entity.brain.eraseMemory(BeeMemoryModules.HIVE_POS.get())
+            entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
+            val adopted = entity.tryAdoptHive(exclude = hive)
+            if (adopted == null) {
+                BeeDebug.log(entity, "No other hive in network — dropping as item")
+                entity.dropBeeItemAndDiscard()
+            } else {
+                BeeDebug.log(entity, "Redirecting to hive at ${adopted.pos}")
+            }
         }
     }
 }

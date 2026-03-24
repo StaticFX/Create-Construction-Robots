@@ -76,6 +76,35 @@ object ConstructionPlannerClientEvents {
     }
 
     /**
+     * Handles right-click on construction job bounding boxes.
+     * Opens a [JobDetailScreen] when the player right-clicks while looking at a job AABB
+     * and not targeting a real block (i.e. the crosshair is in the air).
+     */
+    @SubscribeEvent
+    @JvmStatic
+    fun onMouseInput(event: InputEvent.MouseButton.Pre) {
+        if (event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
+        if (event.action != GLFW.GLFW_PRESS) return
+
+        val mc = Minecraft.getInstance()
+        if (mc.screen != null) return
+
+        val player = mc.player ?: return
+
+        // Only intercept when no real block is targeted — avoids stealing block interactions
+        val hit = mc.hitResult
+        if (hit != null && hit.type == net.minecraft.world.phys.HitResult.Type.BLOCK) return
+
+        val eyePos = player.getEyePosition(1f)
+        val lookDir = player.lookAngle
+        val jobId = ConstructionRenderer.findJobAtRay(eyePos, lookDir, 5.0) ?: return
+
+        ConstructionRenderer.getJobInfo(jobId) ?: return
+        mc.setScreen(JobDetailScreen(jobId))
+        event.isCanceled = true
+    }
+
+    /**
      * Renders ghost blocks and AABB outline during browsing preview (state 2).
      * Positioned at the crosshair block position, independent of Create.
      */

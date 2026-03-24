@@ -20,6 +20,7 @@ object BeeBrainProvider {
                 BeeMemoryModules.HIVE_POS.get(),
                 BeeMemoryModules.HIVE_INSTANCE.get(),
                 BeeMemoryModules.CURRENT_TASK.get(),
+                BeeMemoryModules.RETURNING_TO_OWNER.get(),
                 MemoryModuleType.WALK_TARGET,
                 MemoryModuleType.LOOK_TARGET,
                 MemoryModuleType.PATH,
@@ -36,8 +37,9 @@ object BeeBrainProvider {
             Activity.CORE, ImmutableList.of(
                 Pair.of(0, LookAtTargetSink(45, 90)),
                 Pair.of(1, MoveToTargetSink()),
-                Pair.of(2, UpdateBeeStatusBehavior()),
-                Pair.of(3, StuckSafetyBehavior())
+                Pair.of(2, ReturnToOwnerBehavior()),
+                Pair.of(3, UpdateBeeStatusBehavior()),
+                Pair.of(4, StuckSafetyBehavior())
             )
         )
 

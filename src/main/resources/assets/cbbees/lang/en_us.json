@@ -288,5 +288,15 @@
   "item.cbbees.drop_items.tooltip": "Quick Deconstruction Upgrade",
   "item.cbbees.drop_items.tooltip.summary": "Bees _drop items_ on the ground after breaking blocks instead of picking them up. Skips the return trip, making deconstruction _much faster_. Install in the _Portable Beehive_.",
   "item.cbbees.drop_items.tooltip.condition1": "Unique",
-  "item.cbbees.drop_items.tooltip.behaviour1": "Only _1_ can be installed per beehive."
+  "item.cbbees.drop_items.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
+
+  "gui.cbbees.portable_beehive.jobs": "Construction Tasks",
+  "gui.cbbees.portable_beehive.refresh": "Refresh",
+  "gui.cbbees.portable_beehive.cancel_job": "Cancel Job",
+  "gui.cbbees.portable_beehive.no_jobs": "No active construction tasks",
+  "gui.cbbees.portable_beehive.job_count": "%d active task(s)",
+
+  "gui.cbbees.job_detail.title": "Construction Job",
+  "gui.cbbees.job_detail.cancel": "Cancel Job",
+  "gui.cbbees.job_detail.not_found": "Job not found"
 }

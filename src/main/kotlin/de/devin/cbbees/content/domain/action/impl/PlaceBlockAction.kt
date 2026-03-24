@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -37,6 +38,9 @@ class PlaceBlockAction(
 ) : BeeAction, ItemConsumingAction {
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        // Never replace a Mechanical Beehive — skip silently
+        if (level.getBlockEntity(pos) is BeeHive) return true
+
         // Belt tunnels require the belt below to have CASING=true before placement,
         // otherwise canSurvive() fails and the tunnel is immediately destroyed.
         // Replicate BeltTunnelItem.updateCustomBlockEntityTag behavior.

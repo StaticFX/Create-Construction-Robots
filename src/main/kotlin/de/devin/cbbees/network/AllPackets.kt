@@ -73,5 +73,10 @@ object AllPackets {
             PlannerUploadPacket.STREAM_CODEC,
             PlannerUploadPacket.Companion::handle
         )
+        registrar.playToServer(
+            RequestPlayerJobsPacket.TYPE,
+            RequestPlayerJobsPacket.STREAM_CODEC,
+            RequestPlayerJobsPacket.Companion::handle
+        )
     }
 }

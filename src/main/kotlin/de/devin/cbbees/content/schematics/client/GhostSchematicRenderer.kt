@@ -52,6 +52,16 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
     }
 
     /**
+     * Marks geometry for rebuild on the next [render] call.
+     * Overrides the parent to also set our own [needsRedraw] flag,
+     * since our [render] override uses [ghostBufferCache] instead of the parent's.
+     */
+    override fun update() {
+        super.update()
+        needsRedraw = true
+    }
+
+    /**
      * Pre-builds geometry for all render layers. Safe to call from a background thread
      * (uses ThreadLocal objects; block model lookups are read-only).
      * After this returns, [render] will use the cached buffers with no stutter.

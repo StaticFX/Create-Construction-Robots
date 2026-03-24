@@ -5,7 +5,6 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -117,25 +116,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             }
         }
 
-        // Portable beehive bees can only use logistics ports if the network
-        // has a mechanical (block-based) beehive and the task is in that network's range.
-        // Otherwise they are limited to the player's inventory.
-        val canUsePorts = if (isPortable) {
-            val taskPos = batch.targetPosition
-            network.hives.any { it is MechanicalBeehiveBlockEntity && it.isInRange(taskPos) }
-        } else {
-            true
-        }
-
-        if (!canUsePorts) {
-            BeeDebug.log(entity, "No mechanical beehive covers task — player inventory only, releasing batch")
-            network.releaseReservations(entity.uuid)
-            batch.release(gameTick = gameTime)
-            entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
-            return
-        }
-
-        // Logistics port gathering
+        // Logistics port gathering (includes PortableBeeHive which acts as a port)
         val gatherPlan = buildGatherPlan(network, missing, entity.uuid)
         if (gatherPlan.isEmpty()) {
             BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
@@ -201,6 +182,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
     }
 
     private fun playerHasItem(player: Player, stack: ItemStack): Boolean {
+        if (player.isCreative) return true
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
             if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
@@ -211,6 +193,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
     }
 
     private fun extractFromPlayer(player: Player, needed: ItemStack): ItemStack {
+        if (player.isCreative) return needed.copy()
         var remaining = needed.count
         val result = needed.copy()
         result.count = 0
