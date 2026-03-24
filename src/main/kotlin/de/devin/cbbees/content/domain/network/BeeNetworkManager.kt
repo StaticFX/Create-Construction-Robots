@@ -18,6 +18,13 @@ object ServerBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
     private var isScanning = false
 
+    /** Set when network topology changes; cleared after sync packet is sent. */
+    var dirty = false
+        private set
+
+    fun markDirty() { dirty = true }
+    fun clearDirty() { dirty = false }
+
     /** Topology used for creating new networks on the server. */
     private var topology: NetworkTopology = DefaultAnchorTopology
 
@@ -39,12 +46,12 @@ object ServerBeeNetworkManager {
         // Prevent recursive registration if we're already in a network
         if (getNetworkFor(component) != null) return
 
-        CreateBuzzyBeez.LOGGER.info("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
+        CreateBuzzyBeez.LOGGER.debug("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
 
         val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()
-        CreateBuzzyBeez.LOGGER.info("[NET]   canConnect matched ${nearbyNetworks.size} network(s)")
+        CreateBuzzyBeez.LOGGER.debug("[NET]   canConnect matched ${nearbyNetworks.size} network(s)")
         for (net in nearbyNetworks) {
-            CreateBuzzyBeez.LOGGER.info("[NET]     - network ${net.id} (${net.components.size} components)")
+            CreateBuzzyBeez.LOGGER.debug("[NET]     - network ${net.id} (${net.components.size} components)")
         }
 
         // Anchors (beehives) can reconnect by saved networkId during world load,
@@ -56,7 +63,7 @@ object ServerBeeNetworkManager {
             if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
                 if (idNetwork.level == null || idNetwork.level == component.world) {
                     nearbyNetworks.add(idNetwork)
-                    CreateBuzzyBeez.LOGGER.info("[NET]   anchor ID-match added network ${idNetwork.id}")
+                    CreateBuzzyBeez.LOGGER.debug("[NET]   anchor ID-match added network ${idNetwork.id}")
                 }
             }
         }
@@ -68,7 +75,7 @@ object ServerBeeNetworkManager {
             // don't accidentally appear grouped on the client.
             component.networkId = UUID.randomUUID()
             component.sync()
-            CreateBuzzyBeez.LOGGER.info("[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}")
+            CreateBuzzyBeez.LOGGER.debug("[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}")
             return
         }
 
@@ -77,7 +84,7 @@ object ServerBeeNetworkManager {
         if (nearbyNetworks.isEmpty()) {
             targetNetwork = BeeNetwork(component.networkId, topology)
             networks.add(targetNetwork)
-            CreateBuzzyBeez.LOGGER.info("[NET]   CREATED new network ${targetNetwork.id}")
+            CreateBuzzyBeez.LOGGER.debug("[NET]   CREATED new network ${targetNetwork.id}")
         } else {
             targetNetwork = nearbyNetworks.first()
             if (nearbyNetworks.size > 1) {
@@ -85,13 +92,14 @@ object ServerBeeNetworkManager {
                     targetNetwork.merge(other)
                     networks.remove(other)
                 }
-                CreateBuzzyBeez.LOGGER.info("[NET]   MERGED ${nearbyNetworks.size} networks into ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.debug("[NET]   MERGED ${nearbyNetworks.size} networks into ${targetNetwork.id}")
             } else {
-                CreateBuzzyBeez.LOGGER.info("[NET]   JOINED existing network ${targetNetwork.id}")
+                CreateBuzzyBeez.LOGGER.debug("[NET]   JOINED existing network ${targetNetwork.id}")
             }
         }
 
         targetNetwork.addComponent(component)
+        markDirty()
 
         // If the registered component is an anchor, it might pick up nearby orphaned components
         if (component.isAnchor() && !isScanning) {
@@ -111,7 +119,7 @@ object ServerBeeNetworkManager {
 
     private fun scanAndJoinNearbyComponents(network: BeeNetwork, level: Level, pos: BlockPos, range: Double) {
         val r = range.toInt()
-        CreateBuzzyBeez.LOGGER.info("[NET] scanAndJoin: from $pos, range=$range (r=$r)")
+        CreateBuzzyBeez.LOGGER.debug("[NET] scanAndJoin: from $pos, range=$range (r=$r)")
         val minX = (pos.x - r) shr 4
         val maxX = (pos.x + r) shr 4
         val minZ = (pos.z - r) shr 4
@@ -123,16 +131,16 @@ object ServerBeeNetworkManager {
                 for (be in chunk.blockEntities.values) {
                     if (be is INetworkComponent && be !in network.components) {
                         val connects = network.canConnect(be)
-                        CreateBuzzyBeez.LOGGER.info("[NET]   scan found ${be.javaClass.simpleName} at ${be.blockPos}, canConnect=$connects")
+                        CreateBuzzyBeez.LOGGER.debug("[NET]   scan found ${be.javaClass.simpleName} at ${be.blockPos}, canConnect=$connects")
                         if (connects) {
                             val other = getNetworkFor(be)
                             if (other != null && other != network) {
                                 network.merge(other)
                                 networks.remove(other)
-                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: merged network ${other.id}")
+                                CreateBuzzyBeez.LOGGER.debug("[NET]   scan: merged network ${other.id}")
                             } else {
                                 network.addComponent(be)
-                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: added ${be.javaClass.simpleName} at ${be.blockPos}")
+                                CreateBuzzyBeez.LOGGER.debug("[NET]   scan: added ${be.javaClass.simpleName} at ${be.blockPos}")
                             }
                         }
                     }
@@ -146,6 +154,7 @@ object ServerBeeNetworkManager {
 
         val network = getNetworkFor(component) ?: return
         network.removeComponent(component)
+        markDirty()
 
         // If network is now empty, remove it
         if (network.components.isEmpty()) {

@@ -120,7 +120,7 @@ class BeeNetwork(
 
     fun canConnect(component: INetworkComponent): Boolean {
         if (components.isEmpty()) {
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: network $id is EMPTY → true")
+            de.devin.cbbees.CreateBuzzyBeez.LOGGER.debug("[NET]   canConnect: network $id is EMPTY → true")
             return true
         }
         val firstComp = components.first()
@@ -134,12 +134,7 @@ class BeeNetwork(
 
         // Non-anchors (e.g. logistics ports) must be within logistics range of any anchor
         val inRange = isInLogisticsRange(component.pos)
-        val anchors = components.filter { topology.isAnchor(it) }
-        for (anchor in anchors) {
-            val anchorInWorkRange = anchor.isInWorkRange(component.pos)
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: port at ${component.pos} vs anchor at ${anchor.pos}, isInWorkRange=$anchorInWorkRange")
-        }
-        de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
+        de.devin.cbbees.CreateBuzzyBeez.LOGGER.debug("[NET]   canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
         return inRange
     }
 

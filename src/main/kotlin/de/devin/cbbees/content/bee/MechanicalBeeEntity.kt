@@ -212,7 +212,10 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     override fun createNavigation(level: Level): PathNavigation {
-        return DirectFlyingNavigation(this, level)
+        val navigation = FlyingPathNavigation(this, level)
+        navigation.setCanOpenDoors(false)
+        navigation.setCanPassDoors(true)
+        return navigation
     }
 
     /**
