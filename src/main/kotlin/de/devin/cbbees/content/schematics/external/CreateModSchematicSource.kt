@@ -81,7 +81,10 @@ class CreateModSchematicSource(
                     RemoteSchematic(
                         id = obj.get("name")?.asString ?: "",
                         name = (obj.get("title")?.asString ?: "").sanitize(),
-                        author = (obj.getAsJsonObject("author")?.get("username")?.asString ?: "Unknown").sanitize(),
+                        author = (obj.get("author")?.let { authorEl ->
+                            if (authorEl.isJsonObject) authorEl.asJsonObject.get("username")?.asString
+                            else authorEl.asString
+                        } ?: "Unknown").sanitize(),
                         description = (obj.get("excerpt")?.asString ?: "").sanitize(),
                         downloads = obj.get("downloads")?.asInt ?: 0,
                         sizeX = obj.get("dimX")?.asInt ?: 0,
