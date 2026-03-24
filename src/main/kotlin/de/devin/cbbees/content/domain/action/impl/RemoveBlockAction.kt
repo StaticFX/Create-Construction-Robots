@@ -36,6 +36,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         // Never destroy a Mechanical Beehive — skip silently
         if (level.getBlockEntity(pos) is BeeHive) return true
 
+
         // Drop Items upgrade: break block and let items drop naturally, skip pickup entirely
         if (context.dropItemsEnabled) {
             level.destroyBlock(pos, true)
