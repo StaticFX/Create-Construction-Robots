@@ -5,6 +5,7 @@ import com.simibubi.create.content.schematics.client.SchematicRenderer
 import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.createmod.catnip.render.ShadedBlockSbbBuilder
 import net.createmod.catnip.render.SuperByteBuffer
+import net.createmod.catnip.render.SuperRenderTypeBuffer
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.ModelBlockRenderer
@@ -19,10 +20,25 @@ import net.neoforged.neoforge.client.model.data.ModelData
  * [RenderShape]. The parent only renders [RenderShape.MODEL]; this also
  * renders [RenderShape.ENTITYBLOCK_ANIMATED] blocks (crushing wheels, etc.)
  * via their baked block model.
+ *
+ * Maintains its own geometry buffer cache and overrides [render] to skip
+ * block entity rendering, which is the dominant per-frame cost for large
+ * schematics (Create blocks nearly all have block entities).
+ *
+ * Geometry can be pre-built on a background thread via [prebuildGeometry],
+ * eliminating the frame stutter that would otherwise occur on first render.
  */
 class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
 
     private val anchor: BlockPos = world.anchor
+
+    /** Own buffer cache — parent's is private and we need to skip block entity rendering. */
+    private val ghostBufferCache = LinkedHashMap<RenderType, SuperByteBuffer>()
+    private var needsRedraw = true
+
+    @Volatile
+    var isReady = false
+        private set
 
     companion object {
         private val OBJECTS = ThreadLocal.withInitial { Objects() }
@@ -33,6 +49,42 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
         val random: RandomSource = RandomSource.createNewThreadLocalInstance()
         val mutableBlockPos = BlockPos.MutableBlockPos()
         val sbbBuilder: ShadedBlockSbbBuilder = ShadedBlockSbbBuilder.create()
+    }
+
+    /**
+     * Pre-builds geometry for all render layers. Safe to call from a background thread
+     * (uses ThreadLocal objects; block model lookups are read-only).
+     * After this returns, [render] will use the cached buffers with no stutter.
+     */
+    fun prebuildGeometry() {
+        ghostBufferCache.clear()
+        for (layer in RenderType.chunkBufferLayers()) {
+            val buffer = drawLayer(layer)
+            if (!buffer.isEmpty) {
+                ghostBufferCache[layer] = buffer
+            }
+        }
+        needsRedraw = false
+        isReady = true
+    }
+
+    /**
+     * Renders only the cached static block geometry.
+     * Block entity rendering is intentionally skipped — for a ghost placement preview,
+     * the static baked models are sufficient and skipping BEs avoids hundreds of
+     * individual render calls per frame for large Create schematics.
+     */
+    override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) {
+        val mc = Minecraft.getInstance()
+        if (mc.level == null || mc.player == null) return
+
+        if (needsRedraw) {
+            prebuildGeometry()
+        }
+
+        for ((layer, buffer) in ghostBufferCache) {
+            buffer.renderInto(ms, buffers.getBuffer(layer))
+        }
     }
 
     override fun drawLayer(layer: RenderType): SuperByteBuffer {
