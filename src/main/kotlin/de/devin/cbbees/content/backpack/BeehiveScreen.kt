@@ -5,7 +5,6 @@ import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen
 import com.simibubi.create.foundation.gui.widget.IconButton
 import de.devin.cbbees.CreateBuzzyBeez
-import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
@@ -50,7 +49,6 @@ class BeehiveScreen(
     }
 
     private lateinit var confirmButton: IconButton
-    private lateinit var jobsButton: IconButton
 
     init {
         // Set window size to accommodate custom background + player inventory
@@ -68,13 +66,6 @@ class BeehiveScreen(
             minecraft?.gameMode?.handleInventoryButtonClick(menu.containerId, 0)
         })
         addRenderableWidget(confirmButton)
-
-        jobsButton = IconButton(leftPos + 185, topPos + 78, AllIcons.I_TOOLBOX)
-        jobsButton.setToolTip(Component.translatable("gui.cbbees.portable_beehive.jobs"))
-        jobsButton.withCallback<IconButton>(Runnable {
-            Minecraft.getInstance().setScreen(PortableBeehiveJobScreen())
-        })
-        addRenderableWidget(jobsButton)
     }
 
     override fun renderBg(guiGraphics: GuiGraphics, partialTick: Float, mouseX: Int, mouseY: Int) {
