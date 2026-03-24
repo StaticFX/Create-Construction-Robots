@@ -20,7 +20,11 @@ class CancelJobPacket(val jobId: UUID) : CustomPacketPayload {
 
         fun handle(payload: CancelJobPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
-                GlobalJobPool.getAllJobs().firstOrNull { it.jobId == payload.jobId }?.cancel()
+                val job = GlobalJobPool.getAllJobs().firstOrNull { it.jobId == payload.jobId }
+                job?.cancel()
+                // Immediately sync so the client cache drops the cancelled job
+                val player = ctx.player() as? net.minecraft.server.level.ServerPlayer ?: return@enqueueWork
+                HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
             }
         }
     }
