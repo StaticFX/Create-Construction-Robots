@@ -18,6 +18,7 @@ object CCRServerEvents {
 
     private var tickCounter = 0
     private var syncCounter = 0
+    private var purgeCounter = 0
 
     /**
      * Called every server tick.
@@ -37,6 +38,13 @@ object CCRServerEvents {
         GlobalJobPool.tick(gameTime)
         TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
+
+        // Purge stale components every 40 ticks (2 seconds) instead of every call
+        purgeCounter++
+        if (purgeCounter >= 4) {
+            purgeCounter = 0
+            ServerBeeNetworkManager.getNetworks().forEach { it.purgeStaleComponents() }
+        }
 
         // Sync packets every 40 ticks (2 seconds) to reduce network and serialization overhead
         syncCounter++

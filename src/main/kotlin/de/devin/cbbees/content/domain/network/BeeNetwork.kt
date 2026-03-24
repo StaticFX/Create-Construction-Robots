@@ -29,12 +29,14 @@ class BeeNetwork(
     private var _ports: List<LogisticsPort>? = null
     private var _transportPorts: List<TransportPort>? = null
     private var _reservablePorts: List<ReservablePort>? = null
+    private var _portsByPriority: List<LogisticsPort>? = null
 
     private fun invalidateComponentCaches() {
         _hives = null
         _ports = null
         _transportPorts = null
         _reservablePorts = null
+        _portsByPriority = null
     }
 
     /**
@@ -61,11 +63,13 @@ class BeeNetwork(
     val transportPorts: List<TransportPort> get() = _transportPorts ?: components.filterIsInstance<TransportPort>().also { _transportPorts = it }
     val reservablePorts: List<ReservablePort> get() = _reservablePorts ?: components.filterIsInstance<ReservablePort>().also { _reservablePorts = it }
 
+    /** Ports pre-sorted by priority (highest first). Invalidated on component change. */
+    val portsByPriority: List<LogisticsPort> get() = _portsByPriority ?: ports.sortedByDescending { it.priority() }.also { _portsByPriority = it }
+
     /**
      * The aggregate operational range of all anchors in this network.
      */
     fun isInRange(pos: BlockPos): Boolean {
-        purgeStaleComponents()
         return components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
     }
 
@@ -74,28 +78,21 @@ class BeeNetwork(
      * Considers both block-based anchors (mechanical beehives) and portable beehives.
      */
     fun isInLogisticsRange(pos: BlockPos): Boolean {
-        purgeStaleComponents()
         return components.any { c ->
             (c is BlockEntity || c is PortableBeeHive) && topology.isAnchor(c) && topology.isLogisticsRange(c, pos)
         }
     }
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+        return portsByPriority.firstOrNull { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
     }
 
     fun findDropOff(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForDropOff() && (stack.isEmpty || it.testFilter(stack)) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+        return portsByPriority.firstOrNull { it.isValidForDropOff() && (stack.isEmpty || it.testFilter(stack)) }
     }
 
     fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(stack, excludeBeeId) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+        return portsByPriority.firstOrNull { it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(stack, excludeBeeId) }
     }
 
     fun releaseReservations(beeId: UUID) {
@@ -122,7 +119,6 @@ class BeeNetwork(
     }
 
     fun canConnect(component: INetworkComponent): Boolean {
-        purgeStaleComponents()
         if (components.isEmpty()) {
             de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: network $id is EMPTY → true")
             return true

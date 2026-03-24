@@ -35,24 +35,25 @@ class TaskBatch(
     var startedAtTick: Long = 0L
         private set
 
-    private var currentIndex = 0
+    private var _currentIndex = 0
+    val currentIndex: Int get() = _currentIndex
 
     val primaryTask: BeeTask? get() = tasks.firstOrNull()
 
-    fun getCurrentTask(): BeeTask? = if (currentIndex < tasks.size) tasks[currentIndex] else null
+    fun getCurrentTask(): BeeTask? = if (_currentIndex < tasks.size) tasks[_currentIndex] else null
 
     fun advance(): Boolean {
-        currentIndex++
-        if (currentIndex >= tasks.size) {
+        _currentIndex++
+        if (_currentIndex >= tasks.size) {
             status = TaskStatus.COMPLETED
             return false
         }
         return true
     }
 
-    fun getRemainingTasks(): List<BeeTask> = tasks.subList(currentIndex, tasks.size)
+    fun getRemainingTasks(): List<BeeTask> = tasks.subList(_currentIndex, tasks.size)
 
-    fun isComplete(): Boolean = currentIndex >= tasks.size
+    fun isComplete(): Boolean = _currentIndex >= tasks.size
 
     /** Whether this batch can be retried (hasn't exceeded max retries). */
     fun canRetry(): Boolean = retryCount < MAX_RETRIES
@@ -62,7 +63,7 @@ class TaskBatch(
         currentTick - lastReleasedTick >= RETRY_COOLDOWN_TICKS
 
     fun release(resetNetwork: Boolean = true, gameTick: Long = 0L) {
-        currentIndex = 0
+        _currentIndex = 0
         assignedBeeId = null
         tasks.forEach { it.release() }
         retryCount++
