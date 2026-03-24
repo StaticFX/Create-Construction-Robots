@@ -9,10 +9,14 @@ import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.LightTexture
+import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Vec3i
+import net.minecraft.core.registries.Registries
+import net.minecraft.nbt.NbtAccounter
+import net.minecraft.nbt.NbtIo
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -21,9 +25,14 @@ import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.client.model.data.ModelData
+import java.io.BufferedInputStream
+import java.io.ByteArrayInputStream
+import java.io.DataInputStream
+import java.util.zip.GZIPInputStream
 import kotlin.math.max
 import kotlin.math.min
 
@@ -47,9 +56,24 @@ object SchematicPreviewRenderer {
 
     /**
      * Renders an isometric 3D preview of the given schematic in the specified GUI rectangle.
-     * Does nothing if the schematic cannot be loaded.
+     * Uses fixed isometric angles (30° X, -45° Y) and auto-fit zoom.
      */
     fun renderPreview(filename: String, guiGraphics: GuiGraphics, x: Int, y: Int, w: Int, h: Int) {
+        renderPreview(filename, guiGraphics, x, y, w, h, 30f, -45f, 1f)
+    }
+
+    /**
+     * Renders a 3D preview with custom rotation and zoom.
+     *
+     * @param rotationX  pitch in degrees (default isometric: 30)
+     * @param rotationY  yaw in degrees (default isometric: -45)
+     * @param zoom       multiplier on the auto-fit scale (1.0 = fit to rect)
+     */
+    fun renderPreview(
+        filename: String, guiGraphics: GuiGraphics,
+        x: Int, y: Int, w: Int, h: Int,
+        rotationX: Float, rotationY: Float, zoom: Float
+    ) {
         val level = getOrLoadLevel(filename) ?: return
         val size = cachedSize
         if (size == Vec3i.ZERO) return
@@ -62,14 +86,14 @@ object SchematicPreviewRenderer {
         // Position at center of preview area, with Z depth for proper ordering
         pose.translate((x + w / 2.0), (y + h / 2.0), 150.0)
 
-        // Scale to fit the preview rectangle
+        // Scale to fit the preview rectangle, then apply user zoom
         val maxDim = max(size.x, max(size.y, size.z)).toFloat()
-        val scale = min(w, h) / (maxDim * 1.6f)
+        val scale = min(w, h) / (maxDim * 1.6f) * zoom
         pose.scale(scale, -scale, scale) // Negative Y because GUI Y is downward
 
-        // Isometric rotation
-        pose.mulPose(Axis.XP.rotationDegrees(30f))
-        pose.mulPose(Axis.YP.rotationDegrees(-45f))
+        // Rotation (isometric default: 30° X, -45° Y)
+        pose.mulPose(Axis.XP.rotationDegrees(rotationX))
+        pose.mulPose(Axis.YP.rotationDegrees(rotationY))
 
         // Center the schematic at origin
         pose.translate(-size.x / 2.0, -size.y / 2.0, -size.z / 2.0)
@@ -156,6 +180,68 @@ object SchematicPreviewRenderer {
         guiGraphics.disableScissor()
     }
 
+    /**
+     * Renders a small XYZ axis indicator in the bottom-left of the given rectangle.
+     * Applies the same rotation so the indicator matches the preview orientation.
+     */
+    fun renderAxisIndicator(
+        guiGraphics: GuiGraphics, x: Int, y: Int, w: Int, h: Int,
+        rotationX: Float, rotationY: Float
+    ) {
+        val pose = guiGraphics.pose()
+        pose.pushPose()
+
+        // Build transform: position in bottom-left of preview, scale, then rotate
+        val axisLen = 16f
+        val cx = (x + 26).toDouble()
+        val cy = (y + h - 26).toDouble()
+        pose.translate(cx, cy, 0.0)
+        pose.scale(axisLen, -axisLen, axisLen) // negative Y so +Y points up on screen
+        pose.mulPose(Axis.XP.rotationDegrees(rotationX))
+        pose.mulPose(Axis.YP.rotationDegrees(rotationY))
+
+        val matrix = pose.last().pose()
+
+        // Project axis endpoints and label positions to screen space
+        val origin = org.joml.Vector4f(0f, 0f, 0f, 1f).also { matrix.transform(it) }
+        val xEnd = org.joml.Vector4f(1f, 0f, 0f, 1f).also { matrix.transform(it) }
+        val yEnd = org.joml.Vector4f(0f, 1f, 0f, 1f).also { matrix.transform(it) }
+        val zEnd = org.joml.Vector4f(0f, 0f, 1f, 1f).also { matrix.transform(it) }
+        val labelDist = 1.3f
+        val xLabel = org.joml.Vector4f(labelDist, 0f, 0f, 1f).also { matrix.transform(it) }
+        val yLabel = org.joml.Vector4f(0f, labelDist, 0f, 1f).also { matrix.transform(it) }
+        val zLabel = org.joml.Vector4f(0f, 0f, labelDist, 1f).also { matrix.transform(it) }
+
+        pose.popPose()
+
+        val ox = origin.x.toInt()
+        val oy = origin.y.toInt()
+
+        // Draw axis lines as 2D filled quads (reliable in GUI context, unlike RenderType.lines())
+        drawLine2D(guiGraphics, ox, oy, xEnd.x.toInt(), xEnd.y.toInt(), 0xFFFF4444.toInt())
+        drawLine2D(guiGraphics, ox, oy, yEnd.x.toInt(), yEnd.y.toInt(), 0xFF44FF44.toInt())
+        drawLine2D(guiGraphics, ox, oy, zEnd.x.toInt(), zEnd.y.toInt(), 0xFF4444FF.toInt())
+
+        // Draw axis labels
+        val font = Minecraft.getInstance().font
+        guiGraphics.drawString(font, "X", xLabel.x.toInt() - 2, xLabel.y.toInt() - 4, 0xFF4444, false)
+        guiGraphics.drawString(font, "Y", yLabel.x.toInt() - 2, yLabel.y.toInt() - 4, 0x44FF44, false)
+        guiGraphics.drawString(font, "Z", zLabel.x.toInt() - 2, zLabel.y.toInt() - 4, 0x4444FF, false)
+    }
+
+    /** Draws a 2-pixel-wide line between two screen points using [GuiGraphics.fill]. */
+    private fun drawLine2D(guiGraphics: GuiGraphics, x1: Int, y1: Int, x2: Int, y2: Int, color: Int) {
+        val dx = x2 - x1
+        val dy = y2 - y1
+        val steps = max(Math.abs(dx), Math.abs(dy))
+        if (steps == 0) return
+        for (i in 0..steps) {
+            val px = x1 + dx * i / steps
+            val py = y1 + dy * i / steps
+            guiGraphics.fill(px, py, px + 2, py + 2, color)
+        }
+    }
+
     private fun getOrLoadLevel(filename: String): SchematicLevel? {
         if (filename == cachedFilename) return cachedLevel
 
@@ -200,6 +286,55 @@ object SchematicPreviewRenderer {
             return schematicLevel
         } catch (_: Exception) {
             return null
+        }
+    }
+
+    /**
+     * Loads a schematic from raw (GZIPped) NBT bytes into the cache.
+     * Use [key] as the cache identifier for subsequent [renderPreview] / [getMaterials] calls.
+     *
+     * @return true if the schematic was loaded successfully
+     */
+    fun loadFromNbtBytes(key: String, nbtBytes: ByteArray): Boolean {
+        if (key == cachedFilename) return cachedLevel != null
+
+        cachedFilename = key
+        cachedLevel = null
+        cachedSize = Vec3i.ZERO
+        cachedMaterials = emptyList()
+
+        try {
+            val mc = Minecraft.getInstance()
+            val level = mc.level ?: return false
+
+            val stream = DataInputStream(BufferedInputStream(GZIPInputStream(ByteArrayInputStream(nbtBytes))))
+            val nbt = NbtIo.read(stream, NbtAccounter.create(0x20000000L))
+            val template = StructureTemplate()
+            template.load(level.holderLookup(Registries.BLOCK), nbt)
+
+            if (template.size == Vec3i.ZERO) return false
+
+            cachedSize = template.size
+
+            val schematicLevel = SchematicLevel(level)
+            val settings = StructurePlaceSettings()
+            settings.rotation = Rotation.NONE
+            settings.mirror = Mirror.NONE
+
+            template.placeInWorld(
+                schematicLevel, BlockPos.ZERO, BlockPos.ZERO,
+                settings, schematicLevel.random, Block.UPDATE_CLIENTS
+            )
+
+            for (blockEntity in schematicLevel.blockEntities) {
+                blockEntity.setLevel(schematicLevel)
+            }
+
+            cachedLevel = schematicLevel
+            buildMaterialList(schematicLevel)
+            return true
+        } catch (_: Exception) {
+            return false
         }
     }
 

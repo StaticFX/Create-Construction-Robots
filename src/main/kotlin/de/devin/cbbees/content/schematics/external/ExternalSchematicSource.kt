@@ -40,6 +40,15 @@ interface ExternalSchematicSource {
     fun listSchematics(query: String = "", page: Int = 0, pageSize: Int = 20): CompletableFuture<SchematicListResult>
 
     /**
+     * Downloads the raw NBT bytes of a schematic without saving to disk.
+     * Used for in-memory preview before committing to a permanent download.
+     *
+     * @param schematic the schematic entry to download
+     * @return a future containing the raw (GZIPped) NBT bytes
+     */
+    fun downloadBytes(schematic: RemoteSchematic): CompletableFuture<ByteArray>
+
+    /**
      * Downloads a schematic by its remote ID and saves it to the local schematics folder.
      *
      * @param schematic the schematic entry to download
@@ -68,7 +77,15 @@ data class RemoteSchematic(
     val sizeX: Int,
     val sizeY: Int,
     val sizeZ: Int,
-    val thumbnailUrl: String? = null
+    val thumbnailUrl: String? = null,
+    val views: Int = 0,
+    val blockCount: Int = 0,
+    val rating: String = "",
+    val ratingCount: Int = 0,
+    val createmodVersion: String = "",
+    val minecraftVersion: String = "",
+    val categories: List<String> = emptyList(),
+    val createdHumanReadable: String = ""
 )
 
 /**
@@ -76,10 +93,10 @@ data class RemoteSchematic(
  */
 data class SchematicListResult(
     val schematics: List<RemoteSchematic>,
-    val totalCount: Int,
+    val totalPages: Int,
     val page: Int,
     val pageSize: Int
 ) {
-    val hasNextPage: Boolean get() = (page + 1) * pageSize < totalCount
+    val hasNextPage: Boolean get() = page < totalPages - 1
     val hasPreviousPage: Boolean get() = page > 0
 }

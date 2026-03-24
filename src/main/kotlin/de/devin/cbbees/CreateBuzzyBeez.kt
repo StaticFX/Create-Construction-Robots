@@ -20,8 +20,8 @@ import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
 import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
+import de.devin.cbbees.content.schematics.external.CreateModSchematicSource
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
-import de.devin.cbbees.content.schematics.external.NoOpSchematicSource
 import de.devin.cbbees.datagen.CCRDatagen
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.AllPackets
@@ -168,8 +168,10 @@ object CreateBuzzyBeez {
         // Register Ponder plugin
         PonderIndex.addPlugin(CBBPonderPlugin())
 
-        // Register external schematic source for testing
-        ExternalSchematicSource.active = NoOpSchematicSource
+        // Register external schematic source
+        ExternalSchematicSource.active = CreateModSchematicSource(
+            hmacSecret = "5a0841453e5c2588583da1fb215f4af88a5a7d4ee86a720aea4ae27c4065dace"
+        )
     }
 
     /**

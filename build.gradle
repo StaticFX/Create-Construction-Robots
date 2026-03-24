@@ -10,6 +10,7 @@ version = mod_version
 group = mod_group_id
 
 repositories {
+    mavenCentral()
     mavenLocal()
     maven {
         name = 'Kotlin for Forge'
@@ -128,6 +129,16 @@ dependencies {
     runtimeOnly("top.theillusivec4.curios:curios-neoforge:${curios_version}+${curios_minecraft_version}")
 
     implementation("software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.1")
+
+    // WebP thumbnail support (pure Java ImageIO plugin)
+    // implementation = compile classpath, jarJar = bundled in prod, additionalRuntimeClasspath = dev runtime
+    implementation "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+    additionalRuntimeClasspath "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+    jarJar("com.twelvemonkeys.imageio:imageio-webp:[3.12.0,4.0)")
+    jarJar("com.twelvemonkeys.imageio:imageio-core:[3.12.0,4.0)")
+    jarJar("com.twelvemonkeys.common:common-image:[3.12.0,4.0)")
+    jarJar("com.twelvemonkeys.common:common-lang:[3.12.0,4.0)")
+    jarJar("com.twelvemonkeys.common:common-io:[3.12.0,4.0)")
 
     // JEI
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"

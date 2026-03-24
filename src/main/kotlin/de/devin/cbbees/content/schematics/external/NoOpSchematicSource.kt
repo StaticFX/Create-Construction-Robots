@@ -39,9 +39,14 @@ object NoOpSchematicSource : ExternalSchematicSource {
         val start = page * pageSize
         val paged = filtered.drop(start).take(pageSize)
 
+        val totalPages = (filtered.size + pageSize - 1) / pageSize
         return CompletableFuture.completedFuture(
-            SchematicListResult(paged, filtered.size, page, pageSize)
+            SchematicListResult(paged, totalPages, page, pageSize)
         )
+    }
+
+    override fun downloadBytes(schematic: RemoteSchematic): CompletableFuture<ByteArray> {
+        return CompletableFuture.completedFuture(ByteArray(0))
     }
 
     override fun download(schematic: RemoteSchematic): CompletableFuture<String> {

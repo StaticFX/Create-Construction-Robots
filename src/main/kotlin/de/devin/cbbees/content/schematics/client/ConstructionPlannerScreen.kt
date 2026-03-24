@@ -46,6 +46,11 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private var materialScrollOffset = 0
     private var maxMaterialScroll = 0
 
+    // Preview camera state
+    private var previewRotX = 30f
+    private var previewRotY = -45f
+    private var previewZoom = 1f
+
     // Layout constants
     private val MARGIN = 8
     private val GAP = 6
@@ -352,7 +357,14 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         SchematicPreviewRenderer.renderPreview(
             entry.value, guiGraphics,
             previewLeft + 4, panelTop + 4,
-            previewWidth - 8, previewBoxHeight - 8
+            previewWidth - 8, previewBoxHeight - 8,
+            previewRotX, previewRotY, previewZoom
+        )
+        SchematicPreviewRenderer.renderAxisIndicator(
+            guiGraphics,
+            previewLeft + 4, panelTop + 4,
+            previewWidth - 8, previewBoxHeight - 8,
+            previewRotX, previewRotY
         )
 
         // Info area below preview
@@ -519,6 +531,13 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
+        // Zoom preview when hovering over it
+        if (mouseX >= previewLeft && mouseX < previewLeft + previewWidth
+            && mouseY >= panelTop && mouseY < panelTop + panelHeight
+        ) {
+            previewZoom = (previewZoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
+            return true
+        }
         // Scroll material list when hovering over it
         if (mouseX >= materialsLeft && mouseX < materialsLeft + materialsWidth
             && mouseY >= panelTop && mouseY < panelTop + panelHeight
@@ -527,6 +546,18 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             return true
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+    }
+
+    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
+        if (button == 0
+            && mouseX >= previewLeft && mouseX < previewLeft + previewWidth
+            && mouseY >= panelTop && mouseY < panelTop + panelHeight
+        ) {
+            previewRotY += dragX.toFloat()
+            previewRotX = (previewRotX - dragY.toFloat()).coerceIn(-90f, 90f)
+            return true
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
@@ -643,6 +674,9 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             renameButton.visible = isSchematic
             deleteButton.visible = isSchematic
             materialScrollOffset = 0
+            previewRotX = 30f
+            previewRotY = -45f
+            previewZoom = 1f
         }
     }
 }
