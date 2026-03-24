@@ -9,7 +9,6 @@ import dev.engine_room.flywheel.lib.transform.TransformStack
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
 import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.createmod.catnip.outliner.AABBOutline
-import net.createmod.catnip.outliner.LineOutline
 import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer
 import net.createmod.catnip.render.SuperRenderTypeBuffer
 import net.minecraft.client.Minecraft
@@ -45,7 +44,6 @@ object SchematicHoverPreview {
 
     private const val GHOST_ALPHA = 0.5f
     private const val OUTLINE_COLOR = 0x6886c5
-    private const val AXIS_COLOR = 0xFFDD44
 
     private var currentSchematic: String? = null
     private var cachedTemplate: StructureTemplate? = null
@@ -59,7 +57,6 @@ object SchematicHoverPreview {
     private var buildGeneration = 0
 
     private var outline: AABBOutline? = null
-    private var axisLine: LineOutline? = null
 
     /** Anchor position — the crosshair hit position representing the AABB center of the schematic. */
     var anchorPos: BlockPos? = null
@@ -100,7 +97,6 @@ object SchematicHoverPreview {
         renderers = arrayOf(null, null, null)
         rendererBuilding = booleanArrayOf(false, false, false)
         outline = null
-        axisLine = null
         currentRotation = Rotation.NONE
         currentMirror = Mirror.NONE
 
@@ -128,9 +124,6 @@ object SchematicHoverPreview {
             // Outline and axis are available immediately while geometry builds async
             outline = AABBOutline(AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0)).apply {
                 params.colored(OUTLINE_COLOR).lineWidth(1 / 16f)
-            }
-            axisLine = LineOutline().apply {
-                params.colored(AXIS_COLOR).lineWidth(1 / 24f)
             }
 
             // Start async build for normal renderer (index 0)
@@ -232,19 +225,6 @@ object SchematicHoverPreview {
             poseStack.popPose()
         }
 
-        // Always render rotation axis
-        val axis = axisLine
-        if (axis != null) {
-            val centerX = target.x + xO
-            val centerZ = target.z + zO
-            val axisBottom = target.y + schematicSize.y.toDouble()
-            val axisTop = axisBottom + schematicSize.y * 0.5 + 1.0
-            axis.set(Vec3(centerX, axisBottom, centerZ), Vec3(centerX, axisTop, centerZ))
-            poseStack.pushPose()
-            axis.render(poseStack, superBuffer, camera, event.partialTick.getGameTimeDeltaPartialTick(false))
-            poseStack.popPose()
-        }
-
         superBuffer.draw()
         RenderSystem.enableCull()
     }
@@ -257,7 +237,6 @@ object SchematicHoverPreview {
         renderers = arrayOf(null, null, null)
         rendererBuilding = booleanArrayOf(false, false, false)
         outline = null
-        axisLine = null
         anchorPos = null
         currentRotation = Rotation.NONE
         currentMirror = Mirror.NONE

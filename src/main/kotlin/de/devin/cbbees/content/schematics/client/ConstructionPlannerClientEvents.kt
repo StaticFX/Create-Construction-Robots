@@ -35,10 +35,11 @@ object ConstructionPlannerClientEvents {
             }
         }
 
-        // Check keybind for opening full-screen browser (only when holding planner)
+        // Always drain the browser keybind to prevent queued presses from firing
+        // when the player switches to holding the planner
         val player = Minecraft.getInstance().player
-        if (player != null && AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
-            if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
+        if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
+            if (player != null && AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
                 Minecraft.getInstance().setScreen(ConstructionPlannerScreen())
             }
         }
