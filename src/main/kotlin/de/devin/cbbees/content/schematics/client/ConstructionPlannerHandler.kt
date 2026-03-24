@@ -71,6 +71,11 @@ object ConstructionPlannerHandler {
     /** Filename currently being previewed. Internal state only. */
     private var browsingFilename: String? = null
 
+    /** Saved state from the last deployment, so we can restore after construction completes. */
+    private var lastDeployedFilename: String? = null
+    private var lastDeployedRotation: Rotation = Rotation.NONE
+    private var lastDeployedMirror: Mirror = Mirror.NONE
+
     private var lastRefreshTick = 0L
     private const val REFRESH_INTERVAL = 40L // 2 seconds
 
@@ -104,14 +109,27 @@ object ConstructionPlannerHandler {
             return
         }
 
-        // Detect Create's Print: we were in state 3 (createWasActive) but Create set
-        // DEPLOYED=false while SCHEMATIC_FILE is still on the item. Clear everything.
+        // Detect exit from state 3: we were in Create's overlay (createWasActive) but the
+        // item is no longer deployed. This covers all exit paths:
+        //  - Construct tool (mixin clears everything immediately)
+        //  - Unselect tool (mixin clears everything immediately)
+        //  - Create's own Print action (clears DEPLOYED, keeps FILE)
+        // Restore browsing state with the same schematic and rotation.
         if (createWasActive
-            && !stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)
-            && stack.has(AllDataComponents.SCHEMATIC_FILE)) {
+            && !stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
             createWasActive = false
-            ConstructionPlannerItem.clearSchematic(stack)
-            clearBrowsingPreview()
+
+            // Clean up leftover data components (Create's Print leaves FILE on the item)
+            if (stack.has(AllDataComponents.SCHEMATIC_FILE)) {
+                ConstructionPlannerItem.clearSchematic(stack)
+            }
+
+            if (lastDeployedFilename != null) {
+                browsingFilename = lastDeployedFilename
+                isBrowsingPreview = true
+                SchematicHoverPreview.updatePreview(lastDeployedFilename)
+                SchematicHoverPreview.setTransform(lastDeployedRotation, lastDeployedMirror)
+            }
             return
         }
 
@@ -359,6 +377,11 @@ object ConstructionPlannerHandler {
             SchematicUploader.startUpload(filename, finishDeploy)
         }
 
+        // Save state so we can restore after construction completes
+        lastDeployedFilename = filename
+        lastDeployedRotation = rotation
+        lastDeployedMirror = mirror
+
         // Clear our browsing state — Create takes over on next tick (or after upload)
         clearBrowsingPreview()
         return true
@@ -408,8 +431,9 @@ object ConstructionPlannerHandler {
         // Keep browsingFilename so tick() restores the ghost preview on the next frame.
         // Unlike deploySchematic(), instant construction never sets SCHEMATIC_DEPLOYED on
         // the item, so the handler stays in state 1/2 and can immediately re-show the ghost.
+        // Don't clear SchematicHoverPreview — just hide it. Next tick, updatePreview()
+        // will early-return (same filename) and preserve the rotation/mirror.
         isBrowsingPreview = false
-        SchematicHoverPreview.clear()
         return true
     }
 

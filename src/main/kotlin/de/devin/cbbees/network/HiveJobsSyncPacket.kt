@@ -274,7 +274,6 @@ class HiveJobsSyncPacket(
         fun sendPlayerSnapshotTo(player: ServerPlayer) {
             val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
-            if (jobs.isEmpty()) return
 
             val clientJobs = jobs.map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }

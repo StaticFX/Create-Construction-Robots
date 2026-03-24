@@ -22,7 +22,9 @@ class PlayerTickEvent {
         val player = event.entity
         if (player.level().isClientSide) return
         if (hasPortableHive(player)) {
-            ServerBeeNetworkManager.registerWorker(PortableBeeHive(player))
+            val hive = PortableBeeHive(player)
+            hive.networkId = ServerBeeNetworkManager.stableNetworkId(player.uuid)
+            ServerBeeNetworkManager.registerWorker(hive)
         }
     }
 
@@ -33,15 +35,20 @@ class PlayerTickEvent {
 
         val pool = ServerBeeNetworkManager
 
-        val isAlreadyRegistered =
-            pool.getNetworks().flatMap { it.hives }.any { it is PortableBeeHive && it.player.uuid == player.uuid }
+        val existingHive =
+            pool.getNetworks().flatMap { it.hives }.filterIsInstance<PortableBeeHive>().find { it.player.uuid == player.uuid }
 
         if (hasPortableHive(player)) {
-            if (!isAlreadyRegistered) {
-                pool.registerWorker(PortableBeeHive(player))
+            if (existingHive == null) {
+                val hive = PortableBeeHive(player)
+                hive.networkId = pool.stableNetworkId(player.uuid)
+                pool.registerWorker(hive)
+            } else {
+                // Reconnect: handles joining/leaving block-based networks based on position
+                pool.reconnectPortableHive(existingHive)
             }
         } else {
-            if (isAlreadyRegistered) {
+            if (existingHive != null) {
                 pool.unregisterWorker(player.uuid)
             }
         }

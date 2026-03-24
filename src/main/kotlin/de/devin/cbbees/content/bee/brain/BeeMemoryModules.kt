@@ -4,6 +4,7 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
+import net.minecraft.world.entity.player.Player
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -25,6 +26,11 @@ object BeeMemoryModules {
 
     val TRANSPORT_TASK = CreateBuzzyBeez.REGISTRATE.generic("transport_task", Registries.MEMORY_MODULE_TYPE) {
         MemoryModuleType<TransportTask>(Optional.empty())
+    }.register()
+
+    /** Set when the bee's portable beehive was removed. The bee should fly to this player and drop. */
+    val RETURNING_TO_OWNER = CreateBuzzyBeez.REGISTRATE.generic("returning_to_owner", Registries.MEMORY_MODULE_TYPE) {
+        MemoryModuleType<Player>(Optional.empty())
     }.register()
 
     fun register() {}

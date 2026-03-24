@@ -17,8 +17,11 @@ import de.devin.cbbees.util.ClientSide
  */
 @ClientSide
 object BeehiveRangeHandler {
-    private val outlineSlot = Any()
+    private const val SINGLE_HIVE_SLOT = "beehive_range_single"
     private const val RANGE_COLOR = 0xFFD700 // Gold color for bees
+
+    /** Slot keys used in the previous tick's render — stale ones get removed. */
+    private val activeSlotKeys = mutableSetOf<String>()
 
     @SubscribeEvent
     @JvmStatic
@@ -26,31 +29,54 @@ object BeehiveRangeHandler {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
         val level = mc.level ?: return
-        if (mc.screen != null) return
+        if (mc.screen != null) {
+            clearAllSlots()
+            return
+        }
 
         // Raycast to see if we are looking at a Network Component
         val trace = RaycastHelper.rayTraceRange(level, player, 20.0)
         if (trace != null && trace.type == HitResult.Type.BLOCK) {
             val be = level.getBlockEntity(trace.blockPos)
             if (be is MechanicalBeehiveBlockEntity) {
-                renderRange(be)
+                val newSlotKeys = mutableSetOf<String>()
+                renderRange(be, newSlotKeys)
+                // Remove slots that were active last frame but no longer needed
+                for (staleKey in activeSlotKeys - newSlotKeys) {
+                    Outliner.getInstance().remove(staleKey)
+                }
+                activeSlotKeys.clear()
+                activeSlotKeys.addAll(newSlotKeys)
+                return
             }
+        }
+
+        // Not looking at a beehive — clear any leftover slots
+        clearAllSlots()
+    }
+
+    private fun clearAllSlots() {
+        if (activeSlotKeys.isNotEmpty()) {
+            for (key in activeSlotKeys) {
+                Outliner.getInstance().remove(key)
+            }
+            activeSlotKeys.clear()
         }
     }
 
 
-    private fun renderRange(be: MechanicalBeehiveBlockEntity) {
+    private fun renderRange(be: MechanicalBeehiveBlockEntity, slotKeys: MutableSet<String>) {
         val networkId = be.networkId
         val network = ClientBeeNetworkManager.getNetwork(networkId)
         val y = be.blockPos.y.toDouble()
         if (network.hives.isEmpty()) {
-            renderSingleHiveRange(be)
+            renderSingleHiveRange(be, slotKeys)
         } else {
-            renderNetworkRange(network, y)
+            renderNetworkRange(network, y, slotKeys)
         }
     }
 
-    private fun renderNetworkRange(network: de.devin.cbbees.content.domain.network.BeeNetwork, y: Double) {
+    private fun renderNetworkRange(network: de.devin.cbbees.content.domain.network.BeeNetwork, y: Double, slotKeys: MutableSet<String>) {
         val hives = network.hives
         if (hives.isEmpty()) return
 
@@ -116,8 +142,10 @@ object BeehiveRangeHandler {
                         xCoords[i], y, zCoords[j],
                         xCoords[endI + 1], y + 0.05, zCoords[endJ + 1]
                     )
+                    val slot = "network_interior_${network.id}_${i}_${j}"
+                    slotKeys.add(slot)
                     Outliner.getInstance()
-                        .chaseAABB("network_interior_${network.id}_${i}_${j}", box)
+                        .chaseAABB(slot, box)
                         .colored(color)
                         .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
                         .lineWidth(0f) // No lines for the interior boxes
@@ -145,7 +173,8 @@ object BeehiveRangeHandler {
                             y,
                             zCoords[j],
                             "network_v_${network.id}_${i}_${startJ}",
-                            color
+                            color,
+                            slotKeys
                         )
                         startJ = -1
                     }
@@ -160,7 +189,8 @@ object BeehiveRangeHandler {
                     y,
                     zCoords[zCoords.size - 1],
                     "network_v_${network.id}_${i}_${startJ}",
-                    color
+                    color,
+                    slotKeys
                 )
             }
         }
@@ -184,7 +214,8 @@ object BeehiveRangeHandler {
                             y,
                             zCoords[j],
                             "network_h_${network.id}_${startI}_${j}",
-                            color
+                            color,
+                            slotKeys
                         )
                         startI = -1
                     }
@@ -199,7 +230,8 @@ object BeehiveRangeHandler {
                     y,
                     zCoords[j],
                     "network_h_${network.id}_${startI}_${j}",
-                    color
+                    color,
+                    slotKeys
                 )
             }
         }
@@ -212,9 +244,11 @@ object BeehiveRangeHandler {
         x2: Double,
         y2: Double,
         z2: Double,
-        slot: Any,
-        color: Int
+        slot: String,
+        color: Int,
+        slotKeys: MutableSet<String>
     ) {
+        slotKeys.add(slot)
         // Render a thin AABB as a line
         val box = AABB(
             x1.coerceAtMost(x2) - 0.05, y1 + 0.01, z1.coerceAtMost(z2) - 0.05,
@@ -230,15 +264,11 @@ object BeehiveRangeHandler {
         fun contains(x: Double, z: Double) = x >= x1 && x <= x2 && z >= z1 && z <= z2
     }
 
-    private fun renderSingleHiveRange(be: MechanicalBeehiveBlockEntity) {
-        renderHiveRange(be.blockPos, be.getWorkRange(), outlineSlot, RANGE_COLOR)
-    }
-
-    private fun renderHiveRange(center: net.minecraft.core.BlockPos, maxRange: Double, slot: Any, color: Int) {
+    private fun renderSingleHiveRange(be: MechanicalBeehiveBlockEntity, slotKeys: MutableSet<String>) {
+        val maxRange = be.getWorkRange()
         if (maxRange <= 0) return
 
-        // Render on a 2D plane as requested
-        // We create a very thin box at the bottom of the beehive
+        val center = be.blockPos
         val box = AABB(
             (center.x - maxRange),
             center.y.toDouble(),
@@ -248,9 +278,10 @@ object BeehiveRangeHandler {
             (center.z + maxRange + 1)
         )
 
+        slotKeys.add(SINGLE_HIVE_SLOT)
         Outliner.getInstance()
-            .chaseAABB(slot, box)
-            .colored(color)
+            .chaseAABB(SINGLE_HIVE_SLOT, box)
+            .colored(RANGE_COLOR)
             .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
             .lineWidth(1 / 16f)
     }

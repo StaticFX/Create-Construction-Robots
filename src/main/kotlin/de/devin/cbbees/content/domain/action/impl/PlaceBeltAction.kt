@@ -7,6 +7,7 @@ import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -34,6 +35,9 @@ class PlaceBeltAction(
 ) : BeeAction, ItemConsumingAction {
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+        // Never replace a Mechanical Beehive — abort belt if any position overlaps
+        if (chain.any { level.getBlockEntity(it) is BeeHive }) return true
+
         consumeItems(bee)
 
         BeltConnectorItem.createBelts(level, pos, end)

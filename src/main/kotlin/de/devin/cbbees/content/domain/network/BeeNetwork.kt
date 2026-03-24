@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.network
 
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservablePort
 import de.devin.cbbees.content.domain.logistics.TransportPort
@@ -69,12 +70,14 @@ class BeeNetwork(
     }
 
     /**
-     * Checks if any block-based anchor is within range for logistics attachment.
-     * Only considers block entities (mechanical beehives), not portable beehives.
+     * Checks if any anchor is within range for logistics attachment.
+     * Considers both block-based anchors (mechanical beehives) and portable beehives.
      */
     fun isInLogisticsRange(pos: BlockPos): Boolean {
         purgeStaleComponents()
-        return components.any { c -> c is BlockEntity && topology.isAnchor(c) && topology.isLogisticsRange(c, pos) }
+        return components.any { c ->
+            (c is BlockEntity || c is PortableBeeHive) && topology.isAnchor(c) && topology.isLogisticsRange(c, pos)
+        }
     }
 
     fun findProvider(stack: ItemStack): LogisticsPort? {

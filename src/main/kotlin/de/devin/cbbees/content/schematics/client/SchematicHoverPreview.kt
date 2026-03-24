@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicItem
-import com.simibubi.create.content.schematics.client.SchematicRenderer
 import com.simibubi.create.foundation.utility.RaycastHelper
 import dev.engine_room.flywheel.lib.transform.TransformStack
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
@@ -29,6 +28,7 @@ import net.minecraft.world.phys.Vec3
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
+import java.util.concurrent.CompletableFuture
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -51,8 +51,12 @@ object SchematicHoverPreview {
     private var cachedTemplate: StructureTemplate? = null
     private var schematicSize: Vec3i = Vec3i.ZERO
 
-    /** Renderers: [0]=normal, [1]=FB mirror, [2]=LR mirror. Built on demand. */
-    private var renderers: Array<SchematicRenderer?> = arrayOf(null, null, null)
+    /** Renderers: [0]=normal, [1]=FB mirror, [2]=LR mirror. Built asynchronously. */
+    private var renderers: Array<GhostSchematicRenderer?> = arrayOf(null, null, null)
+    private var rendererBuilding = booleanArrayOf(false, false, false)
+
+    /** Incremented on each [updatePreview] to invalidate in-flight async builds. */
+    private var buildGeneration = 0
 
     private var outline: AABBOutline? = null
     private var axisLine: LineOutline? = null
@@ -89,10 +93,12 @@ object SchematicHoverPreview {
     fun updatePreview(filename: String?) {
         if (filename == currentSchematic) return
 
+        buildGeneration++
         currentSchematic = filename
         cachedTemplate = null
         schematicSize = Vec3i.ZERO
         renderers = arrayOf(null, null, null)
+        rendererBuilding = booleanArrayOf(false, false, false)
         outline = null
         axisLine = null
         currentRotation = Rotation.NONE
@@ -119,18 +125,25 @@ object SchematicHoverPreview {
             cachedTemplate = template
             schematicSize = template.size
 
-            // Build normal renderer (index 0)
-            renderers[0] = buildRenderer(template, Mirror.NONE)
-
+            // Outline and axis are available immediately while geometry builds async
             outline = AABBOutline(AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0)).apply {
                 params.colored(OUTLINE_COLOR).lineWidth(1 / 16f)
             }
             axisLine = LineOutline().apply {
                 params.colored(AXIS_COLOR).lineWidth(1 / 24f)
             }
+
+            // Start async build for normal renderer (index 0)
+            startBuildRenderer(0, template, Mirror.NONE)
         } catch (_: Exception) {
             cachedTemplate = null
         }
+    }
+
+    /** Restores rotation and mirror, e.g. after re-entering browsing state. */
+    fun setTransform(rotation: Rotation, mirror: Mirror) {
+        currentRotation = rotation
+        currentMirror = mirror
     }
 
     fun rotatePreview() {
@@ -177,8 +190,8 @@ object SchematicHoverPreview {
     fun render(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return
         if (!ConstructionPlannerHandler.isBrowsingPreview) return
+        if (currentSchematic == null || schematicSize == Vec3i.ZERO) return
 
-        val renderer = getActiveRenderer() ?: return
         val anchor = anchorPos ?: return
 
         val mc = Minecraft.getInstance()
@@ -193,20 +206,23 @@ object SchematicHoverPreview {
         val zO = schematicSize.z / 2.0
         val rot = -(currentRotation.ordinal * 90.0).toFloat()
 
-        // Render ghost blocks using Create's exact transform
-        val transparentBuffer = TransparentBuffer(superBuffer, GHOST_ALPHA)
-        poseStack.pushPose()
+        // Render ghost blocks only if renderer is ready (built asynchronously)
+        val renderer = getActiveRenderer()
+        if (renderer != null) {
+            val transparentBuffer = TransparentBuffer(superBuffer, GHOST_ALPHA)
+            poseStack.pushPose()
 
-        TransformStack.of(poseStack)
-            .translate(Vec3.atLowerCornerOf(target).subtract(camera))
-        poseStack.translate(xO, 0.0, zO)
-        TransformStack.of(poseStack).rotateYDegrees(rot)
-        poseStack.translate(-xO, 0.0, -zO)
+            TransformStack.of(poseStack)
+                .translate(Vec3.atLowerCornerOf(target).subtract(camera))
+            poseStack.translate(xO, 0.0, zO)
+            TransformStack.of(poseStack).rotateYDegrees(rot)
+            poseStack.translate(-xO, 0.0, -zO)
 
-        renderer.render(poseStack, transparentBuffer)
-        poseStack.popPose()
+            renderer.render(poseStack, transparentBuffer)
+            poseStack.popPose()
+        }
 
-        // Render AABB outline
+        // Always render AABB outline (available immediately, lightweight)
         val aabbOutline = outline
         if (aabbOutline != null) {
             val aabb = computeTransformedAABB(target)
@@ -216,13 +232,13 @@ object SchematicHoverPreview {
             poseStack.popPose()
         }
 
-        // Render rotation axis (vertical line through AABB center)
+        // Always render rotation axis
         val axis = axisLine
         if (axis != null) {
             val centerX = target.x + xO
             val centerZ = target.z + zO
-            val axisBottom = target.y - 0.5
-            val axisTop = target.y + schematicSize.y + 0.5
+            val axisBottom = target.y + schematicSize.y.toDouble()
+            val axisTop = axisBottom + schematicSize.y * 0.5 + 1.0
             axis.set(Vec3(centerX, axisBottom, centerZ), Vec3(centerX, axisTop, centerZ))
             poseStack.pushPose()
             axis.render(poseStack, superBuffer, camera, event.partialTick.getGameTimeDeltaPartialTick(false))
@@ -234,10 +250,12 @@ object SchematicHoverPreview {
     }
 
     fun clear() {
+        buildGeneration++
         currentSchematic = null
         cachedTemplate = null
         schematicSize = Vec3i.ZERO
         renderers = arrayOf(null, null, null)
+        rendererBuilding = booleanArrayOf(false, false, false)
         outline = null
         axisLine = null
         anchorPos = null
@@ -247,42 +265,75 @@ object SchematicHoverPreview {
 
     // ── Internal ────────────────────────────────────────────────────────
 
-    /** Selects the renderer for the current mirror, building it on demand. */
-    private fun getActiveRenderer(): SchematicRenderer? {
+    /**
+     * Returns the ready renderer for the current mirror, or null if still building.
+     * Starts an async build if one hasn't been kicked off yet.
+     */
+    private fun getActiveRenderer(): GhostSchematicRenderer? {
         val idx = when (currentMirror) {
             Mirror.NONE -> 0
             Mirror.FRONT_BACK -> 1
             Mirror.LEFT_RIGHT -> 2
         }
-        if (renderers[idx] == null) {
+        val renderer = renderers[idx]
+        if (renderer != null && renderer.isReady) return renderer
+
+        if (!rendererBuilding[idx]) {
             val template = cachedTemplate ?: return null
-            renderers[idx] = buildRenderer(template, currentMirror)
+            startBuildRenderer(idx, template, currentMirror)
         }
-        return renderers[idx]
+        return null
     }
 
-    /** Builds a SchematicLevel + renderer for the given mirror, same approach as Create. */
-    private fun buildRenderer(template: StructureTemplate, mirror: Mirror): SchematicRenderer? {
-        val mc = Minecraft.getInstance()
-        val level = mc.level ?: return null
+    /**
+     * Builds a SchematicLevel + renderer asynchronously on a background thread.
+     * The SchematicLevel construction and geometry tesselation both run off the
+     * render thread, eliminating the frame stutter for large schematics.
+     * The outline and axis indicator remain visible while the ghost loads.
+     */
+    private fun startBuildRenderer(index: Int, template: StructureTemplate, mirror: Mirror) {
+        if (rendererBuilding[index]) return
+        rendererBuilding[index] = true
 
-        val schematicLevel = SchematicLevel(level)
-        val settings = StructurePlaceSettings()
-        settings.mirror = mirror
-
-        val pos = when (mirror) {
-            Mirror.FRONT_BACK -> BlockPos.ZERO.east(schematicSize.x - 1)
-            Mirror.LEFT_RIGHT -> BlockPos.ZERO.south(schematicSize.z - 1)
-            else -> BlockPos.ZERO
+        val level = Minecraft.getInstance().level ?: run {
+            rendererBuilding[index] = false
+            return
         }
+        val size = schematicSize
+        val gen = buildGeneration
 
-        template.placeInWorld(schematicLevel, pos, pos, settings, schematicLevel.random, Block.UPDATE_CLIENTS)
+        CompletableFuture.runAsync {
+            val schematicLevel = SchematicLevel(level)
+            val settings = StructurePlaceSettings()
+            settings.mirror = mirror
 
-        for (blockEntity in schematicLevel.blockEntities) {
-            blockEntity.setLevel(schematicLevel)
+            val pos = when (mirror) {
+                Mirror.FRONT_BACK -> BlockPos.ZERO.east(size.x - 1)
+                Mirror.LEFT_RIGHT -> BlockPos.ZERO.south(size.z - 1)
+                else -> BlockPos.ZERO
+            }
+
+            template.placeInWorld(schematicLevel, pos, pos, settings, schematicLevel.random, Block.UPDATE_CLIENTS)
+
+            for (blockEntity in schematicLevel.blockEntities) {
+                blockEntity.setLevel(schematicLevel)
+            }
+
+            val renderer = GhostSchematicRenderer(schematicLevel)
+            renderer.prebuildGeometry()
+
+            Minecraft.getInstance().execute {
+                if (gen == buildGeneration) {
+                    renderers[index] = renderer
+                }
+                rendererBuilding[index] = false
+            }
+        }.exceptionally {
+            Minecraft.getInstance().execute {
+                rendererBuilding[index] = false
+            }
+            null
         }
-
-        return GhostSchematicRenderer(schematicLevel)
     }
 
     /**

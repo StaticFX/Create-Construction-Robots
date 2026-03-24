@@ -12,6 +12,7 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.util.ClientSide
+import net.minecraft.world.phys.Vec3
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
 import net.createmod.catnip.levelWrappers.SchematicLevel
@@ -162,18 +163,18 @@ object ConstructionRenderer {
                 if (renderer != null) {
                     rendererCache[job.jobId] = renderer
 
-                    // Build outline from actual block positions (not schematicLevel.bounds
-                    // which always includes origin due to BoundingBox(BlockPos.ZERO) init)
+                    // Build outline from actual block positions in the blockMap.
+                    // SchematicLevel is created with anchor=ZERO, so blockMap keys
+                    // are already in global coordinates — no anchor offset needed.
                     val positions = renderer.schematicLevel.blockMap.keys
                     if (positions.isEmpty()) continue
-                    val anchor = renderer.anchor
                     val bounds = AABB(
-                        (positions.minOf { it.x } + anchor.x).toDouble(),
-                        (positions.minOf { it.y } + anchor.y).toDouble(),
-                        (positions.minOf { it.z } + anchor.z).toDouble(),
-                        (positions.maxOf { it.x } + anchor.x + 1).toDouble(),
-                        (positions.maxOf { it.y } + anchor.y + 1).toDouble(),
-                        (positions.maxOf { it.z } + anchor.z + 1).toDouble()
+                        positions.minOf { it.x }.toDouble(),
+                        positions.minOf { it.y }.toDouble(),
+                        positions.minOf { it.z }.toDouble(),
+                        (positions.maxOf { it.x } + 1).toDouble(),
+                        (positions.maxOf { it.y } + 1).toDouble(),
+                        (positions.maxOf { it.z } + 1).toDouble()
                     )
                     outlineBoundsCache[job.jobId] = bounds
                     val outline = AABBOutline(bounds)
@@ -280,6 +281,34 @@ object ConstructionRenderer {
         val ghostLevel = GhostBlockLevel(clientLevel)
         ghostLevel.populate(allGhosts)
         return JobRenderer(GhostSchematicRenderer(ghostLevel), ghostLevel, BlockPos.ZERO)
+    }
+
+    /**
+     * Finds the job whose AABB is hit by the given ray (from [start] in direction [dir]).
+     * Returns the jobId of the closest hit, or null if no job AABB is hit within [maxRange].
+     */
+    fun findJobAtRay(start: Vec3, dir: Vec3, maxRange: Double): UUID? {
+        var bestDist = maxRange
+        var bestJob: UUID? = null
+
+        for ((jobId, bounds) in outlineBoundsCache) {
+            val hit = bounds.clip(start, start.add(dir.scale(maxRange)))
+            if (hit.isPresent) {
+                val dist = hit.get().distanceTo(start)
+                if (dist < bestDist) {
+                    bestDist = dist
+                    bestJob = jobId
+                }
+            }
+        }
+        return bestJob
+    }
+
+    /**
+     * Returns the cached [ClientJobInfo] for a given job ID, or null.
+     */
+    fun getJobInfo(jobId: UUID): ClientJobInfo? {
+        return ClientJobCache.getAllJobs().firstOrNull { it.jobId == jobId }
     }
 
     /**

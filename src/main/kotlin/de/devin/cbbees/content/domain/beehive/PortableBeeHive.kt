@@ -5,8 +5,10 @@ import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
+import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.content.logistics.ports.PortType
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllEntityTypes
@@ -15,14 +17,24 @@ import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.neoforged.neoforge.items.IItemHandler
 import top.theillusivec4.curios.api.CuriosApi
 import java.util.*
 
 /**
  * Implementation of IBeeHome that wraps a player and their portable beehive (backpack).
- * Also implements BeeSource to allow contributing bees from multiple sources.
+ *
+ * Also implements [LogisticsPort] so the player's inventory acts as the highest-priority
+ * logistics port in the portable network. Bees can take items from the player or bring
+ * items to the player through the standard port-finding system.
  */
-class PortableBeeHive(val player: Player) : BeeHive {
+class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
+
+    companion object {
+        /** Networking range for portable beehives (blocks). */
+        const val NETWORKING_RANGE = 6.0
+    }
+
     private val activeBees = mutableSetOf<UUID>()
 
     override fun getActiveBeeCount(): Int = activeBees.size
@@ -79,17 +91,16 @@ class PortableBeeHive(val player: Player) : BeeHive {
      */
     fun cleanupOrphanedBees() {
         val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return
-        val removed = activeBees.removeIf { beeId ->
+        activeBees.removeIf { beeId ->
             val entity = level.getEntity(beeId)
             entity == null || !entity.isAlive
         }
     }
 
     override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
+        if (!isValid()) return null
         val nextBatch = GlobalJobPool.workBacklog(this)
-
         nextBatch?.assignToRobot(bee)
-
         return nextBatch
     }
 
@@ -109,6 +120,10 @@ class PortableBeeHive(val player: Player) : BeeHive {
         if (backpack.isEmpty) return BeeContext()
         return (backpack.item as PortableBeehiveItem).getBeeContext(backpack)
     }
+
+    // ── BeeHive overrides ──────────────────────────────────────────────
+
+    override fun getNetworkingRange(): Double = NETWORKING_RANGE
 
     override fun rechargeSpring(ctx: BeeContext): Int {
         val honeyCost =
@@ -154,7 +169,6 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
     }
 
-    // BeeSource implementation
     override fun getAvailableBeeCount(): Int {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return 0
@@ -169,8 +183,81 @@ class PortableBeeHive(val player: Player) : BeeHive {
         return WalkTarget(player, 1.0f, 0)
     }
 
+    /**
+     * Portable beehive is always an anchor (BeeHive contract).
+     * This takes precedence over [LogisticsPort]'s default of false.
+     */
+    override fun isAnchor(): Boolean = true
+
+    override fun isInWorkRange(pos: BlockPos): Boolean = isInRange(pos)
+
     override fun sync() {}
 
+    // ── LogisticsPort implementation ───────────────────────────────────
+
+    override fun getPortType(): PortType = PortType.INSERT // Both, but INSERT as default
+
+    override fun getFilter(): ItemStack = ItemStack.EMPTY // No filter — accepts everything
+
+    override fun isValidForPickup(): Boolean = true
+
+    override fun isValidForDropOff(): Boolean = true
+
+    override fun testFilter(stack: ItemStack): Boolean = true // Accept all items
+
+    override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean = true
+
+    override fun getItemHandler(level: Level): IItemHandler? = null // Not backed by IItemHandler
+
+    /** Highest priority — bees always prefer the portable beehive over block-based ports. */
+    override fun priority(): Int = Int.MAX_VALUE
+
+    override fun hasItemStack(stack: ItemStack): Boolean {
+        if (player.isCreative) return true
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack) && slot.count >= stack.count) {
+                return true
+            }
+        }
+        return false
+    }
+
+    override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
+        return hasItemStack(stack)
+    }
+
+    override fun removeItemStack(stack: ItemStack): Boolean {
+        if (player.isCreative) return true
+        var remaining = stack.count
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
+                val take = minOf(remaining, slot.count)
+                slot.shrink(take)
+                if (slot.isEmpty) player.inventory.setItem(i, ItemStack.EMPTY)
+                remaining -= take
+                if (remaining <= 0) return true
+            }
+        }
+        return remaining <= 0
+    }
+
+    override fun addItemStack(stack: ItemStack): ItemStack {
+        val copy = stack.copy()
+        if (player.inventory.add(copy)) {
+            return ItemStack.EMPTY
+        }
+        return copy // Return what didn't fit
+    }
+
+    /**
+     * Returns true if the player still has the portable beehive equipped
+     * (in Curios back slot or chestplate slot).
+     */
+    fun isValid(): Boolean = !getBackpackStack().isEmpty
+
+    // ── Internal ───────────────────────────────────────────────────────
 
     private fun getBackpackStack(): ItemStack {
         // Check Curios back slot

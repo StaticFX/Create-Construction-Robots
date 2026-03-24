@@ -219,9 +219,19 @@ object ServerBeeNetworkManager {
         return networks.flatMap { it.hives }.filterIsInstance<PortableBeeHive>().find { it.player.uuid == playerId }
     }
 
+    /**
+     * Ensures the portable beehive always has its own isolated network.
+     * Uses a deterministic UUID derived from the player's UUID for stability across reconnects.
+     *
+     * When the player is within range of a block-based network, the portable hive
+     * joins that network so its bees can access block-based logistics ports.
+     * The portable hive's own network is maintained separately.
+     */
     fun reconnectPortableHive(hive: PortableBeeHive) {
         val playerPos = hive.player.blockPosition()
         val playerLevel = hive.player.level()
+
+        val currentNetwork = getNetworkFor(hive)
 
         // Find a block-based network covering the player's position
         val blockNetwork = networks.find { net ->
@@ -230,35 +240,44 @@ object ServerBeeNetworkManager {
                 net.components.any { it.isAnchor() && it !is PortableBeeHive }
         }
 
-        val currentNetwork = getNetworkFor(hive)
-
         if (blockNetwork != null) {
-            // Already in the target network — no-op
-            if (currentNetwork == blockNetwork) return
-
-            // Move from old network to the block network
-            if (currentNetwork != null) {
-                currentNetwork.removeComponent(hive)
-                if (currentNetwork.components.isEmpty()) {
-                    networks.remove(currentNetwork)
+            // Join the block network if not already in it
+            if (currentNetwork != blockNetwork) {
+                if (currentNetwork != null) {
+                    currentNetwork.removeComponent(hive)
+                    if (currentNetwork.components.isEmpty()) {
+                        networks.remove(currentNetwork)
+                    }
                 }
+                blockNetwork.addComponent(hive)
+                CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
             }
-            blockNetwork.addComponent(hive)
-            CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
         } else {
-            // No block network nearby
+            // No block network nearby — ensure the hive has its own isolated network
             if (currentNetwork != null && currentNetwork.components.any { it.isAnchor() && it !is PortableBeeHive }) {
                 // Currently in a block network — detach into isolated network
                 currentNetwork.removeComponent(hive)
                 if (currentNetwork.components.isEmpty()) {
                     networks.remove(currentNetwork)
                 }
-                hive.networkId = UUID.randomUUID()
+                // Use a stable network ID derived from the player's UUID
+                hive.networkId = stableNetworkId(hive.player.uuid)
                 registerComponent(hive)
                 CreateBuzzyBeez.LOGGER.debug("Detached portable hive for ${hive.player.name.string} into isolated network")
+            } else if (currentNetwork == null) {
+                hive.networkId = stableNetworkId(hive.player.uuid)
+                registerComponent(hive)
             }
-            // Otherwise already isolated — no-op
+            // Otherwise already in isolated network — no-op
         }
+    }
+
+    /**
+     * Generates a deterministic UUID from a player UUID for portable network IDs.
+     * Uses nameUUIDFromBytes to produce the same result on every call.
+     */
+    fun stableNetworkId(playerUuid: UUID): UUID {
+        return UUID.nameUUIDFromBytes("portable-network:$playerUuid".toByteArray())
     }
 }
 

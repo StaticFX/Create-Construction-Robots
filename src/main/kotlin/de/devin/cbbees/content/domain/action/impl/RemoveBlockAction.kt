@@ -3,6 +3,7 @@ package de.devin.cbbees.content.domain.action.impl
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -31,6 +32,10 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
     override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
         if (level !is ServerLevel) return false
+
+        // Never destroy a Mechanical Beehive — skip silently
+        if (level.getBlockEntity(pos) is BeeHive) return true
+
 
         // Drop Items upgrade: break block and let items drop naturally, skip pickup entirely
         if (context.dropItemsEnabled) {

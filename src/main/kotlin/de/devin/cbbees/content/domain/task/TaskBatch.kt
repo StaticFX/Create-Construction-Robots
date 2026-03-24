@@ -63,11 +63,15 @@ class TaskBatch(
 
     fun release(resetNetwork: Boolean = true, gameTick: Long = 0L) {
         currentIndex = 0
-        status = TaskStatus.PENDING
         assignedBeeId = null
         tasks.forEach { it.release() }
         retryCount++
         lastReleasedTick = gameTick
+        if (retryCount >= MAX_RETRIES) {
+            status = TaskStatus.FAILED
+        } else {
+            status = TaskStatus.PENDING
+        }
         if (resetNetwork) {
             assignedNetworkId = null
         }

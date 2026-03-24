@@ -6,6 +6,7 @@ import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltPart
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.piston.PistonHeadBlock
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BedPart
@@ -88,6 +89,13 @@ object BlockPlacementClassifier {
      */
     fun shouldSkipBlock(state: BlockState): Boolean {
         if (state.block == Blocks.STRUCTURE_VOID) return true
+
+        // Skip fluid blocks (water, lava, modded fluids)
+        if (state.block is LiquidBlock) return true
+        if (!state.fluidState.isEmpty) return true
+
+        // Skip blocks whose item form is air — indicates a missing/unknown block
+        if (state.block.asItem() == net.minecraft.world.item.Items.AIR) return true
 
         if (AllBlocks.BELT.has(state) && state.hasProperty(BeltBlock.PART)
             && state.getValue(BeltBlock.PART) == BeltPart.MIDDLE

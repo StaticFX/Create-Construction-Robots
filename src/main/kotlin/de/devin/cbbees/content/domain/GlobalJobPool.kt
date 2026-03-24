@@ -148,10 +148,14 @@ object GlobalJobPool : SavedData() {
     @Synchronized
     fun workBacklog(beeHive: BeeHive): TaskBatch? {
         val network = beeHive.network()
+        val gameTime = (beeHive.world as? net.minecraft.server.level.ServerLevel)?.gameTime ?: 0L
+
+        fun isDispatchable(batch: TaskBatch): Boolean =
+            batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
 
         // 1. Find batches already assigned to this network
         val assignedBatch = jobBacklog.flatMap { it.batches }
-            .filter { it.status == TaskStatus.PENDING && it.assignedNetworkId == network.id }
+            .filter { isDispatchable(it) && it.assignedNetworkId == network.id }
             .minByOrNull { it.targetPosition.distSqr(beeHive.pos) }
 
         if (assignedBatch != null) {
@@ -163,11 +167,11 @@ object GlobalJobPool : SavedData() {
         // This handles cases where a job was dispatched before the network was fully ready or split/merge events
         val job = jobBacklog.filter { network.isInRange(it.centerPos) }
             .sortedBy { it.centerPos.distSqr(beeHive.pos) }
-            .firstOrNull { j -> j.batches.any { it.status == TaskStatus.PENDING && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) } }
+            .firstOrNull { j -> j.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) } }
             ?: return null
 
         val batch =
-            job.batches.firstOrNull { it.status == TaskStatus.PENDING && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) }
+            job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) }
                 ?: return null
 
         // Verification
