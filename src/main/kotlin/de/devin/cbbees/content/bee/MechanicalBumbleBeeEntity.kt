@@ -20,7 +20,8 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.FlyingMob
+import net.minecraft.world.entity.MoverType
+import net.minecraft.world.entity.PathfinderMob
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -46,7 +47,7 @@ import kotlin.jvm.optionals.getOrNull
  * Slower than Mechanical Bees but carries more items (9 slots).
  * Shuttles items between EXTRACT and INSERT logistics ports.
  */
-class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) : FlyingMob(entityType, level),
+class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level: Level) : PathfinderMob(entityType, level),
     GeoEntity, NetworkedBee {
 
     companion object {
@@ -156,6 +157,30 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
         return navigation
     }
 
+    /**
+     * Custom travel for flying navigation.
+     * PathfinderMob uses gravity-based travel by default, so we override
+     * to use aerial movement factors for smooth flight.
+     */
+    override fun travel(travelVector: net.minecraft.world.phys.Vec3) {
+        if (this.isControlledByLocalInstance()) {
+            if (this.isInWater()) {
+                this.moveRelative(0.02f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.8)
+            } else if (this.isInLava()) {
+                this.moveRelative(0.02f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.5)
+            } else {
+                this.moveRelative(if (this.onGround()) 0.1f else 0.04f, travelVector)
+                this.move(MoverType.SELF, this.deltaMovement)
+                this.deltaMovement = this.deltaMovement.scale(0.91)
+            }
+        }
+        this.calculateEntityAnimation(false)
+    }
+
     fun setHomeId(uuid: UUID) {
         this.entityData.set(BEEHIVE_ID, Optional.of(uuid))
     }
@@ -187,7 +212,9 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out FlyingMob>, level: Le
         super.tick()
         if (level().isClientSide) return
         syncTargetPos()
-        BeeSeparation.applyFlightOffset(this)
+        if (rechargeFinishTick < 0) {
+            BeeSeparation.applyFlightOffset(this)
+        }
 
         // Drain spring while flying
         if (deltaMovement.lengthSqr() > 0.001) {

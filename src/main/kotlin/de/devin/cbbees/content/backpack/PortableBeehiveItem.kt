@@ -377,13 +377,6 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
         // Called every tick when worn
-        val player = slotContext.entity() as? Player ?: return
-        if (player.level().isClientSide) return
-
-        // Creative mode players always have full honey
-        if (player.isCreative) {
-            stack.set(AllDataComponents.HONEY_FUEL.get(), CBBeesConfig.portableMaxHoney.get())
-        }
     }
 
     override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {

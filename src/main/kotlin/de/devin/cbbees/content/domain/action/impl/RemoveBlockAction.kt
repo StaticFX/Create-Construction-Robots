@@ -47,14 +47,28 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
         if (shouldPickUp) {
             val state = level.getBlockState(pos)
+            val blockEntity = level.getBlockEntity(pos)
             val drops = if (context.silkTouchEnabled) {
                 listOf(ItemStack(state.block.asItem()))
             } else {
-                Block.getDrops(state, level, pos, level.getBlockEntity(pos))
+                Block.getDrops(state, level, pos, blockEntity)
+            }
+
+            // Clear container contents before destroying so onRemove doesn't drop them.
+            // Collect the contents to add to bee inventory alongside block drops.
+            val containerDrops = mutableListOf<ItemStack>()
+            if (blockEntity is net.minecraft.world.Container) {
+                for (i in 0 until blockEntity.containerSize) {
+                    val stack = blockEntity.getItem(i)
+                    if (!stack.isEmpty) {
+                        containerDrops.add(stack.copy())
+                    }
+                }
+                blockEntity.clearContent()
             }
 
             level.destroyBlock(pos, false)
-            for (drop in drops) {
+            for (drop in drops + containerDrops) {
                 val remainder = bee.addToInventory(drop)
                 if (!remainder.isEmpty) {
                     val itemEntity = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder)

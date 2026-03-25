@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.bee
 
-import net.minecraft.world.entity.FlyingMob
+import net.minecraft.world.entity.Mob
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -21,7 +21,7 @@ object BeeSeparation {
      * Only applies a gentle horizontal nudge — no vertical component to avoid
      * interfering with altitude-based pathfinding.
      */
-    fun applyFlightOffset(bee: FlyingMob) {
+    fun applyFlightOffset(bee: Mob) {
         val id = bee.id
         // Spread bees across a small area using their entity ID
         val angle = (id * 2654435761L and 0xFFFF).toDouble() / 0xFFFF * Math.PI * 2

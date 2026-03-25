@@ -6,7 +6,7 @@ import de.devin.cbbees.network.BeeDebugSyncPacket
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.FlyingMob
+import net.minecraft.world.entity.Mob
 import net.neoforged.neoforge.network.PacketDistributor
 import java.util.UUID
 
@@ -42,7 +42,7 @@ object BeeDebug {
     /**
      * Sends a debug message about any flying mob entity to all nearby players with debug enabled.
      */
-    fun logForEntity(entity: FlyingMob, label: String, message: String) {
+    fun logForEntity(entity: Mob, label: String, message: String) {
         if (enabledPlayers.isEmpty()) return
         val level = entity.level()
         if (level.isClientSide) return

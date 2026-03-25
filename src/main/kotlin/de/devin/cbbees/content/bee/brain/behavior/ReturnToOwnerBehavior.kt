@@ -45,10 +45,10 @@ class ReturnToOwnerBehavior : Behavior<MechanicalBeeEntity>(
             return
         }
 
-        // Keep flying toward the player
+        // Keep flying toward the player (above their head to avoid blocking vision)
         entity.brain.setMemory(
             MemoryModuleType.WALK_TARGET,
-            WalkTarget(player, 1.0f, 1)
+            WalkTarget(player.blockPosition().above(2), 1.0f, 1)
         )
     }
 }

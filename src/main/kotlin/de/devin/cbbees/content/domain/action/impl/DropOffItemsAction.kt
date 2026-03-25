@@ -24,8 +24,8 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     private var _pos: BlockPos = initialPos
     override val pos: BlockPos get() {
         if (dropAtPlayer) {
-            // Dynamically track the player so the bee follows them
-            bee?.getOwnerPlayer()?.let { _pos = it.blockPosition() }
+            // Dynamically track the player (above head to avoid blocking vision)
+            bee?.getOwnerPlayer()?.let { _pos = it.blockPosition().above(2) }
         }
         return _pos
     }
@@ -47,7 +47,7 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
             val owner = bee.getOwnerPlayer()
             BeeDebug.log(bee, "DropOffAction.onActivate: no port, ownerPlayer=${owner?.name?.string}, ownerUUID=${bee.getOwnerUUID()}")
             if (owner != null) {
-                _pos = owner.blockPosition()
+                _pos = owner.blockPosition().above(2)
                 dropAtPlayer = true
                 BeeDebug.log(bee, "DropOffAction.onActivate: dropAtPlayer=true, target=$_pos")
             } else {
@@ -72,11 +72,12 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
             BeeDebug.log(bee, "DropOffAction.execute: dropAtPlayer=true, owner=${owner?.name?.string}")
             if (owner != null) {
                 for (item in contents) {
-                    val added = owner.inventory.add(item.copy())
+                    val copy = item.copy()
+                    val added = owner.inventory.add(copy)
                     bee.removeFromInventory(item, item.count)
                     BeeDebug.log(bee, "DropOffAction.execute: ${item.count}x ${item.item} added=$added")
-                    if (!added) {
-                        val drop = ItemEntity(level, owner.x, owner.y, owner.z, item.copy())
+                    if (!added && !copy.isEmpty) {
+                        val drop = ItemEntity(level, owner.x, owner.y, owner.z, copy)
                         level.addFreshEntity(drop)
                     }
                 }
@@ -100,9 +101,10 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
             if (owner != null) {
                 BeeDebug.log(bee, "DropOff: port gone, giving ${contents.size} stack(s) to player ${owner.name.string}")
                 for (item in contents) {
+                    val copy = item.copy()
                     bee.removeFromInventory(item, item.count)
-                    if (!owner.inventory.add(item.copy())) {
-                        val drop = ItemEntity(level, owner.x, owner.y, owner.z, item.copy())
+                    if (!owner.inventory.add(copy) && !copy.isEmpty) {
+                        val drop = ItemEntity(level, owner.x, owner.y, owner.z, copy)
                         level.addFreshEntity(drop)
                     }
                 }

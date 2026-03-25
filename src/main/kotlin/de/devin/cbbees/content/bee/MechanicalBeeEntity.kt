@@ -24,7 +24,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.FlyingMob
+import net.minecraft.world.entity.PathfinderMob
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -62,7 +62,7 @@ import kotlin.jvm.optionals.getOrNull
  * 5. Placing blocks instantly or breaking blocks quickly.
  * 6. Returning to the hive when all tasks are done.
  */
-class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) : FlyingMob(entityType, level),
+class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Level) : PathfinderMob(entityType, level),
     GeoEntity, NetworkedBee {
 
     companion object {
@@ -214,10 +214,9 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
     }
 
     /**
-     * Override FlyingMob's travel to use a higher movement factor.
-     * FlyingMob hardcodes 0.02f which, combined with normalization in moveRelative,
-     * results in very slow movement (~4 blocks/sec).
-     * Using 0.04f gives ~9 blocks/sec — fast enough to avoid stuck safety.
+     * Custom travel for flying navigation.
+     * PathfinderMob uses gravity-based travel by default, so we override
+     * to use aerial movement factors for smooth flight.
      */
     override fun travel(travelVector: net.minecraft.world.phys.Vec3) {
         if (this.isControlledByLocalInstance()) {
@@ -300,7 +299,9 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (level().isClientSide) return
 
         syncTargetPos()
-        BeeSeparation.applyFlightOffset(this)
+        if (rechargeFinishTick < 0) {
+            BeeSeparation.applyFlightOffset(this)
+        }
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
@@ -310,7 +311,7 @@ class MechanicalBeeEntity(entityType: EntityType<out FlyingMob>, level: Level) :
         if (tickCount % 20 == 0) {
             val hive = beehive()
             if (hive is PortableBeeHive) {
-                getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), hive.player.blockPosition())
+                getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), hive.player.blockPosition().above(2))
 
                 // Backpack removed — release current work and set brain to return to owner
                 if (!hive.isValid() && !getBrain().hasMemoryValue(BeeMemoryModules.RETURNING_TO_OWNER.get())) {

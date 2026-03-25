@@ -58,7 +58,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     private fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
         val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), player.level()).apply {
             setOwner(player.uuid)
-            setPos(player.position().add(0.0, 1.0, 0.0))
+            setPos(player.position().add(0.0, 2.0, 0.0))
             this.networkId = this@PortableBeeHive.network().id
         }
 
@@ -70,7 +70,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         bee.springTension = 1.0f
 
         bee.setHomeId(player.uuid)
-        bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition())
+        bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition().above(2))
         bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
         bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(batch))
 
@@ -180,7 +180,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     }
 
     override fun walkTarget(): WalkTarget {
-        return WalkTarget(player, 1.0f, 0)
+        return WalkTarget(player.blockPosition().above(2), 1.0f, 1)
     }
 
     /**
