@@ -28,7 +28,7 @@ class BumbleStuckSafetyBehavior : Behavior<MechanicalBumbleBeeEntity>(
     private var lastTargetPos: Vec3 = Vec3.ZERO
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBumbleBeeEntity): Boolean {
-        val walkTarget = owner.brain.getMemory(MemoryModuleType.WALK_TARGET).get()
+        val walkTarget = owner.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return false
         val targetPos = Vec3.atCenterOf(walkTarget.target.currentBlockPosition())
 
         if (targetPos.distanceToSqr(lastTargetPos) > 1.0) {
@@ -58,7 +58,7 @@ class BumbleStuckSafetyBehavior : Behavior<MechanicalBumbleBeeEntity>(
     }
 
     override fun start(level: ServerLevel, entity: MechanicalBumbleBeeEntity, gameTime: Long) {
-        val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).get()
+        val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return
         val targetPos = walkTarget.target.currentBlockPosition()
 
         BeeDebug.logForEntity(entity, "Bumble", "Stuck! Teleporting to target at $targetPos")

@@ -39,7 +39,7 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
     private var lastTargetPos: Vec3 = Vec3.ZERO
 
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
-        val walkTarget = owner.brain.getMemory(MemoryModuleType.WALK_TARGET).get()
+        val walkTarget = owner.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return false
         val targetPos = Vec3.atCenterOf(walkTarget.target.currentBlockPosition())
 
         // If the target changed, reset tracking
@@ -71,7 +71,7 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
     }
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
-        val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).get()
+        val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return
         val targetPos = walkTarget.target.currentBlockPosition()
 
         BeeDebug.log(entity, "Stuck! Teleporting to target at $targetPos")
