@@ -87,6 +87,16 @@ data class BeeJob(
     fun getContribution(beeHive: BeeHive): Int = contributions.getOrDefault(beeHive, 0)
 
     /**
+     * Returns true if all batches in phases lower than [phase] are finished
+     * (completed, cancelled, or permanently failed). This gates dispatch of
+     * later phases so, e.g., dependent blocks are fully removed before
+     * support blocks during deconstruction.
+     */
+    fun isPhaseReady(phase: Int): Boolean {
+        return batches.none { it.phase < phase && !it.isPrimaryActionDone() }
+    }
+
+    /**
      * Adds a task to this job.
      */
     fun addTask(task: BeeTask) {

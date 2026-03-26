@@ -48,6 +48,18 @@ object BlockPlacementClassifier {
     const val DEFERRED_BLOCK_OFFSET = 0
 
     /**
+     * Priority offset for removing dependent/brittle blocks first.
+     * These must be removed before their support blocks to avoid
+     * items dropping on the ground from broken attachments.
+     */
+    const val REMOVAL_DEPENDENT_OFFSET = 512
+
+    /**
+     * Priority offset for removing normal (solid/support) blocks second.
+     */
+    const val REMOVAL_NORMAL_OFFSET = 0
+
+    /**
      * Determines if a block should be deferred to a second pass.
      * Deferred blocks depend on adjacent solid blocks for support.
      *
@@ -125,6 +137,20 @@ object BlockPlacementClassifier {
     fun calculatePriority(pos: BlockPos, state: BlockState): Int {
         val yPriority = 256 - pos.y
         val passOffset = if (shouldDeferBlock(state)) DEFERRED_BLOCK_OFFSET else NORMAL_BLOCK_OFFSET
+        return passOffset + yPriority
+    }
+
+    /**
+     * Calculates removal priority incorporating a two-pass system (inverse of placement).
+     * Higher values are processed first.
+     *
+     * Dependent/brittle blocks (torches, buttons, rails, etc.) are removed first
+     * so they don't break and drop items when their support block is destroyed.
+     * Within each pass, higher Y is removed first (top-down).
+     */
+    fun calculateRemovalPriority(pos: BlockPos, state: BlockState, maxY: Int): Int {
+        val yPriority = pos.y - maxY + 256
+        val passOffset = if (shouldDeferBlock(state)) REMOVAL_DEPENDENT_OFFSET else REMOVAL_NORMAL_OFFSET
         return passOffset + yPriority
     }
 }

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.action.impl
 
+import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
@@ -56,19 +57,28 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
             // Clear container contents before destroying so onRemove doesn't drop them.
             // Collect the contents to add to bee inventory alongside block drops.
-            val containerDrops = mutableListOf<ItemStack>()
+            val extraDrops = mutableListOf<ItemStack>()
             if (blockEntity is net.minecraft.world.Container) {
                 for (i in 0 until blockEntity.containerSize) {
                     val stack = blockEntity.getItem(i)
                     if (!stack.isEmpty) {
-                        containerDrops.add(stack.copy())
+                        extraDrops.add(stack.copy())
                     }
                 }
                 blockEntity.clearContent()
             }
 
+            // Extract copycat material before destroying so onRemove doesn't pop it on the ground.
+            if (blockEntity is CopycatBlockEntity) {
+                val consumedItem = blockEntity.consumedItem
+                if (!consumedItem.isEmpty) {
+                    extraDrops.add(consumedItem.copy())
+                }
+                blockEntity.clearContent()
+            }
+
             level.destroyBlock(pos, false)
-            for (drop in drops + containerDrops) {
+            for (drop in drops + extraDrops) {
                 val remainder = bee.addToInventory(drop)
                 if (!remainder.isEmpty) {
                     val itemEntity = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder)

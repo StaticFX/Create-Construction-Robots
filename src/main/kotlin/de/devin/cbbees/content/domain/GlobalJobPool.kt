@@ -124,6 +124,7 @@ object GlobalJobPool : SavedData() {
                 if (batch.status != TaskStatus.PENDING) continue
                 if (!batch.canRetry()) continue
                 if (!batch.isCooldownElapsed(gameTime)) continue
+                if (!job.isPhaseReady(batch.phase)) continue
 
                 val candidateNetworks = allNetworks.filter { network ->
                     val firstComp = network.components.firstOrNull()
@@ -152,6 +153,7 @@ object GlobalJobPool : SavedData() {
 
         fun isDispatchable(batch: TaskBatch): Boolean =
             batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
+                    && batch.job.isPhaseReady(batch.phase)
 
         // 1. Find batches already assigned to this network
         val assignedBatch = jobBacklog.flatMap { it.batches }
@@ -190,7 +192,7 @@ object GlobalJobPool : SavedData() {
         }
 
         val batchesToDistribute = job.batches
-            .filter { it.status == TaskStatus.PENDING }
+            .filter { it.status == TaskStatus.PENDING && job.isPhaseReady(it.phase) }
             .sortedByDescending { it.priority }
 
         if (batchesToDistribute.isEmpty()) return

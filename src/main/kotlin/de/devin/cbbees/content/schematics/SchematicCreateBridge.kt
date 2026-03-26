@@ -174,7 +174,7 @@ class SchematicCreateBridge(
 
                     // Skip air and unbreakable blocks
                     if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        val priority = calculateRemovalPriority(pos, maxY)
+                        val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
                         val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
                         val tasks = if (CBBeesConfig.beePickupItems.get()) {
                             val dropOffTask = BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job)
@@ -182,7 +182,8 @@ class SchematicCreateBridge(
                         } else {
                             listOf(removeTask)
                         }
-                        batches.add(TaskBatch(tasks, job, pos))
+                        val phase = if (BlockPlacementClassifier.shouldDeferBlock(state)) 0 else 1
+                        batches.add(TaskBatch(tasks, job, pos, phase))
                     }
                 }
             }
@@ -215,12 +216,6 @@ class SchematicCreateBridge(
         return items
     }
 
-    /**
-     * Calculate priority for removal (higher Y = higher priority for top-down removal)
-     */
-    private fun calculateRemovalPriority(pos: BlockPos, maxY: Int): Int {
-        return pos.y - maxY + 256
-    }
 
     private fun handleRegularBlock(
         pos: BlockPos,

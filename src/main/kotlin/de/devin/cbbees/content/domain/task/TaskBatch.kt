@@ -8,7 +8,9 @@ import java.util.UUID
 class TaskBatch(
     val tasks: List<BeeTask>,
     val job: BeeJob,
-    val targetPosition: BlockPos
+    val targetPosition: BlockPos,
+    /** Execution phase — all batches in phase N must complete before phase N+1 is dispatched. */
+    val phase: Int = 0
 ) {
     companion object {
         const val MAX_RETRIES = 5
@@ -53,6 +55,18 @@ class TaskBatch(
     fun getRemainingTasks(): List<BeeTask> = tasks.subList(currentIndex, tasks.size)
 
     fun isComplete(): Boolean = currentIndex >= tasks.size
+
+    /**
+     * True once the primary action (first task) has finished, even if follow-up
+     * tasks like [DropOffItemsAction] are still running. Used by phase gating
+     * so the next phase can start as soon as blocks are physically removed.
+     */
+    fun isPrimaryActionDone(): Boolean {
+        return status == TaskStatus.COMPLETED
+                || status == TaskStatus.CANCELLED
+                || status == TaskStatus.FAILED
+                || (tasks.firstOrNull()?.status == TaskStatus.COMPLETED)
+    }
 
     /** Whether this batch can be retried (hasn't exceeded max retries). */
     fun canRetry(): Boolean = retryCount < MAX_RETRIES
