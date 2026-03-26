@@ -64,8 +64,14 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun onLoad() {
         super.onLoad()
-        if (level != null && getSpeed() != 0f) {
-            addToNetwork(level!!)
+        if (level != null) {
+            if (level!!.isClientSide) {
+                // Always register on client so the component is tracked for display,
+                // even before the beehive receives kinetic power.
+                addToNetwork(level!!)
+            } else if (getSpeed() != 0f) {
+                addToNetwork(level!!)
+            }
         }
     }
 

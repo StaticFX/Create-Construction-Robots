@@ -333,6 +333,7 @@ object ClientBeeNetworkManager {
 
         // Collect all current client components
         val allComponents = networks.flatMap { it.components }.toList()
+        val trackedPositions = allComponents.map { it.pos }.toMutableSet()
 
         for (component in allComponents) {
             val correctNetworkId = posToNetwork[component.pos]
@@ -346,6 +347,21 @@ object ClientBeeNetworkManager {
                 oldNet?.removeComponent(component)
                 component.networkId = correctNetworkId
                 getNetwork(correctNetworkId).addComponentClient(component)
+            }
+        }
+
+        // Discover block entities at snapshot positions that aren't in any client network.
+        // This catches components whose networkId never changed (so onNetworkIdChanged
+        // never fired) and that were never added via onLoad().
+        val level = net.minecraft.client.Minecraft.getInstance().level
+        if (level != null) {
+            for ((netId, positions) in snapshot) {
+                for (pos in positions) {
+                    if (pos in trackedPositions) continue
+                    val be = level.getBlockEntity(pos) as? INetworkComponent ?: continue
+                    be.networkId = netId
+                    getNetwork(netId).addComponentClient(be)
+                }
             }
         }
 
