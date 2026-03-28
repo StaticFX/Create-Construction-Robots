@@ -33,35 +33,40 @@ object BeeBrainProvider {
     }
 
     fun makeBrain(brain: Brain<MechanicalBeeEntity>): Brain<MechanicalBeeEntity> {
+        val taskMemory = BeeMemoryModules.CURRENT_TASK.get()
+
         brain.addActivity(
             Activity.CORE, ImmutableList.of(
                 Pair.of(0, LookAtTargetSink(45, 90)),
                 Pair.of(1, MoveToTargetSink()),
                 Pair.of(2, ReturnToOwnerBehavior()),
-                Pair.of(3, UpdateBeeStatusBehavior()),
-                Pair.of(4, StuckSafetyBehavior())
+                Pair.of(3, UpdateStatusBehavior(taskMemory)),
+                Pair.of(4, StuckSafetyBehavior()),
+                Pair.of(5, OrphanedSafetyBehavior()),
+                Pair.of(6, PortableBeehiveTrackingBehavior()),
+                Pair.of(7, FlightDrainBehavior())
             )
         )
 
         brain.addActivityWithConditions(
             Activity.WORK,
             ImmutableList.of(
-                Pair.of(0, RechargeSpringBehavior()),
+                Pair.of(0, RechargeSpringBehavior(taskMemory)),
                 Pair.of(1, GatherItemsBehavior()),
                 Pair.of(2, MoveToTaskBehavior()),
                 Pair.of(3, ExecuteTaskBehavior())
             ),
-            setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_PRESENT))
+            setOf(Pair.of(taskMemory, MemoryStatus.VALUE_PRESENT))
         )
 
         brain.addActivityWithConditions(
             Activity.REST,
             ImmutableList.of(
                 Pair.of(1, DropOffItemsBehavior()),
-                Pair.of(2, EnterBeeHiveBehavior()),
-                Pair.of(3, SetHiveWalkTargetBehavior())
+                Pair.of(2, EnterHiveBehavior(taskMemory)),
+                Pair.of(3, SetHiveTargetBehavior())
             ),
-            setOf(Pair.of(BeeMemoryModules.CURRENT_TASK.get(), MemoryStatus.VALUE_ABSENT))
+            setOf(Pair.of(taskMemory, MemoryStatus.VALUE_ABSENT))
         )
 
         brain.setCoreActivities(setOf(Activity.CORE))

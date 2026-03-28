@@ -1,7 +1,6 @@
 package de.devin.cbbees.content.bee.debug
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
+import de.devin.cbbees.content.bee.MechanicalBeelike
 import de.devin.cbbees.network.BeeDebugSyncPacket
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
@@ -30,17 +29,18 @@ object BeeDebug {
     fun clear() = enabledPlayers.clear()
 
     /**
-     * Sends a debug message about a bee to all nearby players with debug enabled.
-     * Uses lazy message evaluation to avoid string concatenation when debug is off.
+     * Sends a debug message about any [MechanicalBeelike] to all nearby debug-enabled players.
+     * Automatically includes spring tension and uses the bee's debug label.
      */
-    fun log(bee: MechanicalBeeEntity, message: String) {
+    fun log(bee: MechanicalBeelike, message: String) {
         if (enabledPlayers.isEmpty()) return
+        val entity = bee as? Mob ?: return
         val springPct = (bee.springTension * 100).toInt()
-        logForEntity(bee, "Bee", "Spring: $springPct% | $message")
+        logForEntity(entity, bee.debugLabel, "Spring: $springPct% | $message")
     }
 
     /**
-     * Sends a debug message about any flying mob entity to all nearby players with debug enabled.
+     * Sends a debug message about any mob entity to all nearby players with debug enabled.
      */
     fun logForEntity(entity: Mob, label: String, message: String) {
         if (enabledPlayers.isEmpty()) return
@@ -50,16 +50,9 @@ object BeeDebug {
         val server = level.server ?: return
         val shortId = entity.uuid.toString().substring(0, 4)
 
-        val displayMessage = if (entity is MechanicalBumbleBeeEntity) {
-            val springPct = (entity.springTension * 100).toInt()
-            "Spring: $springPct% | $message"
-        } else {
-            message
-        }
-
         val text = Component.literal("[$label $shortId] ")
             .withStyle(ChatFormatting.GOLD)
-            .append(Component.literal(displayMessage).withStyle(ChatFormatting.GRAY))
+            .append(Component.literal(message).withStyle(ChatFormatting.GRAY))
 
         for (uuid in enabledPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue

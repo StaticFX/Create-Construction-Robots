@@ -5,9 +5,7 @@ import de.devin.cbbees.content.bee.brain.MechanicalBumbleBrainProvider
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
-import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.items.AllItems
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -18,18 +16,17 @@ import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.MoverType
 import net.minecraft.world.entity.PathfinderMob
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
-import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation
 import net.minecraft.world.entity.ai.navigation.PathNavigation
-import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import software.bernie.geckolib.animatable.GeoEntity
@@ -44,11 +41,11 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * Mechanical Bumble Bee entity — a logistics transport bee.
  *
- * Slower than Mechanical Bees but carries more items (9 slots).
+ * Slower than Mechanical Bees but carries more items.
  * Shuttles items between EXTRACT and INSERT logistics ports.
  */
 class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level: Level) : PathfinderMob(entityType, level),
-    GeoEntity, NetworkedBee {
+    GeoEntity, MechanicalBeelike {
 
     companion object {
         private val BEEHIVE_ID: EntityDataAccessor<Optional<UUID>> =
@@ -66,31 +63,37 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
                 .add(Attributes.MAX_HEALTH, 1.0)
                 .add(Attributes.FLYING_SPEED, 1.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.5)
+                .add(Attributes.FOLLOW_RANGE, 48.0)
         }
     }
 
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
-    /** 9-slot inventory for hauling items */
-    var inventory = SimpleContainer(INVENTORY_SIZE)
+    override var inventory = SimpleContainer(INVENTORY_SIZE)
         private set
 
-    var networkId: UUID = UUID.randomUUID()
+    override var networkId: UUID = UUID.randomUUID()
 
-    /** Tick when spring recharge completes at hive. -1 = not recharging. */
-    var rechargeFinishTick: Long = -1
+    override var rechargeFinishTick: Long = -1
+    override var hiveEntryRetries = 0
+    override val debugLabel: String = "Bumble"
 
     val workRange: Double = WORK_RANGE
 
-    var springTension: Float
+    override var springTension: Float
         get() = entityData.get(SPRING_TENSION)
         set(value) = entityData.set(SPRING_TENSION, value.coerceIn(0.0f, 1.0f))
+
+    override val homeId: UUID? get() = entityData.get(BEEHIVE_ID).getOrNull()
+    override fun setHomeId(uuid: UUID) { entityData.set(BEEHIVE_ID, Optional.of(uuid)) }
+    override fun beeItemStack(): ItemStack = ItemStack(AllItems.MECHANICAL_BUMBLE_BEE.get())
+    override fun taskMemory(): MemoryModuleType<*> = BeeMemoryModules.TRANSPORT_TASK.get()
 
     /**
      * Consumes spring tension for an action. BumbleBee uses flat rates (no BeeContext).
      * Returns false if spring is already empty. Drains to 0 if insufficient for a full action.
      */
-    fun consumeSpring(baseDrain: Double): Boolean {
+    override fun consumeSpring(baseDrain: Double): Boolean {
         if (springTension <= 0f) return false
         val effectiveDrain = baseDrain.toFloat()
         springTension = (springTension - effectiveDrain).coerceAtLeast(0f)
@@ -107,6 +110,13 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
 
     init {
         this.moveControl = FlyingMoveControl(this, 40, true)
+    }
+
+    override fun hurt(source: DamageSource, amount: Float): Boolean {
+        if (source.entity is Player && (source.entity as Player).isCreative) {
+            return super.hurt(source, amount)
+        }
+        return false
     }
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
@@ -150,55 +160,11 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
         builder.define(SPRING_TENSION, 1.0f)
     }
 
-    override fun createNavigation(level: Level): PathNavigation {
-        val navigation = FlyingPathNavigation(this, level)
-        navigation.setCanOpenDoors(false)
-        navigation.setCanPassDoors(true)
-        return navigation
-    }
+    override fun createNavigation(level: Level): PathNavigation =
+        MechanicalBeelike.createFlyingNavigation(this, level)
 
-    /**
-     * Custom travel for flying navigation.
-     * PathfinderMob uses gravity-based travel by default, so we override
-     * to use aerial movement factors for smooth flight.
-     */
-    override fun travel(travelVector: net.minecraft.world.phys.Vec3) {
-        if (this.isControlledByLocalInstance()) {
-            if (this.isInWater()) {
-                this.moveRelative(0.02f, travelVector)
-                this.move(MoverType.SELF, this.deltaMovement)
-                this.deltaMovement = this.deltaMovement.scale(0.8)
-            } else if (this.isInLava()) {
-                this.moveRelative(0.02f, travelVector)
-                this.move(MoverType.SELF, this.deltaMovement)
-                this.deltaMovement = this.deltaMovement.scale(0.5)
-            } else {
-                this.moveRelative(if (this.onGround()) 0.1f else 0.04f, travelVector)
-                this.move(MoverType.SELF, this.deltaMovement)
-                this.deltaMovement = this.deltaMovement.scale(0.91)
-            }
-        }
-        this.calculateEntityAnimation(false)
-    }
-
-    fun setHomeId(uuid: UUID) {
-        this.entityData.set(BEEHIVE_ID, Optional.of(uuid))
-    }
-
-    fun beehive(): BeeHive? {
-        val brain = this.getBrain()
-        val fromMemory = brain.getMemory(BeeMemoryModules.HIVE_INSTANCE.get()).getOrNull()
-        if (fromMemory != null) return fromMemory
-
-        if (level().isClientSide) return null
-
-        val hiveId = this.entityData.get(BEEHIVE_ID).getOrNull() ?: return null
-        val hive = ServerBeeNetworkManager.findHive(hiveId)
-        if (hive != null) {
-            brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(hive))
-        }
-        return hive
-    }
+    override fun travel(travelVector: net.minecraft.world.phys.Vec3) =
+        MechanicalBeelike.travelFlying(this, travelVector)
 
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide) {
@@ -214,11 +180,6 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
         syncTargetPos()
         if (rechargeFinishTick < 0) {
             BeeSeparation.applyFlightOffset(this)
-        }
-
-        // Drain spring while flying
-        if (deltaMovement.lengthSqr() > 0.001) {
-            consumeSpring(CBBeesConfig.springDrainFlight.get())
         }
     }
 
@@ -240,11 +201,8 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushedByFluid(): Boolean = false
 
-    override fun push(entity: Entity) { /* no-op */
-    }
-
-    override fun doPush(entity: Entity) { /* no-op */
-    }
+    override fun push(entity: Entity) { /* no-op */ }
+    override fun doPush(entity: Entity) { /* no-op */ }
 
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
@@ -362,26 +320,5 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
             }
         }
         return toRemove <= 0
-    }
-
-    /**
-     * Drops a mechanical bumble bee item at the current position and removes the entity.
-     */
-    fun dropBeeItemAndDiscard() {
-        val beeItemStack = ItemStack(AllItems.MECHANICAL_BUMBLE_BEE.get(), 1)
-        val itemEntity = ItemEntity(level(), x, y, z, beeItemStack)
-        level().addFreshEntity(itemEntity)
-
-        // Drop any carried items too
-        for (i in 0 until inventory.containerSize) {
-            val stack = inventory.getItem(i)
-            if (!stack.isEmpty) {
-                val dropEntity = ItemEntity(level(), x, y, z, stack.copy())
-                level().addFreshEntity(dropEntity)
-                inventory.setItem(i, ItemStack.EMPTY)
-            }
-        }
-
-        discard()
     }
 }
