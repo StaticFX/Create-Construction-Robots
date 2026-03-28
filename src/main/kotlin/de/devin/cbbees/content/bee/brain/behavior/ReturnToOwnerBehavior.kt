@@ -2,7 +2,7 @@ package de.devin.cbbees.content.bee.brain.behavior
 
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
-import de.devin.cbbees.content.bee.debug.BeeDebug
+
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
@@ -26,7 +26,7 @@ class ReturnToOwnerBehavior : Behavior<MechanicalBeeEntity>(
         val player = owner.brain.getMemory(BeeMemoryModules.RETURNING_TO_OWNER.get()).orElse(null)
         if (player == null || !player.isAlive) {
             // Owner gone — drop immediately
-            owner.dropBeeItemAndDiscard()
+            owner.dropBeeItemAndDiscard("returning to owner — owner disconnected or dead")
             return false
         }
         return true
@@ -35,13 +35,12 @@ class ReturnToOwnerBehavior : Behavior<MechanicalBeeEntity>(
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
         val player = entity.brain.getMemory(BeeMemoryModules.RETURNING_TO_OWNER.get()).orElse(null)
         if (player == null || !player.isAlive) {
-            entity.dropBeeItemAndDiscard()
+            entity.dropBeeItemAndDiscard("returning to owner — owner disconnected or dead")
             return
         }
 
         if (entity.blockPosition().closerThan(player.blockPosition(), 3.0)) {
-            BeeDebug.log(entity, "Reached owner — dropping as item")
-            entity.dropBeeItemAndDiscard()
+            entity.dropBeeItemAndDiscard("reached owner — portable beehive removed")
             return
         }
 

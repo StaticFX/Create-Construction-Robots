@@ -86,7 +86,44 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
         val hive = entity.beehive()
         val isPortable = hive is PortableBeeHive
 
-        // Portable beehive bees: always prefer the player's inventory
+        // 1. Try network logistics ports first (exclude PortableBeeHive — handled via player fallback)
+        val gatherPlan = buildGatherPlan(network, missing, entity.uuid)
+        if (gatherPlan.isNotEmpty()) {
+            // Pick the port that covers the most item types to minimize trips
+            val (targetPort, itemsAtPort) = gatherPlan.maxByOrNull { it.value.size }!!
+
+            network.releaseReservations(entity.uuid)
+            targetPort.reserve(entity.uuid, itemsAtPort, level.gameTime)
+
+            val portPos = targetPort.pos
+            val workRange = entity.workRange
+
+            if (entity.blockPosition().closerThan(portPos, workRange)) {
+                // At the port — extract everything we can fit
+                for (item in itemsAtPort) {
+                    if (entity.isInventoryFull()) break
+                    if (targetPort.hasItemStack(item) && targetPort.removeItemStack(item)) {
+                        val remainder = entity.addToInventory(item.copy())
+                        if (!remainder.isEmpty) {
+                            // Put back what didn't fit
+                            targetPort.addItemStack(remainder)
+                        }
+                        entity.consumeSpring(CBBeesConfig.springDrainPickup.get())
+                        BeeDebug.log(entity, "Picked up ${item.count}x ${item.item} from port at $portPos")
+                    }
+                }
+                targetPort.releaseReservation(entity.uuid)
+            } else {
+                BeeDebug.log(entity, "Flying to port at $portPos for ${itemsAtPort.size} item type(s)")
+                entity.brain.setMemory(
+                    MemoryModuleType.WALK_TARGET,
+                    WalkTarget(portPos, 1.0f, 1)
+                )
+            }
+            return
+        }
+
+        // 2. Portable beehive fallback: try the player's inventory
         if (isPortable) {
             val player = (hive as PortableBeeHive).player
             val playerItems = missing.filter { playerHasItem(player, it) }
@@ -116,47 +153,11 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             }
         }
 
-        // Logistics port gathering (includes PortableBeeHive which acts as a port)
-        val gatherPlan = buildGatherPlan(network, missing, entity.uuid)
-        if (gatherPlan.isEmpty()) {
-            BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
-            network.releaseReservations(entity.uuid)
-            batch.release(gameTick = gameTime)
-            entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
-            return
-        }
-
-        // Pick the port that covers the most item types to minimize trips
-        val (targetPort, itemsAtPort) = gatherPlan.maxByOrNull { it.value.size }!!
-
+        // 3. No provider found anywhere
+        BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
         network.releaseReservations(entity.uuid)
-        targetPort.reserve(entity.uuid, itemsAtPort, level.gameTime)
-
-        val portPos = targetPort.pos
-        val workRange = entity.workRange
-
-        if (entity.blockPosition().closerThan(portPos, workRange)) {
-            // At the port — extract everything we can fit
-            for (item in itemsAtPort) {
-                if (entity.isInventoryFull()) break
-                if (targetPort.hasItemStack(item) && targetPort.removeItemStack(item)) {
-                    val remainder = entity.addToInventory(item.copy())
-                    if (!remainder.isEmpty) {
-                        // Put back what didn't fit
-                        targetPort.addItemStack(remainder)
-                    }
-                    entity.consumeSpring(CBBeesConfig.springDrainPickup.get())
-                    BeeDebug.log(entity, "Picked up ${item.count}x ${item.item} from port at $portPos")
-                }
-            }
-            targetPort.releaseReservation(entity.uuid)
-        } else {
-            BeeDebug.log(entity, "Flying to port at $portPos for ${itemsAtPort.size} item type(s)")
-            entity.brain.setMemory(
-                MemoryModuleType.WALK_TARGET,
-                WalkTarget(portPos, 1.0f, 1)
-            )
-        }
+        batch.release(gameTick = gameTime)
+        entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
     }
 
     /**
@@ -175,6 +176,8 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             // even if it doesn't have the full requested amount
             val searchStack = item.copyWithCount(1)
             val provider = network.findAvailableProvider(searchStack, beeId) ?: continue
+            // Skip PortableBeeHive — player inventory is handled via entity-tracking fallback
+            if (provider is PortableBeeHive) continue
             plan.getOrPut(provider) { mutableListOf() }.add(item)
         }
 

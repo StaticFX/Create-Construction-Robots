@@ -209,8 +209,8 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
 
     override fun getItemHandler(level: Level): IItemHandler? = null // Not backed by IItemHandler
 
-    /** Highest priority — bees always prefer the portable beehive over block-based ports. */
-    override fun priority(): Int = Int.MAX_VALUE
+    /** Lowest priority — bees prefer network logistics ports; player inventory is the fallback. */
+    override fun priority(): Int = Int.MIN_VALUE
 
     override fun hasItemStack(stack: ItemStack): Boolean {
         if (player.isCreative) return true

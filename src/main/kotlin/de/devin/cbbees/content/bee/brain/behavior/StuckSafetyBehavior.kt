@@ -1,8 +1,10 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.MechanicalBeelike
 import de.devin.cbbees.content.bee.debug.BeeDebug
+import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.PathfinderMob
 import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
@@ -16,20 +18,18 @@ import net.minecraft.world.phys.Vec3
  * If the bee hasn't closed at least [MIN_PROGRESS] blocks in that window,
  * we increment a fail counter. [MAX_FAILS] consecutive failures triggers
  * a teleport to the target.
+ *
+ * Works with both [de.devin.cbbees.content.bee.MechanicalBeeEntity] and
+ * [de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity].
  */
-class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
+class StuckSafetyBehavior : Behavior<PathfinderMob>(
     mapOf(
         MemoryModuleType.WALK_TARGET to MemoryStatus.VALUE_PRESENT,
     )
 ) {
     companion object {
-        /** Ticks between progress checks */
         private const val CHECK_INTERVAL = 20
-
-        /** Minimum distance (blocks) the bee must close per check interval */
         private const val MIN_PROGRESS = 1.5
-
-        /** Consecutive failed checks before teleporting */
         private const val MAX_FAILS = 3
     }
 
@@ -38,11 +38,10 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
     private var failedChecks = 0
     private var lastTargetPos: Vec3 = Vec3.ZERO
 
-    override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+    override fun checkExtraStartConditions(level: ServerLevel, owner: PathfinderMob): Boolean {
         val walkTarget = owner.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return false
         val targetPos = Vec3.atCenterOf(walkTarget.target.currentBlockPosition())
 
-        // If the target changed, reset tracking
         if (targetPos.distanceToSqr(lastTargetPos) > 1.0) {
             lastTargetPos = targetPos
             lastDistanceToTarget = owner.position().distanceTo(targetPos)
@@ -54,7 +53,6 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
         ticksSinceCheck++
         if (ticksSinceCheck < CHECK_INTERVAL) return false
 
-        // Check progress
         val currentDist = owner.position().distanceTo(targetPos)
         val progress = lastDistanceToTarget - currentDist
 
@@ -70,18 +68,36 @@ class StuckSafetyBehavior : Behavior<MechanicalBeeEntity>(
         return failedChecks >= MAX_FAILS
     }
 
-    override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
+    override fun start(level: ServerLevel, entity: PathfinderMob, gameTime: Long) {
         val walkTarget = entity.brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null) ?: return
         val targetPos = walkTarget.target.currentBlockPosition()
 
-        BeeDebug.log(entity, "Stuck! Teleporting to target at $targetPos")
+        val bee = entity as? MechanicalBeelike
+        if (bee != null) {
+            BeeDebug.log(bee, "Stuck! Teleporting to target at $targetPos")
+        }
 
-        entity.teleportTo(targetPos.x + 0.5, targetPos.y + 1.0, targetPos.z + 0.5)
+        val safeY = findSafeY(level, targetPos)
+        entity.teleportTo(targetPos.x + 0.5, safeY, targetPos.z + 0.5)
 
         failedChecks = 0
         ticksSinceCheck = 0
         lastDistanceToTarget = Double.MAX_VALUE
         entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
         entity.brain.eraseMemory(MemoryModuleType.CANT_REACH_WALK_TARGET_SINCE)
+    }
+
+    /**
+     * Finds a Y coordinate above [targetPos] that isn't inside a solid block.
+     * Scans up to 4 blocks above the target; falls back to the bee-safe default of +1.
+     */
+    private fun findSafeY(level: ServerLevel, targetPos: BlockPos): Double {
+        for (dy in 1..4) {
+            val checkPos = targetPos.above(dy)
+            if (!level.getBlockState(checkPos).isSuffocating(level, checkPos)) {
+                return checkPos.y.toDouble()
+            }
+        }
+        return targetPos.y + 1.0
     }
 }
