@@ -1,7 +1,7 @@
 package de.devin.cbbees.network
 
-import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.SchematicDataHelper
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.job.BeeJob
@@ -79,12 +79,7 @@ class InstantConstructionPacket(
                 ensureSchematicUploaded(owner, name)
 
                 // Set all schematic data components for loading
-                mainHand.set(AllDataComponents.SCHEMATIC_FILE, name)
-                mainHand.set(AllDataComponents.SCHEMATIC_OWNER, owner)
-                mainHand.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
-                mainHand.set(AllDataComponents.SCHEMATIC_ANCHOR, payload.anchor)
-                mainHand.set(AllDataComponents.SCHEMATIC_ROTATION, payload.rotation)
-                mainHand.set(AllDataComponents.SCHEMATIC_MIRROR, payload.mirror)
+                SchematicDataHelper.setPlacement(mainHand, name, owner, payload.anchor, payload.rotation, payload.mirror)
 
                 // Try to write bounds
                 try {

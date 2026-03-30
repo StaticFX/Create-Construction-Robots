@@ -4,7 +4,7 @@ import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
-import de.devin.cbbees.registry.AllDataComponents
+import de.devin.cbbees.compat.HoneyFuelHelper
 import net.minecraft.core.NonNullList
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -57,7 +57,7 @@ class BeehiveContainer : AbstractContainerMenu {
         this.backpackInventory = SimpleContainer(PortableBeehiveItem.TOTAL_SLOTS)
         this.fuelData = object : ContainerData {
             override fun get(index: Int): Int = when (index) {
-                0 -> backpackStack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+                0 -> HoneyFuelHelper.get(backpackStack)
                 1 -> CBBeesConfig.portableMaxHoney.get()
                 else -> 0
             }

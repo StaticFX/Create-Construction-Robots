@@ -1,7 +1,7 @@
 package de.devin.cbbees.mixin;
 
-import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
+import de.devin.cbbees.compat.SchematicDataHelper;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
@@ -52,9 +52,9 @@ public abstract class SchematicHandlerHudMixin {
      */
     @Unique
     private void ccr$sendConstructionPacket(ItemStack stack) {
-        BlockPos anchor = stack.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-        Rotation rotation = stack.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-        Mirror mirror = stack.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+        BlockPos anchor = SchematicDataHelper.getAnchor(stack);
+        Rotation rotation = SchematicDataHelper.getRotation(stack);
+        Mirror mirror = SchematicDataHelper.getMirror(stack);
         PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
     }
 

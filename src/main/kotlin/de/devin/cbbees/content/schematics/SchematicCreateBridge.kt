@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.schematics
 
-import com.simibubi.create.AllDataComponents
 import com.simibubi.create.AllBlocks
+import de.devin.cbbees.compat.SchematicDataHelper
 import com.simibubi.create.AllItems
 import com.simibubi.create.content.schematics.SchematicPrinter
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
@@ -54,13 +54,13 @@ class SchematicCreateBridge(
         }
 
         // Check if this is a valid schematic item
-        if (!blueprint.has(AllDataComponents.SCHEMATIC_FILE)) {
+        if (!SchematicDataHelper.hasFile(blueprint)) {
             CreateBuzzyBeez.LOGGER.warn("ItemStack is not a valid schematic")
             return false
         }
 
         // Check if schematic is deployed (has anchor position)
-        if (blueprint.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false) == false) {
+        if (!SchematicDataHelper.isDeployed(blueprint)) {
             CreateBuzzyBeez.LOGGER.warn("Schematic is not deployed - place it in the world first")
             return false
         }
@@ -366,21 +366,21 @@ class SchematicCreateBridge(
          * Check if an ItemStack is a valid Create schematic
          */
         fun isValidSchematic(stack: ItemStack): Boolean {
-            return stack.has(AllDataComponents.SCHEMATIC_FILE)
+            return SchematicDataHelper.hasFile(stack)
         }
 
         /**
          * Check if a schematic is deployed (placed in world)
          */
         fun isSchematicDeployed(stack: ItemStack): Boolean {
-            return stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)
+            return SchematicDataHelper.isDeployed(stack)
         }
 
         /**
          * Get the schematic file name
          */
         fun getSchematicName(stack: ItemStack): String? {
-            return stack.get(AllDataComponents.SCHEMATIC_FILE)
+            return SchematicDataHelper.getFile(stack)
         }
     }
 }

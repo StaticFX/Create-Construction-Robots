@@ -1,7 +1,7 @@
 package de.devin.cbbees.mixin;
 
-import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicEditScreen;
+import de.devin.cbbees.compat.SchematicDataHelper;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllIcons;
@@ -51,9 +51,9 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
         ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
         ccr$constructButton.withCallback(() -> {
-            BlockPos anchor = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-            Rotation rotation = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-            Mirror mirror = activeItem.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+            BlockPos anchor = SchematicDataHelper.getAnchor(activeItem);
+            Rotation rotation = SchematicDataHelper.getRotation(activeItem);
+            Mirror mirror = SchematicDataHelper.getMirror(activeItem);
             PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
             // Clear client state immediately so Create deactivates cleanly
             ConstructionPlannerItem.Companion.clearSchematic(activeItem);

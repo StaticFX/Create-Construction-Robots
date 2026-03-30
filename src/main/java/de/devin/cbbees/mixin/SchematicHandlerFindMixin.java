@@ -1,7 +1,7 @@
 package de.devin.cbbees.mixin;
 
-import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
+import de.devin.cbbees.compat.SchematicDataHelper;
 import de.devin.cbbees.items.AllItems;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -37,8 +37,8 @@ public abstract class SchematicHandlerFindMixin {
 
         ItemStack stack = player.getMainHandItem();
         if (AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack)
-                && stack.has(AllDataComponents.SCHEMATIC_FILE)
-                && stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
+                && SchematicDataHelper.hasFile(stack)
+                && SchematicDataHelper.isDeployed(stack)) {
             activeSchematicItem = stack;
             activeHotbarSlot = player.getInventory().selected;
             cir.setReturnValue(stack);

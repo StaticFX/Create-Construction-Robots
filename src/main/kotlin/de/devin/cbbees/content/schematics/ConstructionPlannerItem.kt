@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.schematics
 
-import com.simibubi.create.AllDataComponents
+import de.devin.cbbees.compat.SchematicDataHelper
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
@@ -56,7 +56,7 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
         flag: TooltipFlag
     ) {
         super.appendHoverText(stack, context, tooltip, flag)
-        val file = stack.get(AllDataComponents.SCHEMATIC_FILE)
+        val file = SchematicDataHelper.getFile(stack)
         if (file != null) {
             tooltip.add(Component.literal(file).withStyle(ChatFormatting.GOLD))
         } else {
@@ -73,17 +73,11 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
 
     companion object {
         fun hasSchematic(stack: ItemStack): Boolean {
-            return stack.has(AllDataComponents.SCHEMATIC_FILE)
+            return SchematicDataHelper.hasFile(stack)
         }
 
         fun clearSchematic(stack: ItemStack) {
-            stack.remove(AllDataComponents.SCHEMATIC_FILE)
-            stack.remove(AllDataComponents.SCHEMATIC_OWNER)
-            stack.remove(AllDataComponents.SCHEMATIC_DEPLOYED)
-            stack.remove(AllDataComponents.SCHEMATIC_ANCHOR)
-            stack.remove(AllDataComponents.SCHEMATIC_ROTATION)
-            stack.remove(AllDataComponents.SCHEMATIC_MIRROR)
-            stack.remove(AllDataComponents.SCHEMATIC_BOUNDS)
+            SchematicDataHelper.clearAll(stack)
         }
     }
 }

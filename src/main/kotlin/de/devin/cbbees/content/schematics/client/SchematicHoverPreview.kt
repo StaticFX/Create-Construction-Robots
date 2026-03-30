@@ -2,8 +2,8 @@ package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexConsumer
-import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicItem
+import de.devin.cbbees.compat.SchematicDataHelper
 import com.simibubi.create.foundation.utility.RaycastHelper
 import dev.engine_room.flywheel.lib.transform.TransformStack
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
@@ -108,12 +108,7 @@ object SchematicHoverPreview {
             val player = mc.player ?: return
 
             val fakeStack = com.simibubi.create.AllItems.SCHEMATIC.asStack()
-            fakeStack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-            fakeStack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-            fakeStack.set(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO)
-            fakeStack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE)
-            fakeStack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
-            fakeStack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
+            SchematicDataHelper.setPlacement(fakeStack, filename, player.gameProfile.name, BlockPos.ZERO, Rotation.NONE, Mirror.NONE)
 
             val template = SchematicItem.loadSchematic(level, fakeStack)
             if (template.size == Vec3i.ZERO) return

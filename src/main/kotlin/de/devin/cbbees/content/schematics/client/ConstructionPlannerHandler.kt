@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.schematics.client
 
-import com.simibubi.create.AllDataComponents
 import com.simibubi.create.CreateClient
+import de.devin.cbbees.compat.SchematicDataHelper
 import com.simibubi.create.content.schematics.SchematicItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import com.simibubi.create.foundation.utility.RaycastHelper
@@ -88,7 +88,7 @@ object ConstructionPlannerHandler {
         val stack = player.mainHandItem
         if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
         // State 3: deployed → Create owns it, our HUD is inactive
-        if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) return false
+        if (SchematicDataHelper.isDeployed(stack)) return false
         return true
     }
 
@@ -116,11 +116,11 @@ object ConstructionPlannerHandler {
         //  - Create's own Print action (clears DEPLOYED, keeps FILE)
         // Restore browsing state with the same schematic and rotation.
         if (createWasActive
-            && !stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
+            && !SchematicDataHelper.isDeployed(stack)) {
             createWasActive = false
 
             // Clean up leftover data components (Create's Print leaves FILE on the item)
-            if (stack.has(AllDataComponents.SCHEMATIC_FILE)) {
+            if (SchematicDataHelper.hasFile(stack)) {
                 ConstructionPlannerItem.clearSchematic(stack)
             }
 
@@ -134,7 +134,7 @@ object ConstructionPlannerHandler {
         }
 
         // State 3: deployed → Create owns it, nothing for us to do
-        if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) {
+        if (SchematicDataHelper.isDeployed(stack)) {
             if (CreateClient.SCHEMATIC_HANDLER.isActive) {
                 createWasActive = true
             }
@@ -345,12 +345,7 @@ object ConstructionPlannerHandler {
             val currentStack = player.mainHandItem
             if (AllItems.CONSTRUCTION_PLANNER.isIn(currentStack)) {
                 // Set all data components on the client item — Create will pick this up
-                currentStack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-                currentStack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-                currentStack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
-                currentStack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor)
-                currentStack.set(AllDataComponents.SCHEMATIC_ROTATION, rotation)
-                currentStack.set(AllDataComponents.SCHEMATIC_MIRROR, mirror)
+                SchematicDataHelper.setPlacement(currentStack, filename, player.gameProfile.name, anchor, rotation, mirror)
 
                 // Write bounds so Create can render properly
                 try {

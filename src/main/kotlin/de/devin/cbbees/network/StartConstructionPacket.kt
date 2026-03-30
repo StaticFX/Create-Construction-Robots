@@ -1,7 +1,7 @@
 package de.devin.cbbees.network
 
-import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.SchematicDataHelper
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.SchematicPlacement
@@ -65,21 +65,21 @@ class StartConstructionPacket(
                     return@enqueueWork
                 }
 
-                if (!mainHand.has(AllDataComponents.SCHEMATIC_FILE)) {
+                if (!SchematicDataHelper.hasFile(mainHand)) {
                     player.displayClientMessage(Component.translatable("cbbees.construction.no_schematic"), true)
                     return@enqueueWork
                 }
 
                 // Sync placement data from client — Create's SchematicHandler only
                 // updates these on the client-side ItemStack
-                mainHand.set(AllDataComponents.SCHEMATIC_ANCHOR, payload.anchor)
-                mainHand.set(AllDataComponents.SCHEMATIC_ROTATION, payload.rotation)
-                mainHand.set(AllDataComponents.SCHEMATIC_MIRROR, payload.mirror)
-                mainHand.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
+                SchematicDataHelper.setAnchor(mainHand, payload.anchor)
+                SchematicDataHelper.setRotation(mainHand, payload.rotation)
+                SchematicDataHelper.setMirror(mainHand, payload.mirror)
+                SchematicDataHelper.setDeployed(mainHand, true)
 
                 // Ensure schematic file exists in uploaded directory
-                val schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE)
-                val schematicOwner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER)
+                val schematicFile = SchematicDataHelper.getFile(mainHand)
+                val schematicOwner = SchematicDataHelper.getOwner(mainHand)
                 if (schematicFile != null && schematicOwner != null) {
                     ensureSchematicUploaded(schematicOwner, schematicFile)
                 }
@@ -95,15 +95,15 @@ class StartConstructionPacket(
                 val job = BeeJob(jobId, BlockPos.ZERO, player.level()).apply {
                     ownerId = player.uuid
 
-                    val schematicFile = schematicStack.get(AllDataComponents.SCHEMATIC_FILE)
-                    val anchor = schematicStack.get(AllDataComponents.SCHEMATIC_ANCHOR)
-                    if (schematicFile != null && anchor != null) {
+                    val schematicFile = SchematicDataHelper.getFile(schematicStack)
+                    if (schematicFile != null) {
+                        val anchor = SchematicDataHelper.getAnchor(schematicStack)
                         uniquenessKey = SchematicJobKey(player.uuid, schematicFile, anchor.x, anchor.y, anchor.z)
                         schematicPlacement = SchematicPlacement(
                             file = schematicFile,
                             anchor = anchor,
-                            rotation = schematicStack.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE),
-                            mirror = schematicStack.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
+                            rotation = SchematicDataHelper.getRotation(schematicStack),
+                            mirror = SchematicDataHelper.getMirror(schematicStack)
                         )
                     }
                 }

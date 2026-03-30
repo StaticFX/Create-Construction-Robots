@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.domain.beehive
 
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
-import de.devin.cbbees.registry.AllDataComponents
+import de.devin.cbbees.compat.HoneyFuelHelper
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.GlobalJobPool
@@ -144,9 +144,9 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (player.isCreative) return amount
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return 0
-        val stored = backpack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
+        val stored = HoneyFuelHelper.get(backpack)
         val toConsume = minOf(amount, stored)
-        backpack.set(AllDataComponents.HONEY_FUEL.get(), stored - toConsume)
+        HoneyFuelHelper.set(backpack, stored - toConsume)
         return toConsume
     }
 
@@ -154,7 +154,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (player.isCreative) return true
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return false
-        return backpack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0) >= amount
+        return HoneyFuelHelper.get(backpack) >= amount
     }
 
     fun addBee(item: ItemStack): Boolean {

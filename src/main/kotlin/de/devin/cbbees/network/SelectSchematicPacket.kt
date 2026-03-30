@@ -1,7 +1,7 @@
 package de.devin.cbbees.network
 
-import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicItem
+import de.devin.cbbees.compat.SchematicDataHelper
 import com.simibubi.create.foundation.utility.CreatePaths
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.items.AllItems
@@ -69,12 +69,7 @@ class SelectSchematicPacket(
                 ensureSchematicUploaded(owner, name)
 
                 // Set ALL data components so inventory sync doesn't clobber client state
-                stack.set(AllDataComponents.SCHEMATIC_FILE, name)
-                stack.set(AllDataComponents.SCHEMATIC_OWNER, owner)
-                stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
-                stack.set(AllDataComponents.SCHEMATIC_ANCHOR, payload.anchor)
-                stack.set(AllDataComponents.SCHEMATIC_ROTATION, payload.rotation)
-                stack.set(AllDataComponents.SCHEMATIC_MIRROR, payload.mirror)
+                SchematicDataHelper.setPlacement(stack, name, owner, payload.anchor, payload.rotation, payload.mirror)
 
                 // Write bounds now that the file is available
                 try {

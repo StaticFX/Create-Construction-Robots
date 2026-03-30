@@ -227,12 +227,7 @@ object ConstructionRenderer {
             val player = mc.player ?: return buildFallbackRenderer(job, clientLevel)
 
             val fakeStack = com.simibubi.create.AllItems.SCHEMATIC.asStack()
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_FILE, schematicFile)
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_ANCHOR, anchor)
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_ROTATION, rotation)
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_MIRROR, mirror)
-            fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_DEPLOYED, true)
+            de.devin.cbbees.compat.SchematicDataHelper.setPlacement(fakeStack, schematicFile, player.gameProfile.name, anchor, rotation, mirror)
 
             val template = SchematicItem.loadSchematic(clientLevel, fakeStack)
             if (template.size == net.minecraft.core.Vec3i.ZERO) {
