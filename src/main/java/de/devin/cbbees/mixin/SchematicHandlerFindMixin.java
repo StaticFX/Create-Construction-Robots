@@ -5,8 +5,11 @@ import de.devin.cbbees.compat.SchematicDataHelper;
 import de.devin.cbbees.items.AllItems;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -20,6 +23,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(value = SchematicHandler.class, remap = false)
 public abstract class SchematicHandlerFindMixin {
+
+    @Unique
+    private static final Logger cbbees$LOGGER = LogManager.getLogger("cbbees/FindMixin");
+
+    @Unique
+    private static boolean cbbees$logged = false;
 
     @Shadow
     private ItemStack activeSchematicItem;
@@ -36,12 +45,23 @@ public abstract class SchematicHandlerFindMixin {
         if (cir.getReturnValue() != null) return;
 
         ItemStack stack = player.getMainHandItem();
-        if (AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack)
-                && SchematicDataHelper.hasFile(stack)
-                && SchematicDataHelper.isDeployed(stack)) {
-            activeSchematicItem = stack;
-            activeHotbarSlot = player.getInventory().selected;
-            cir.setReturnValue(stack);
+        boolean isPlanner = AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack);
+        if (isPlanner) {
+            boolean hasFile = SchematicDataHelper.hasFile(stack);
+            boolean isDeployed = SchematicDataHelper.isDeployed(stack);
+            if (!cbbees$logged) {
+                cbbees$LOGGER.info("[FindMixin] Planner detected: hasFile={}, isDeployed={}, tag={}",
+                        hasFile, isDeployed, stack.getTag());
+                cbbees$logged = true;
+            }
+            if (hasFile && isDeployed) {
+                activeSchematicItem = stack;
+                activeHotbarSlot = player.getInventory().selected;
+                cir.setReturnValue(stack);
+                cbbees$logged = false; // reset so next state change logs
+            }
+        } else {
+            cbbees$logged = false;
         }
     }
 }

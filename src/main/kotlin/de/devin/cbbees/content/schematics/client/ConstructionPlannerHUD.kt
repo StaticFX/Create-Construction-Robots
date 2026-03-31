@@ -2,7 +2,7 @@ package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.foundation.gui.AllGuiTextures
-import net.minecraft.client.DeltaTracker
+import de.devin.cbbees.compat.DeltaTrackerCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
@@ -60,7 +60,7 @@ object ConstructionPlannerHUD {
         slideOffset = if (forward) 30f else -30f
     }
 
-    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
+    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTrackerCompat) {
         if (!ConstructionPlannerHandler.isActive()) return
 
         val mc = Minecraft.getInstance()

@@ -15,7 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.network.PacketDistributor;
+import de.devin.cbbees.network.NetworkHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -55,7 +55,7 @@ public abstract class SchematicHandlerHudMixin {
         BlockPos anchor = SchematicDataHelper.getAnchor(stack);
         Rotation rotation = SchematicDataHelper.getRotation(stack);
         Mirror mirror = SchematicDataHelper.getMirror(stack);
-        PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+        NetworkHelper.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
     }
 
     /* ------------------------------------------------------------------ */
@@ -95,7 +95,7 @@ public abstract class SchematicHandlerHudMixin {
             cir.setReturnValue(true);
         } else if (tool == ConstructionToolState.CustomTool.UNSELECT) {
             // Clear both server-side and client-side so Create's SchematicHandler deactivates
-            PacketDistributor.sendToServer(UnselectSchematicPacket.Companion.getINSTANCE());
+            NetworkHelper.sendToServer(UnselectSchematicPacket.Companion.getINSTANCE());
             ConstructionPlannerItem.Companion.clearSchematic(mainHand);
             mc.player.displayClientMessage(
                 Component.translatable("gui.cbbees.tool.unselect.done")
@@ -135,7 +135,7 @@ public abstract class SchematicHandlerHudMixin {
 
         // Backspace — stop tasks (any item)
         if (AllKeys.INSTANCE.getSTOP_ACTION().matches(key, 0)) {
-            PacketDistributor.sendToServer(StopTasksPacket.getINSTANCE());
+            NetworkHelper.sendToServer(StopTasksPacket.getINSTANCE());
         }
     }
 }

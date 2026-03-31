@@ -4,7 +4,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.entity.player.Player
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
-import net.neoforged.neoforge.capabilities.Capabilities
+import de.devin.cbbees.util.CapabilityHelper
 import net.neoforged.neoforge.items.ItemHandlerHelper
 
 /**
@@ -56,7 +56,7 @@ class PlayerMaterialSource(private val player: Player) : MaterialSource {
 class WirelessMaterialSource(private val level: Level, private val positions: List<BlockPos>) : MaterialSource {
     override fun extractItems(required: ItemStack, amount: Int): ItemStack {
         for (pos in positions) {
-            val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)
+            val handler = CapabilityHelper.getItemHandler(level, pos)
             if (handler != null) {
                 for (slot in 0 until handler.slots) {
                     val stack = handler.getStackInSlot(slot)
@@ -72,7 +72,7 @@ class WirelessMaterialSource(private val level: Level, private val positions: Li
     override fun insertItems(stack: ItemStack): ItemStack {
         var current = stack
         for (pos in positions) {
-            val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)
+            val handler = CapabilityHelper.getItemHandler(level, pos)
             if (handler != null) {
                 current = ItemHandlerHelper.insertItem(handler, current, false)
                 if (current.isEmpty) return ItemStack.EMPTY
@@ -179,7 +179,7 @@ class AdjacentInventoryCache(
     private fun scanForInventories(): List<BlockPos> {
         val positions = AdjacentPositions.getAdjacentPositions(center, range)
         return positions.filter { pos ->
-            level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) != null
+            CapabilityHelper.getItemHandler(level, pos) != null
         }
     }
     

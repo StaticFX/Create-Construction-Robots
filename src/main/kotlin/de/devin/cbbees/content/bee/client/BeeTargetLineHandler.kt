@@ -30,6 +30,11 @@ object BeeTargetLineHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        tick()
+    }
+
+    @JvmStatic
+    fun tick() {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
         val level = mc.level ?: return

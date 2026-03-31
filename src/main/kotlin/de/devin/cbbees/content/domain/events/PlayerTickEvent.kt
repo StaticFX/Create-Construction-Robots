@@ -30,7 +30,10 @@ class PlayerTickEvent {
 
     @SubscribeEvent
     fun onPlayerTick(event: PlayerTickEvent.Post) {
-        val player = event.entity
+        tick(event.entity)
+    }
+
+    fun tick(player: net.minecraft.world.entity.player.Player) {
         if (player.level().isClientSide || player.tickCount % 40 != 0) return
 
         val pool = ServerBeeNetworkManager

@@ -1,0 +1,416 @@
+package de.devin.cbbees.content.backpack
+
+import de.devin.cbbees.content.bee.MechanicalBeeItem
+import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
+import de.devin.cbbees.content.upgrades.BeeUpgradeItem
+import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.content.upgrades.UpgradeType
+import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.compat.HoneyFuelHelper
+import de.devin.cbbees.registry.AllMenuTypes
+import net.minecraft.ChatFormatting
+import net.minecraft.core.NonNullList
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResultHolder
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.inventory.tooltip.TooltipComponent
+import net.minecraft.world.level.Level
+import top.theillusivec4.curios.api.SlotContext
+import top.theillusivec4.curios.api.type.capability.ICurioItem
+import java.util.Optional
+
+import net.minecraft.world.item.ArmorItem
+import net.minecraft.world.item.ArmorMaterials
+import software.bernie.geckolib.animatable.GeoItem
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache
+import software.bernie.geckolib.core.animation.AnimatableManager
+import software.bernie.geckolib.core.animation.AnimationController
+import software.bernie.geckolib.core.animation.RawAnimation
+import software.bernie.geckolib.util.GeckoLibUtil
+import java.util.function.Consumer
+import net.minecraftforge.client.extensions.common.IClientItemExtensions
+import de.devin.cbbees.content.backpack.client.PortableBeehiveRenderer
+import net.minecraftforge.network.NetworkHooks
+import kotlin.math.roundToInt
+
+/**
+ * Data class for the backpack's tooltip preview.
+ */
+data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
+
+/**
+ * Constructor Backpack - A wearable equipment item that manages constructor robots and their upgrades.
+ *
+ * This item can be worn in the Curios "back" slot. When opened, it provides a GUI with:
+ * - 4 Slots for bee items (MechanicalBeeItem or MechanicalBumbleBeeItem).
+ * - 6 Slots for [BeeUpgradeItem]s.
+ *
+ * The backpack acts as the central hub for the mod's automated building system, storing the state
+ * of the workforce and providing the interface to initiate construction tasks.
+ *
+ * Forge 1.20.1 override: Uses NBT-based storage instead of DataComponents/ItemContainerContents.
+ */
+class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRON, Type.CHESTPLATE, properties),
+    ICurioItem, GeoItem {
+
+    private val cache: AnimatableInstanceCache = GeckoLibUtil.createInstanceCache(this)
+
+    override fun initializeClient(consumer: Consumer<IClientItemExtensions>) {
+        consumer.accept(object : IClientItemExtensions {
+            private var renderer: PortableBeehiveRenderer? = null
+
+            override fun getHumanoidArmorModel(
+                livingEntity: net.minecraft.world.entity.LivingEntity,
+                itemStack: ItemStack,
+                armorSlot: net.minecraft.world.entity.EquipmentSlot,
+                original: net.minecraft.client.model.HumanoidModel<*>
+            ): net.minecraft.client.model.HumanoidModel<*> {
+                if (this.renderer == null) {
+                    this.renderer = PortableBeehiveRenderer()
+                }
+                this.renderer!!.prepForRender(livingEntity, itemStack, armorSlot, original)
+                return this.renderer!!
+            }
+        })
+    }
+
+    override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {
+        controllers.add(AnimationController(this, "controller", 0) { event ->
+            event.setAndContinue(RawAnimation.begin().thenLoop("jorking"))
+        })
+    }
+
+    override fun getAnimatableInstanceCache(): AnimatableInstanceCache {
+        return this.cache
+    }
+
+    companion object {
+        const val ROBOT_SLOTS = 2
+        const val UPGRADE_SLOTS = 4
+        const val TOTAL_SLOTS = ROBOT_SLOTS + UPGRADE_SLOTS
+
+        // NBT keys for the container
+        const val TAG_INVENTORY = "BackpackInventory"
+
+        /**
+         * Loads backpack inventory items from NBT storage on the given stack.
+         */
+        fun loadItems(stack: ItemStack): NonNullList<ItemStack> {
+            val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
+            val tag = stack.tag ?: return items
+            val listTag = tag.getList("Items", 10) // 10 = CompoundTag type
+            for (j in 0 until listTag.size) {
+                val itemTag = listTag.getCompound(j)
+                val slot = itemTag.getByte("Slot").toInt()
+                if (slot in 0 until TOTAL_SLOTS) {
+                    items[slot] = ItemStack.of(itemTag)
+                }
+            }
+            return items
+        }
+
+        /**
+         * Saves backpack inventory items to NBT storage on the given stack.
+         */
+        fun saveItems(stack: ItemStack, items: List<ItemStack>) {
+            val tag = stack.orCreateTag
+            val listTag = ListTag()
+            for (i in items.indices) {
+                if (!items[i].isEmpty) {
+                    val itemTag = CompoundTag()
+                    itemTag.putByte("Slot", i.toByte())
+                    items[i].save(itemTag)
+                    listTag.add(itemTag)
+                }
+            }
+            tag.put("Items", listTag)
+        }
+    }
+
+    override fun use(level: Level, player: Player, usedHand: InteractionHand): InteractionResultHolder<ItemStack> {
+        val stack = player.getItemInHand(usedHand)
+
+        // Shift+RMB: try to load honey from the other hand
+        if (player.isShiftKeyDown) {
+            val otherHand =
+                if (usedHand == InteractionHand.MAIN_HAND) InteractionHand.OFF_HAND else InteractionHand.MAIN_HAND
+            val fuelStack = player.getItemInHand(otherHand)
+            val fuelValue = getHoneyFuelValue(fuelStack)
+            if (fuelValue > 0) {
+                if (!level.isClientSide) {
+                    val current = HoneyFuelHelper.get(stack)
+                    val max = CBBeesConfig.portableMaxHoney.get()
+                    if (current >= max) {
+                        player.displayClientMessage(Component.translatable("cbbees.beehive.honey_full"), true)
+                    } else {
+                        val newValue = minOf(current + fuelValue, max)
+                        HoneyFuelHelper.set(stack, newValue)
+                        fuelStack.shrink(1)
+                        // Return empty bottle for honey bottles
+                        if (fuelStack.item == Items.HONEY_BOTTLE) {
+                            player.addItem(ItemStack(Items.GLASS_BOTTLE))
+                        }
+                        player.displayClientMessage(
+                            Component.translatable("cbbees.beehive.honey_loaded", newValue, max), true
+                        )
+                    }
+                }
+                return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
+            }
+        }
+
+        // Normal RMB: open GUI
+        if (!level.isClientSide && player is ServerPlayer) {
+            openBackpackScreen(player, usedHand)
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
+    }
+
+    private fun getHoneyFuelValue(stack: ItemStack): Int = when (stack.item) {
+        Items.HONEY_BOTTLE -> CBBeesConfig.honeyBottleFuelValue.get()
+        Items.HONEYCOMB -> CBBeesConfig.honeycombFuelValue.get()
+        Items.HONEY_BLOCK -> CBBeesConfig.honeyBlockFuelValue.get()
+        else -> 0
+    }
+
+    private fun openBackpackScreen(player: ServerPlayer, hand: InteractionHand) {
+        // Find the slot index of the backpack in player's inventory
+        val slotIndex = if (hand == InteractionHand.MAIN_HAND) {
+            player.inventory.selected
+        } else {
+            40 // Offhand slot
+        }
+
+        val stack = player.getItemInHand(hand)
+
+        NetworkHooks.openScreen(player, object : MenuProvider {
+            override fun getDisplayName(): Component {
+                return Component.translatable("container.cbbees.portable_beehive")
+            }
+
+            override fun createMenu(
+                containerId: Int,
+                playerInventory: Inventory,
+                player: Player
+            ): AbstractContainerMenu {
+                return BeehiveContainer(
+                    AllMenuTypes.CONSTRUCTOR_BACKPACK.get(),
+                    containerId,
+                    playerInventory,
+                    stack
+                )
+            }
+        }) { buf ->
+            // Write the slot index to the buffer for client-side reconstruction
+            buf.writeVarInt(slotIndex)
+        }
+    }
+
+    override fun getTooltipImage(stack: ItemStack): Optional<TooltipComponent> {
+        return Optional.of(BeehiveTooltipData(stack))
+    }
+
+    override fun isBarVisible(stack: ItemStack): Boolean {
+        val honey = HoneyFuelHelper.get(stack)
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
+        return honey < maxHoney
+    }
+
+    override fun getBarWidth(stack: ItemStack): Int {
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
+        if (maxHoney <= 0) return 0
+        val honey = HoneyFuelHelper.get(stack)
+        return (13.0f * honey / maxHoney).roundToInt()
+    }
+
+    override fun getBarColor(stack: ItemStack): Int {
+        return 0xD97F00
+    }
+
+    override fun appendHoverText(
+        stack: ItemStack,
+        level: Level?,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, level, tooltipComponents, tooltipFlag)
+
+        // Count robots and upgrades in the backpack
+        val robotCount = getRobotCount(stack)
+        val upgrades = getUpgrades(stack)
+
+        tooltipComponents.add(
+            Component.translatable("tooltip.cbbees.beehive.bees", robotCount, ROBOT_SLOTS)
+                .withStyle(ChatFormatting.GRAY)
+        )
+
+        val honey = HoneyFuelHelper.get(stack)
+        val maxHoney = CBBeesConfig.portableMaxHoney.get()
+        tooltipComponents.add(
+            Component.translatable("tooltip.cbbees.beehive.honey", honey, maxHoney)
+                .withStyle(ChatFormatting.GOLD)
+        )
+
+        if (upgrades.isNotEmpty()) {
+            tooltipComponents.add(
+                Component.translatable("tooltip.cbbees.beehive.naturified_header")
+                    .withStyle(ChatFormatting.GOLD)
+            )
+            for ((type, count) in upgrades) {
+                tooltipComponents.add(
+                    Component.literal(" - ")
+                        .append(Component.translatable(type.descriptionKey))
+                        .append(Component.literal(" x$count"))
+                        .withStyle(ChatFormatting.BLUE)
+                )
+            }
+        } else {
+            tooltipComponents.add(
+                Component.translatable("tooltip.cbbees.beehive.no_naturified")
+                    .withStyle(ChatFormatting.DARK_GRAY)
+            )
+        }
+    }
+
+    private fun isBeeItem(item: net.minecraft.world.item.Item): Boolean {
+        return item is MechanicalBeeItem || item is MechanicalBumbleBeeItem
+    }
+
+    /**
+     * Counts the number of robots currently stored in the backpack.
+     */
+    fun getRobotCount(stack: ItemStack): Int {
+        val items = loadItems(stack)
+        return items.subList(0, ROBOT_SLOTS).count { isBeeItem(it.item) && !it.isEmpty }
+    }
+
+    /**
+     * Retrieves all upgrades and their counts from the backpack.
+     */
+    fun getUpgrades(stack: ItemStack): Map<UpgradeType, Int> {
+        val items = loadItems(stack)
+
+        val upgrades = mutableMapOf<UpgradeType, Int>()
+        items.subList(ROBOT_SLOTS, TOTAL_SLOTS).forEach { itemStack ->
+            val upgradeItem = itemStack.item as? BeeUpgradeItem
+            if (upgradeItem != null) {
+                upgrades[upgradeItem.upgradeType] = upgrades.getOrDefault(upgradeItem.upgradeType, 0) + 1
+            }
+        }
+        return upgrades
+    }
+
+    /**
+     * Gets the total number of robots in the backpack (sum of all stacks).
+     */
+    fun getTotalRobotCount(stack: ItemStack): Int {
+        val items = loadItems(stack)
+
+        var count = 0
+        for (i in 0 until ROBOT_SLOTS) {
+            val s = items[i]
+            if (!s.isEmpty && isBeeItem(s.item)) {
+                count += s.count
+            }
+        }
+        return count
+    }
+
+    /**
+     * Consumes a single bee from the backpack inventory.
+     * @return the consumed bee ItemStack (count 1), or ItemStack.EMPTY if none available
+     */
+    fun consumeBee(stack: ItemStack): ItemStack {
+        val items = loadItems(stack)
+
+        for (i in 0 until ROBOT_SLOTS) {
+            val s = items[i]
+            if (!s.isEmpty && isBeeItem(s.item)) {
+                val consumed = s.copy().also { it.count = 1 }
+                s.shrink(1)
+                if (s.isEmpty) {
+                    items[i] = ItemStack.EMPTY
+                }
+                saveItems(stack, items)
+                return consumed
+            }
+        }
+        return ItemStack.EMPTY
+    }
+
+    /**
+     * Adds a single bee to the backpack inventory.
+     * @return true if successful, false if backpack is full
+     */
+    fun addRobot(stack: ItemStack, beeItem: ItemStack): Boolean {
+        val items = loadItems(stack)
+
+        // Try to stack with existing robots first
+        for (i in 0 until ROBOT_SLOTS) {
+            val s = items[i]
+            if (!s.isEmpty && ItemStack.isSameItemSameTags(s, beeItem) && s.count < s.maxStackSize) {
+                s.grow(1)
+                saveItems(stack, items)
+                return true
+            }
+        }
+
+        // Try to find an empty slot
+        for (i in 0 until ROBOT_SLOTS) {
+            if (items[i].isEmpty) {
+                items[i] = beeItem.copy().also { it.count = 1 }
+                saveItems(stack, items)
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Gets the count of a specific upgrade type.
+     */
+    fun getUpgradeCount(stack: ItemStack, type: UpgradeType): Int {
+        return getUpgrades(stack).getOrDefault(type, 0)
+    }
+
+    /**
+     * Gets the calculated [BeeContext] for this backpack.
+     */
+    fun getBeeContext(stack: ItemStack): BeeContext {
+        return UpgradeType.fromBackpack(stack)
+    }
+
+    // ICurioItem implementation
+
+    override fun canEquip(slotContext: SlotContext, stack: ItemStack): Boolean {
+        // Only allow in "back" slot
+        return slotContext.identifier() == "back"
+    }
+
+    override fun canUnequip(slotContext: SlotContext, stack: ItemStack): Boolean {
+        return true
+    }
+
+    override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
+        // Called every tick when worn
+    }
+
+    override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {
+        // Called when the backpack is equipped
+    }
+
+    override fun onUnequip(slotContext: SlotContext, newStack: ItemStack, stack: ItemStack) {
+        // Called when the backpack is unequipped
+    }
+}

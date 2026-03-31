@@ -5,7 +5,7 @@ import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import de.devin.cbbees.registry.AllKeys
 import net.createmod.catnip.outliner.Outliner
-import net.minecraft.client.DeltaTracker
+import de.devin.cbbees.compat.DeltaTrackerCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.Direction
@@ -55,7 +55,7 @@ object DeconstructionRenderer {
         }
     }
 
-    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTracker) {
+    fun renderHUD(guiGraphics: GuiGraphics, deltaTracker: DeltaTrackerCompat) {
         if (!DeconstructionHandler.isActive()) return
 
         val mc = Minecraft.getInstance()

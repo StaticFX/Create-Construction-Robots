@@ -26,7 +26,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
-import net.neoforged.neoforge.capabilities.Capabilities
+import de.devin.cbbees.util.CapabilityHelper
 
 
 class LogisticPortBlock(properties: Properties) :
@@ -115,7 +115,7 @@ class LogisticPortBlock(properties: Properties) :
         // Only check if the block that changed is the one we are attached to
         if (neighborPos == connectedPos) {
             val hasInventory =
-                level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+                CapabilityHelper.getItemHandler(level, connectedPos, getConnectedDirection(state)) != null
             val targetState = if (hasInventory) PortState.VALID else PortState.INVALID
 
             if (state.getValue(PORT_STATE) != targetState) {
@@ -136,7 +136,7 @@ class LogisticPortBlock(properties: Properties) :
 
         // Check for inventory on placement
         val hasInventory =
-            level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+            CapabilityHelper.getItemHandler(level, connectedPos, getConnectedDirection(state)) != null
         state = state.setValue(PORT_STATE, if (hasInventory) PortState.VALID else PortState.INVALID)
 
         return withWater(state, context)

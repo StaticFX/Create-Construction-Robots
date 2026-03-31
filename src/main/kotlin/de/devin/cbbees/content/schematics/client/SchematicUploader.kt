@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.network.chat.Component
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import java.io.InputStream
 import java.nio.file.Files
 
@@ -84,7 +84,7 @@ object SchematicUploader {
         activeUpload = UploadState(filename, inputStream, totalSize, onComplete)
 
         // Send BEGIN packet
-        PacketDistributor.sendToServer(
+        NetworkHelper.sendToServer(
             PlannerUploadPacket(PlannerUploadPacket.BEGIN, filename, totalSize, ByteArray(0))
         )
     }
@@ -108,7 +108,7 @@ object SchematicUploader {
 
             if (bytesRead == -1) {
                 // End of file — send FINISH
-                PacketDistributor.sendToServer(
+                NetworkHelper.sendToServer(
                     PlannerUploadPacket(PlannerUploadPacket.FINISH, upload.filename, 0, ByteArray(0))
                 )
 
@@ -129,13 +129,13 @@ object SchematicUploader {
             val data = if (bytesRead < chunkSize) buffer.copyOf(bytesRead) else buffer.clone()
             upload.bytesSent += bytesRead
 
-            PacketDistributor.sendToServer(
+            NetworkHelper.sendToServer(
                 PlannerUploadPacket(PlannerUploadPacket.WRITE, upload.filename, 0, data)
             )
 
             // If we read less than a full chunk, we're at the end
             if (bytesRead < chunkSize) {
-                PacketDistributor.sendToServer(
+                NetworkHelper.sendToServer(
                     PlannerUploadPacket(PlannerUploadPacket.FINISH, upload.filename, 0, ByteArray(0))
                 )
 

@@ -13,7 +13,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.phys.BlockHitResult
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import org.lwjgl.glfw.GLFW
 import kotlin.math.min
 
@@ -280,7 +280,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         // Convert center anchor to corner anchor for server placement
         val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
 
-        PacketDistributor.sendToServer(
+        NetworkHelper.sendToServer(
             InstantConstructionPacket(
                 filename, anchor,
                 SchematicHoverPreview.currentRotation,

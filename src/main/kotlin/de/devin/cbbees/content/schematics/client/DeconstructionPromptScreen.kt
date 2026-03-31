@@ -5,7 +5,7 @@ import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import de.devin.cbbees.network.StartDeconstructionPacket
 import net.createmod.catnip.gui.AbstractSimiScreen
-import net.createmod.catnip.platform.CatnipServices
+import de.devin.cbbees.network.NetworkHelper
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 
@@ -160,7 +160,7 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
 
         if (first != null && second != null) {
             // Send packet to server to start deconstruction
-            CatnipServices.NETWORK.sendToServer(StartDeconstructionPacket(first, second))
+            NetworkHelper.sendToServer(StartDeconstructionPacket(first, second))
 
             // Clear the selection
             DeconstructionSelection.discard()

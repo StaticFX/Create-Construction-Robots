@@ -24,6 +24,11 @@ object ConstructionPlannerClientEvents {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        tick()
+    }
+
+    @JvmStatic
+    fun tick() {
         ConstructionPlannerHandler.tick()
         ConstructionPlannerHUD.update()
 

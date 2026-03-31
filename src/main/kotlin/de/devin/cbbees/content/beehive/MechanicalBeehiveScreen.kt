@@ -15,7 +15,7 @@ import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 
 class MechanicalBeehiveScreen(
     menu: MechanicalBeehiveMenu,
@@ -30,7 +30,7 @@ class MechanicalBeehiveScreen(
         setWindowSize(256, 180)
         super.init()
         // Ask server for the latest snapshot
-        PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+        NetworkHelper.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
         refreshFromCache()
     }
 
@@ -45,7 +45,7 @@ class MechanicalBeehiveScreen(
         addRenderableWidget(IconButton(x + imageWidth - 25, y + 20, AllIcons.I_REFRESH).apply {
             setToolTip(Component.literal("Manual Refresh"))
             withCallback<IconButton>(Runnable {
-                PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+                NetworkHelper.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
             })
         })
 
@@ -97,7 +97,7 @@ class MechanicalBeehiveScreen(
         refreshTicks++
         if (refreshTicks >= 10) {
             refreshTicks = 0
-            PacketDistributor.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
+            NetworkHelper.sendToServer(RequestHiveJobsPacket(menu.content.blockPos))
         }
         val latest = ClientJobCache.get(menu.content.blockPos)
         if (latest != snapshot) refreshFromCache()
@@ -114,7 +114,7 @@ class MechanicalBeehiveScreen(
 
         init {
             cancelBtn.withCallback<IconButton>(Runnable {
-                PacketDistributor.sendToServer(CancelJobPacket(job.jobId))
+                NetworkHelper.sendToServer(CancelJobPacket(job.jobId))
             })
             hiliteBtn.withCallback<IconButton>(Runnable {
                 val beeIds = job.batches.flatMap { it.assignedBeeIds }.distinct()

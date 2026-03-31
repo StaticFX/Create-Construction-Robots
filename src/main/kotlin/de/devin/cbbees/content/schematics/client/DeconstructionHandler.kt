@@ -20,7 +20,7 @@ import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import org.lwjgl.glfw.GLFW
 
 /**
@@ -230,7 +230,7 @@ object DeconstructionHandler {
             val second = DeconstructionSelection.secondPos!!
 
             // Send packet to server to start deconstruction
-            PacketDistributor.sendToServer(StartDeconstructionPacket(first, second))
+            NetworkHelper.sendToServer(StartDeconstructionPacket(first, second))
 
             // Show feedback
             Minecraft.getInstance().player?.displayClientMessage(
@@ -244,7 +244,7 @@ object DeconstructionHandler {
         }
 
         if (AllKeys.STOP_ACTION.matches(key, 0)) {
-            PacketDistributor.sendToServer(StopTasksPacket.INSTANCE)
+            NetworkHelper.sendToServer(StopTasksPacket.INSTANCE)
             return true
         }
 

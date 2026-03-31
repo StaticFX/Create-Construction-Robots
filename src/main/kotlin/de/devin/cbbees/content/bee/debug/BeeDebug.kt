@@ -6,7 +6,7 @@ import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Mob
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import java.util.UUID
 
 /**
@@ -20,7 +20,7 @@ object BeeDebug {
     fun toggle(player: ServerPlayer): Boolean {
         val enabled = if (enabledPlayers.remove(player.uuid)) false
         else { enabledPlayers.add(player.uuid); true }
-        PacketDistributor.sendToPlayer(player, BeeDebugSyncPacket(enabled))
+        NetworkHelper.sendToPlayer(player, BeeDebugSyncPacket(enabled))
         return enabled
     }
 

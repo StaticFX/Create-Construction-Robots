@@ -24,6 +24,11 @@ object DeconstructionClientEvents {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        tick()
+    }
+
+    @JvmStatic
+    fun tick() {
         DeconstructionHandler.tick()
         DeconstructionRenderer.update()
     }

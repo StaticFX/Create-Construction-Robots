@@ -22,6 +22,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            arg '-mixin.config=cbbees.mixins.json'
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -33,6 +34,7 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            arg '-mixin.config=cbbees.mixins.json'
             args '--nogui'
             mods {
                 "${mod_id}" {
@@ -76,27 +78,119 @@ repositories {
 
 // Version-specific files that override shared source
 def forgeOverrides = [
+    // Compat helpers (DataComponents vs NBT, DeltaTracker shim)
     'de/devin/cbbees/compat/SchematicDataHelper.kt',
     'de/devin/cbbees/compat/HoneyFuelHelper.kt',
+    'de/devin/cbbees/compat/DeltaTrackerCompat.kt',
+    // Networking
+    'de/devin/cbbees/network/AllPackets.kt',
+    'de/devin/cbbees/network/NetworkHelper.kt',
+    'de/devin/cbbees/network/CCRServerEvents.kt',
+    'de/devin/cbbees/network/ItemStackBufHelper.kt',
+    // Entry point
+    'de/devin/cbbees/CreateBuzzyBeez.kt',
+    // Registry (DataComponents don't exist in 1.20.1)
+    'de/devin/cbbees/registry/AllDataComponents.kt',
+    // Registry (DeferredHolder vs RegistryObject, API differences)
+    'de/devin/cbbees/registry/AllEffects.kt',
+    'de/devin/cbbees/registry/AllCBeesFanProcessingTypes.kt',
+    'de/devin/cbbees/registry/AllCBeesRecipeTypes.java',
+    // Recipe (StandardProcessingRecipe → ProcessingRecipe<Container>, no SingleRecipeInput)
+    'de/devin/cbbees/content/processing/GlueingRecipe.java',
+    // JEI (CreateRecipeCategory.Builder doesn't exist, ResourceLocation.fromNamespaceAndPath → constructor)
+    'de/devin/cbbees/compat/jei/CBBeesJEI.java',
+    // Util (API differences)
+    'de/devin/cbbees/util/ItemStackKey.kt',
+    'de/devin/cbbees/util/CapabilityHelper.kt',
+    'de/devin/cbbees/util/RegistrateHelpers.kt',
+    // Tabs (RegistryEntry type parameter difference)
+    'de/devin/cbbees/tabs/AllCreativeModeTabs.kt',
+    // Config (ForgeConfigSpec inner types don't resolve through typealias)
+    'de/devin/cbbees/config/CBBeesConfig.kt',
+    // Entities & Items (GeckoLib packages, defineSynchedData, ItemStack API, TooltipContext)
+    'de/devin/cbbees/content/bee/MechanicalBeeEntity.kt',
+    'de/devin/cbbees/content/bee/MechanicalBumbleBeeEntity.kt',
+    'de/devin/cbbees/content/bee/MechanicalBeeItem.kt',
+    'de/devin/cbbees/content/bee/MechanicalBumbleBeeItem.kt',
+    // Backpack / Container (DataComponents → NBT, RegistryFriendlyByteBuf → FriendlyByteBuf, GeckoLib package paths)
+    'de/devin/cbbees/content/backpack/PortableBeehiveItem.kt',
+    'de/devin/cbbees/content/backpack/BeehiveContainer.kt',
+    'de/devin/cbbees/content/backpack/client/BeehiveTooltipComponent.kt',
+    // Domain (IItemHandler package, isSameItemSameComponents → isSameItemSameTags)
+    'de/devin/cbbees/content/domain/beehive/PortableBeeHive.kt',
+    // Block entities (write/read signature: HolderLookup.Provider removal, Capabilities → CapabilityHelper, NBT API)
+    'de/devin/cbbees/content/beehive/MechanicalBeehiveBlockEntity.kt',
+    'de/devin/cbbees/content/logistics/ports/LogisticsPortBlockEntity.kt',
+    'de/devin/cbbees/content/logistics/transport/TransportPortBlockEntity.kt',
+    // SavedData (save signature: HolderLookup.Provider removal, Factory pattern removal)
+    'de/devin/cbbees/content/domain/GlobalJobPool.kt',
+    'de/devin/cbbees/content/domain/TransportDispatcher.kt',
+    // Datagen (GatherDataEvent package, constructor signatures, NeoForgeRegistries → ForgeRegistries)
+    'de/devin/cbbees/datagen/CCRDatagen.kt',
+    'de/devin/cbbees/datagen/GeneratedEntriesProvider.kt',
+    'de/devin/cbbees/datagen/CBBGlueingRecipeGen.kt',
+    'de/devin/cbbees/datagen/CBBSequencedAssemblyGen.kt',
+    // Blocks (MapCodec/codec, useWithoutItem → use, openMenu lambda → NetworkHooks)
+    'de/devin/cbbees/content/beehive/MechanicalBeehiveBlock.kt',
+    'de/devin/cbbees/content/logistics/ports/LogisticsPortBlock.kt',
+    'de/devin/cbbees/content/logistics/transport/TransportPortBlock.kt',
+    // Client events (InputEvent field names, mouseScrolled params, renderBackground, screen APIs)
+    'de/devin/cbbees/content/schematics/client/DeconstructionClientEvents.kt',
+    'de/devin/cbbees/content/schematics/client/ConstructionPlannerClientEvents.kt',
+    'de/devin/cbbees/content/schematics/client/GroupPickerScreen.kt',
+    'de/devin/cbbees/content/schematics/client/BrowseOnlineScreen.kt',
+    'de/devin/cbbees/content/schematics/client/ConstructionPlannerScreen.kt',
+    'de/devin/cbbees/content/schematics/client/SchematicDetailScreen.kt',
+    'de/devin/cbbees/content/schematics/client/SchematicDeleteScreen.kt',
+    'de/devin/cbbees/content/schematics/client/SchematicRenameScreen.kt',
+    'de/devin/cbbees/content/schematics/client/JobDetailScreen.kt',
+    'de/devin/cbbees/content/schematics/client/SchematicHoverPreview.kt',
+    'de/devin/cbbees/content/schematics/client/SchematicPreviewRenderer.kt',
+    'de/devin/cbbees/content/schematics/client/ThumbnailCache.kt',
+    // Items & misc (appendHoverText TooltipContext, BlockHelper signatures)
+    'de/devin/cbbees/content/schematics/ConstructionPlannerItem.kt',
+    'de/devin/cbbees/content/schematics/SchematicCreateBridge.kt',
+    // Domain events (PlayerLoggedInEvent, .entity accessor)
+    'de/devin/cbbees/content/domain/events/PlayerTickEvent.kt',
+    // Behavior (isSameItemSameComponents → isSameItemSameTags, copyWithCount → copy().also)
+    'de/devin/cbbees/content/bee/brain/behavior/GatherItemsBehavior.kt',
+    // Icons (addVertex → vertex, setColor → color, setUv → uv, setLight → uv2, endVertex)
+    'de/devin/cbbees/icons/AllCCRIcons.kt',
+    // Client events (LoggingOut, PlayerChangedDimensionEvent imports)
+    'de/devin/cbbees/content/backpack/client/CCRClientEvents.kt',
+    // Renderer (RenderLevelStageEvent.Stage doesn't resolve through typealias)
+    'de/devin/cbbees/content/schematics/client/ConstructionRenderer.kt',
+    // Logistics (isSameItemSameComponents → isSameItemSameTags)
+    'de/devin/cbbees/content/domain/logistics/PortReservationManager.kt',
+    // Action (clearContent → Clearable.tryClear for CopycatBlockEntity)
+    'de/devin/cbbees/content/domain/action/impl/RemoveBlockAction.kt',
 ]
 
 sourceSets {
     main {
-        // Shared source from root project, excluding files that have forge-specific versions
+        // Shared source from root project, excluding files that have forge-specific versions.
+        // The exclude must NOT filter out forge-specific overrides in forge/src/.
         kotlin {
             srcDirs("../src/main/kotlin")
             srcDirs("src/main/kotlin")
             exclude { element ->
-                forgeOverrides.any { override -> element.file.path.replace('\\', '/').endsWith(override) }
+                def normalized = element.file.path.replace('\\', '/')
+                !normalized.contains('/forge/') &&
+                    forgeOverrides.any { override -> normalized.endsWith(override) }
             }
         }
         java {
             srcDirs("../src/main/java")
             srcDirs("src/main/java")
+            exclude { element ->
+                def normalized = element.file.path.replace('\\', '/')
+                !normalized.contains('/forge/') &&
+                    forgeOverrides.any { override -> normalized.endsWith(override) }
+            }
         }
         resources {
-            srcDirs("../src/main/resources")
             srcDirs("src/main/resources")
+            srcDirs("../src/main/resources")
             srcDirs("../src/generated/resources")
         }
     }
@@ -119,7 +213,17 @@ dependencies {
     implementation(fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:4.4.9"))
 
     // WebP thumbnail support
+    // minecraftLibrary = visible to TransformingClassLoader in dev, implementation = compile classpath, jarJar = production
     implementation "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+    implementation "com.twelvemonkeys.imageio:imageio-core:3.12.0"
+    implementation "com.twelvemonkeys.common:common-image:3.12.0"
+    implementation "com.twelvemonkeys.common:common-lang:3.12.0"
+    implementation "com.twelvemonkeys.common:common-io:3.12.0"
+    minecraftLibrary "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+    minecraftLibrary "com.twelvemonkeys.imageio:imageio-core:3.12.0"
+    minecraftLibrary "com.twelvemonkeys.common:common-image:3.12.0"
+    minecraftLibrary "com.twelvemonkeys.common:common-lang:3.12.0"
+    minecraftLibrary "com.twelvemonkeys.common:common-io:3.12.0"
     jarJar("com.twelvemonkeys.imageio:imageio-webp:[3.12.0,4.0)")
     jarJar("com.twelvemonkeys.imageio:imageio-core:[3.12.0,4.0)")
     jarJar("com.twelvemonkeys.common:common-image:[3.12.0,4.0)")
@@ -160,7 +264,8 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 
 processResources {
-    duplicatesStrategy = DuplicatesStrategy.WARN
+    // Forge-specific resources override shared ones (e.g. neoforge:composite → forge:composite)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 idea {

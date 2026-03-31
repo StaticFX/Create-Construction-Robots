@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.network.PacketDistributor;
+import de.devin.cbbees.network.NetworkHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -54,7 +54,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
             BlockPos anchor = SchematicDataHelper.getAnchor(activeItem);
             Rotation rotation = SchematicDataHelper.getRotation(activeItem);
             Mirror mirror = SchematicDataHelper.getMirror(activeItem);
-            PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+            NetworkHelper.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
             // Clear client state immediately so Create deactivates cleanly
             ConstructionPlannerItem.Companion.clearSchematic(activeItem);
             if (Minecraft.getInstance().screen != null) {

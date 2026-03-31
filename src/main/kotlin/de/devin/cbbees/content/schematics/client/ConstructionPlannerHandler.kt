@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import org.lwjgl.glfw.GLFW
 
 /**
@@ -353,7 +353,7 @@ object ConstructionPlannerHandler {
                 } catch (_: Exception) {}
 
                 // Sync all data to server so inventory sync doesn't clobber client state
-                PacketDistributor.sendToServer(SelectSchematicPacket(filename, anchor, rotation, mirror))
+                NetworkHelper.sendToServer(SelectSchematicPacket(filename, anchor, rotation, mirror))
 
                 player.displayClientMessage(
                     Component.translatable(
@@ -405,7 +405,7 @@ object ConstructionPlannerHandler {
         val filename = entry.filename
 
         val sendConstruction = {
-            PacketDistributor.sendToServer(
+            NetworkHelper.sendToServer(
                 InstantConstructionPacket(filename, anchor, rotation, mirror)
             )
 

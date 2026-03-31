@@ -1,0 +1,167 @@
+package de.devin.cbbees.content.logistics.ports
+
+import com.simibubi.create.content.equipment.wrench.IWrenchable
+import com.simibubi.create.foundation.block.IBE
+import com.simibubi.create.foundation.block.ProperWaterloggedBlock
+import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
+import de.devin.cbbees.registry.AllBlockEntityTypes
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.AttachFace
+import net.minecraft.world.level.block.state.properties.EnumProperty
+import net.minecraft.world.level.material.FluidState
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.phys.shapes.VoxelShape
+import de.devin.cbbees.util.CapabilityHelper
+
+/**
+ * Forge 1.20.1 override: removes MapCodec/simpleCodec/codec() which don't exist in 1.20.1.
+ */
+class LogisticPortBlock(properties: Properties) :
+    FaceAttachedHorizontalDirectionalBlock(properties),
+    ProperWaterloggedBlock,
+    IBE<LogisticPortBlockEntity>,
+    IWrenchable {
+
+    companion object {
+        val PORT_STATE = EnumProperty.create("port_state", PortState::class.java)
+        val PORT_TYPE = EnumProperty.create("port_type", PortType::class.java)
+
+        /**
+         * Determines which direction the Port is "pointing" into the attached inventory.
+         * If placed on a wall, it's the opposite of its horizontal facing.
+         * If placed on a floor, it's DOWN.
+         * If placed on a ceiling, it's UP.
+         */
+        fun getConnectedDirection(state: BlockState): Direction {
+            val face = state.getValue(FACE)
+            return when (face) {
+                AttachFace.FLOOR -> Direction.UP    // The port sits ON the floor, so it connects DOWN
+                AttachFace.CEILING -> Direction.DOWN // The port sits ON the ceiling, so it connects UP
+                else -> state.getValue(FACING)      // On a wall, the 'facing' is the direction it LOOKS,
+            }
+        }
+    }
+
+    init {
+        registerDefaultState(
+            defaultBlockState()
+                .setValue(WATERLOGGED, false)
+                .setValue(PORT_STATE, PortState.INVALID)
+                .setValue(PORT_TYPE, PortType.EXTRACT)
+        )
+    }
+
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        builder.add(FACING, FACE, WATERLOGGED, PORT_STATE, PORT_TYPE)
+    }
+
+    override fun canSurvive(state: BlockState, level: LevelReader, pos: BlockPos): Boolean {
+        val direction = getConnectedDirection(state).opposite
+        val neighborPos = pos.relative(direction)
+        val neighborState = level.getBlockState(neighborPos)
+
+        return neighborState.isFaceSturdy(
+            level,
+            neighborPos,
+            direction.opposite
+        ) || level.getBlockEntity(neighborPos) != null
+    }
+
+    public override fun getFluidState(pState: BlockState): FluidState {
+        return fluidState(pState)
+    }
+
+    public override fun getShape(
+        pState: BlockState,
+        pLevel: BlockGetter,
+        pPos: BlockPos,
+        pContext: CollisionContext
+    ): VoxelShape {
+        return de.devin.cbbees.shapes.AllShapes.LOGISTICS_PORT.get(getConnectedDirection(pState))
+    }
+
+    override fun neighborChanged(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        neighborBlock: Block,
+        neighborPos: BlockPos,
+        movedByPiston: Boolean
+    ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston)
+        if (level.isClientSide) return
+
+        val connectedPos = pos.relative(getConnectedDirection(state).opposite)
+
+        // Only check if the block that changed is the one we are attached to
+        if (neighborPos == connectedPos) {
+            val hasInventory =
+                CapabilityHelper.getItemHandler(level, connectedPos, getConnectedDirection(state)) != null
+            val targetState = if (hasInventory) PortState.VALID else PortState.INVALID
+
+            if (state.getValue(PORT_STATE) != targetState) {
+                level.setBlock(pos, state.setValue(PORT_STATE, targetState), 3)
+            }
+        }
+    }
+
+    override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
+        var state = super.getStateForPlacement(context) ?: return null
+        if (state.getValue(FACE) == AttachFace.CEILING) {
+            state = state.setValue(FACING, state.getValue(FACING).opposite)
+        }
+
+        val level = context.level
+        val pos = context.clickedPos
+        val connectedPos = pos.relative(getConnectedDirection(state).opposite)
+
+        // Check for inventory on placement
+        val hasInventory =
+            CapabilityHelper.getItemHandler(level, connectedPos, getConnectedDirection(state)) != null
+        state = state.setValue(PORT_STATE, if (hasInventory) PortState.VALID else PortState.INVALID)
+
+        return withWater(state, context)
+    }
+
+
+    override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
+        if (state.block != newState.block) {
+            super.onRemove(state, level, pos, newState, isMoving)
+        }
+    }
+
+    override fun getBlockEntityClass(): Class<LogisticPortBlockEntity> {
+        return LogisticPortBlockEntity::class.java
+    }
+
+    override fun getBlockEntityType(): BlockEntityType<out LogisticPortBlockEntity> {
+        return AllBlockEntityTypes.LOGISTICS_PORT.get()
+    }
+
+    override fun onWrenched(state: BlockState?, context: UseOnContext?): InteractionResult? {
+        if (state == null || context == null) return InteractionResult.PASS
+
+        val level = context.level
+        val pos = context.clickedPos
+
+        // Toggle between EXTRACT and INSERT
+        val currentType = state.getValue(PORT_TYPE)
+        val newType = if (currentType == PortType.EXTRACT) PortType.INSERT else PortType.EXTRACT
+
+        level.setBlock(pos, state.setValue(PORT_TYPE, newType), 3)
+
+        return InteractionResult.SUCCESS
+    }
+}

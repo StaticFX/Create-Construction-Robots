@@ -10,7 +10,7 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.neoforged.neoforge.network.PacketDistributor
+import de.devin.cbbees.network.NetworkHelper
 import java.util.UUID
 
 /**
@@ -29,7 +29,7 @@ class JobDetailScreen(private val jobId: UUID) : Screen(Component.translatable("
 
     override fun init() {
         super.init()
-        PacketDistributor.sendToServer(RequestPlayerJobsPacket())
+        NetworkHelper.sendToServer(RequestPlayerJobsPacket())
         refreshJob()
     }
 
@@ -43,7 +43,7 @@ class JobDetailScreen(private val jobId: UUID) : Screen(Component.translatable("
         if (job != null) {
             val btnW = 80
             addRenderableWidget(Button.builder(Component.translatable("gui.cbbees.job_detail.cancel")) {
-                PacketDistributor.sendToServer(CancelJobPacket(jobId))
+                NetworkHelper.sendToServer(CancelJobPacket(jobId))
                 onClose()
             }.bounds(x + PANEL_WIDTH / 2 - btnW / 2, y + PANEL_HEIGHT - 26, btnW, 20).build())
         }
@@ -113,7 +113,7 @@ class JobDetailScreen(private val jobId: UUID) : Screen(Component.translatable("
         refreshTicks++
         if (refreshTicks >= 10) {
             refreshTicks = 0
-            PacketDistributor.sendToServer(RequestPlayerJobsPacket())
+            NetworkHelper.sendToServer(RequestPlayerJobsPacket())
         }
         val latest = ConstructionRenderer.getJobInfo(jobId)
         if (latest != job) refreshJob()
