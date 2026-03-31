@@ -4,6 +4,15 @@
 
 Create: Buzzy Bees adds a few handy features to create, allowing you to build your schematics with ease.
 
+# Notes about 1.20.1 Support
+There is an experimental branch based of the version 1.1.2:
+https://github.com/StaticFX/Create-Buzzy-Bees/tree/feature/multi-version
+
+Jar Filed are published to curseforge and modrinth as well  
+
+## Futute of 1.20.1 Support
+Support for 1.20.1 exists only for bugfixes but will not receive any new features. 1.20.1 does not only differ in the version, but also in the modloader as it needs to depend on forge which adds in a lot of complexity. Also maintaining 2 versions, developing in 2 versions at the same time consumes more time. Im developing this mod out of fun, and modding in 2 version in parallel is not a lot of fun.
+
 ## Features
 - Bees & Beehives: Have bees build or destroy schematics around your world
 - Bumble Bees: Transport items from one cargo port to another
@@ -11,8 +20,8 @@ Create: Buzzy Bees adds a few handy features to create, allowing you to build yo
 - Portable Beehive: Move your bees around with you
 
 ## Roadmap
-- [ ] Add support for 1.20.1 (WIP)
-- [ ] Overhaul Upgrade system for portable Beehive
+- [x] Add support for 1.20.1 (WIP)
+- [ ] Overhaul Upgrade system for portable Beehive (in progress)
 - [ ] Allow upgrading of Mechanical Beehives
 - [ ] Schematic Deployer, auto redeploy a schematic each x seconds
 - [ ] Further schematic types (crop growing, picking up items, defending an area)
