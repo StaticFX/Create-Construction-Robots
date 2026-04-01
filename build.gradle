@@ -222,12 +222,13 @@ if (System.getenv("CURSEFORGE_TOKEN")) {
         dependsOn build
         apiToken = System.getenv("CURSEFORGE_TOKEN")
 
-        def mainFile = upload(System.getenv("CURSEFORGE_PROJECT_ID"), jar)
+        def mainFile = upload(System.getenv("CURSEFORGE_PROJECT_ID").toInteger(), jar)
         mainFile.releaseType = System.getenv("RELEASE_TYPE") ?: 'release'
         mainFile.changelog = System.getenv("CHANGELOG") ?: ''
         mainFile.changelogType = 'markdown'
         mainFile.addGameVersion(minecraft_version)
         mainFile.addModLoader('NeoForge')
+        mainFile.addJavaVersion('Java 21')
         mainFile.addRequirement('create')
         mainFile.addRequirement('kotlin-for-forge')
         mainFile.addRequirement('geckolib')
