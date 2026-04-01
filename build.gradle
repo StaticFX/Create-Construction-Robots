@@ -230,6 +230,9 @@ if (System.getenv("CURSEFORGE_TOKEN")) {
         mainFile.addModLoader('NeoForge')
         mainFile.addRequirement('create')
         mainFile.addRequirement('kotlin-for-forge')
+        mainFile.addRequirement('geckolib')
+        mainFile.addOptional('curios')
+        mainFile.addOptional('jei')
     }
 }
 
@@ -246,6 +249,9 @@ if (System.getenv("MODRINTH_TOKEN")) {
         dependencies {
             required.project 'create'
             required.project 'kotlin-for-forge'
+            required.project 'geckolib'
+            optional.project 'curios'
+            optional.project 'jei'
         }
     }
 }
