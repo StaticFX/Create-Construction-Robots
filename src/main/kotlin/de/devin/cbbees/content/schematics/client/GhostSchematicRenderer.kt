@@ -2,6 +2,9 @@ package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.vertex.PoseStack
 import com.simibubi.create.content.schematics.client.SchematicRenderer
+import com.simibubi.create.foundation.render.BlockEntityRenderHelper
+import de.devin.cbbees.config.CBBeesClientConfig
+import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.createmod.catnip.render.ShadedBlockSbbBuilder
 import net.createmod.catnip.render.SuperByteBuffer
@@ -13,7 +16,9 @@ import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.block.RenderShape
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.client.model.data.ModelData
+import java.util.BitSet
 
 /**
  * Extends Create's [SchematicRenderer] to render ALL blocks regardless of
@@ -79,10 +84,10 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
     }
 
     /**
-     * Renders only the cached static block geometry.
-     * Block entity rendering is intentionally skipped — for a ghost placement preview,
-     * the static baked models are sufficient and skipping BEs avoids hundreds of
-     * individual render calls per frame for large Create schematics.
+     * Renders cached static block geometry and optionally block entities.
+     * Block entity rendering is off by default for performance — controlled
+     * by [CBBeesClientConfig.renderGhostBlockEntities] and capped by
+     * [CBBeesClientConfig.maxGhostBlockEntities].
      */
     override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) {
         val mc = Minecraft.getInstance()
@@ -94,6 +99,20 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
 
         for ((layer, buffer) in ghostBufferCache) {
             buffer.renderInto(ms, buffers.getBuffer(layer))
+        }
+
+        if (CBBeesClientConfig.renderGhostBlockEntities.get()) {
+            val max = CBBeesClientConfig.maxGhostBlockEntities.get()
+            val allBEs = schematic.renderedBlockEntities.toList()
+            val capped = if (allBEs.size > max) allBEs.subList(0, max) else allBEs
+            val shouldRender = BitSet(capped.size)
+            shouldRender.set(0, capped.size)
+            val errored = BitSet(capped.size)
+            BlockEntityRenderHelper.renderBlockEntities(
+                capped, shouldRender, errored,
+                null, mc.level, ms, null, buffers,
+                AnimationTickHolder.getPartialTicks()
+            )
         }
     }
 

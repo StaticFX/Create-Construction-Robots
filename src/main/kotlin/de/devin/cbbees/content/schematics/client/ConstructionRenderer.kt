@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.RenderType.chunkBufferLayers
 import com.simibubi.create.foundation.blockEntity.IMultiBlockEntityContainer
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.util.ClientSide
@@ -99,6 +100,7 @@ object ConstructionRenderer {
     @JvmStatic
     fun onRenderLevel(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return
+        if (!CBBeesClientConfig.showConstructionGhosts.get()) return
 
         val mc = Minecraft.getInstance()
         val level = mc.level ?: return
@@ -124,7 +126,8 @@ object ConstructionRenderer {
         val poseStack = event.poseStack
         val camera = mc.gameRenderer.mainCamera.position
         val superBuffer = DefaultSuperRenderTypeBuffer.getInstance()
-        val transparentBuffer = TransparentBuffer(superBuffer, GHOST_ALPHA)
+        val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
+        val transparentBuffer = TransparentBuffer(superBuffer, opacity)
 
         // Render each job's schematic via Create's SchematicRenderer with transparency
         for ((_, jobRenderer) in rendererCache) {

@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.bee.client
 
 import com.simibubi.create.content.equipment.goggles.GogglesItem
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.NetworkedBee
@@ -30,6 +31,8 @@ object BeeTargetLineHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        if (!CBBeesClientConfig.showBeeTargetLines.get()) return
+
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
         val level = mc.level ?: return

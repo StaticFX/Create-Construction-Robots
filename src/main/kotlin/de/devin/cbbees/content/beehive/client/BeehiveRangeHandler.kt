@@ -2,6 +2,7 @@ package de.devin.cbbees.content.beehive.client
 
 import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.foundation.utility.RaycastHelper
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import net.createmod.catnip.outliner.Outliner
@@ -26,6 +27,11 @@ object BeehiveRangeHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        if (!CBBeesClientConfig.showBeehiveRange.get()) {
+            clearAllSlots()
+            return
+        }
+
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
         val level = mc.level ?: return

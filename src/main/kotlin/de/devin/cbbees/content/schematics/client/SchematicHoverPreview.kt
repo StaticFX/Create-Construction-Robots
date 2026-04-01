@@ -3,6 +3,7 @@ package de.devin.cbbees.content.schematics.client
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.simibubi.create.AllDataComponents
+import de.devin.cbbees.config.CBBeesClientConfig
 import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.foundation.utility.RaycastHelper
 import dev.engine_room.flywheel.lib.transform.TransformStack
@@ -182,6 +183,7 @@ object SchematicHoverPreview {
 
     fun render(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return
+        if (!CBBeesClientConfig.showSchematicPreview.get()) return
         if (!ConstructionPlannerHandler.isBrowsingPreview) return
         if (currentSchematic == null || schematicSize == Vec3i.ZERO) return
 
@@ -202,7 +204,8 @@ object SchematicHoverPreview {
         // Render ghost blocks only if renderer is ready (built asynchronously)
         val renderer = getActiveRenderer()
         if (renderer != null) {
-            val transparentBuffer = TransparentBuffer(superBuffer, GHOST_ALPHA)
+            val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
+            val transparentBuffer = TransparentBuffer(superBuffer, opacity)
             poseStack.pushPose()
 
             TransformStack.of(poseStack)

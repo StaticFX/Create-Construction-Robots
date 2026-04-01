@@ -2,6 +2,7 @@ package de.devin.cbbees.content.schematics.client
 
 import com.simibubi.create.CreateClient
 import de.devin.cbbees.network.InstantConstructionPacket
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -135,7 +136,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
                 minecraft?.setScreen(BrowseOnlineScreen(source, this))
             }
         }.bounds(width - MARGIN - buttonWidth - 10, buttonY, buttonWidth + 10, 20).build()
-        browseOnlineButton.active = ExternalSchematicSource.active != null
+        browseOnlineButton.active = ExternalSchematicSource.active != null && CBBeesConfig.enableExternalBrowser.get()
         addRenderableWidget(browseOnlineButton)
 
         // Back button — visible only when inside a group

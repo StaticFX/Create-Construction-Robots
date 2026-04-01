@@ -5,6 +5,7 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.blocks.AllBlocks
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
@@ -78,7 +79,8 @@ object CreateBuzzyBeez {
     val LOGGER: Logger = LogManager.getLogger(ID)
 
     init {
-        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.COMMON, CBBeesConfig.SPEC)
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.SERVER, CBBeesConfig.SPEC)
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.CLIENT, CBBeesClientConfig.SPEC)
 
         REGISTRATE.registerEventListeners(MOD_BUS)
 
@@ -168,7 +170,7 @@ object CreateBuzzyBeez {
         // Register Ponder plugin
         PonderIndex.addPlugin(CBBPonderPlugin())
 
-        // Register external schematic source
+        // Register external schematic source (visibility gated by server config in ConstructionPlannerScreen)
         ExternalSchematicSource.active = CreateModSchematicSource(
             hmacSecret = "5a0841453e5c2588583da1fb215f4af88a5a7d4ee86a720aea4ae27c4065dace"
         )
