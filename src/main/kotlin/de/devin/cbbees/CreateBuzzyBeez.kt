@@ -144,6 +144,11 @@ object CreateBuzzyBeez {
                 AllBlockEntityTypes.LOGISTICS_PORT.get(),
                 { be, side -> be.getItemHandler(be.world) }
             )
+            event.registerItem(
+                Capabilities.FluidHandler.ITEM,
+                { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },
+                AllItems.PORTABLE_BEEHIVE.get()
+            )
         }
 
         NeoForge.EVENT_BUS.addListener<RegisterCommandsEvent> {

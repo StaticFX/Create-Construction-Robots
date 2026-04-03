@@ -1,0 +1,22 @@
+{
+  "type": "create:filling",
+  "ingredients": [
+    {
+      "item": "cbbees:portable_beehive"
+    },
+    {
+      "amount": 250,
+      "fluid": "create:honey",
+      "nbt": {}
+    }
+  ],
+  "results": [
+    {
+      "item": "cbbees:portable_beehive",
+      "nbt": {
+        "Damage": 0,
+        "HoneyFuel": 100
+      }
+    }
+  ]
+}

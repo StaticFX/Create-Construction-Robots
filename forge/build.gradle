@@ -119,6 +119,7 @@ def forgeOverrides = [
     'de/devin/cbbees/content/bee/MechanicalBumbleBeeItem.kt',
     // Backpack / Container (DataComponents → NBT, RegistryFriendlyByteBuf → FriendlyByteBuf, GeckoLib package paths)
     'de/devin/cbbees/content/backpack/PortableBeehiveItem.kt',
+    'de/devin/cbbees/content/backpack/PortableBeehiveFluidHandler.kt',
     'de/devin/cbbees/content/backpack/BeehiveContainer.kt',
     'de/devin/cbbees/content/backpack/client/BeehiveTooltipComponent.kt',
     // Domain (IItemHandler package, isSameItemSameComponents → isSameItemSameTags)
@@ -134,6 +135,7 @@ def forgeOverrides = [
     'de/devin/cbbees/datagen/CCRDatagen.kt',
     'de/devin/cbbees/datagen/GeneratedEntriesProvider.kt',
     'de/devin/cbbees/datagen/CBBGlueingRecipeGen.kt',
+    'de/devin/cbbees/datagen/CBBFillingRecipeGen.kt',
     'de/devin/cbbees/datagen/CBBSequencedAssemblyGen.kt',
     // Blocks (MapCodec/codec, useWithoutItem → use, openMenu lambda → NetworkHooks)
     'de/devin/cbbees/content/beehive/MechanicalBeehiveBlock.kt',

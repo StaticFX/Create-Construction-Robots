@@ -40,6 +40,10 @@ import software.bernie.geckolib.util.GeckoLibUtil
 import java.util.function.Consumer
 import net.minecraftforge.client.extensions.common.IClientItemExtensions
 import de.devin.cbbees.content.backpack.client.PortableBeehiveRenderer
+import net.minecraftforge.common.capabilities.Capability
+import net.minecraftforge.common.capabilities.ForgeCapabilities
+import net.minecraftforge.common.capabilities.ICapabilityProvider
+import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.network.NetworkHooks
 import kotlin.math.roundToInt
 
@@ -92,6 +96,19 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     override fun getAnimatableInstanceCache(): AnimatableInstanceCache {
         return this.cache
+    }
+
+    override fun initCapabilities(stack: ItemStack, nbt: CompoundTag?): ICapabilityProvider {
+        return object : ICapabilityProvider {
+            private val fluidHandler = LazyOptional.of { PortableBeehiveFluidHandler(stack) }
+
+            override fun <T : Any> getCapability(cap: Capability<T>, side: net.minecraft.core.Direction?): LazyOptional<T> {
+                if (cap == ForgeCapabilities.FLUID_HANDLER_ITEM) {
+                    return fluidHandler.cast()
+                }
+                return LazyOptional.empty()
+            }
+        }
     }
 
     companion object {
