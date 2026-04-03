@@ -5,7 +5,11 @@ import net.minecraftforge.common.ForgeConfigSpec
 object CBBeesConfig {
     val SPEC: ForgeConfigSpec
 
+    // Features
+    val enableExternalBrowser: ForgeConfigSpec.BooleanValue
+
     val maxBeesPerHive: ForgeConfigSpec.IntValue
+    val minActiveRobotsAtRpm: ForgeConfigSpec.IntValue
     val beePickupItems: ForgeConfigSpec.BooleanValue
 
     // Beehive RPM scaling
@@ -43,6 +47,15 @@ object CBBeesConfig {
     init {
         val builder = ForgeConfigSpec.Builder()
 
+        builder.comment("Feature Toggles")
+            .push("features")
+
+        enableExternalBrowser = builder
+            .comment("Enable the 'Browse Online' button and createmod.com connectivity. Requires restart.")
+            .define("enableExternalBrowser", true)
+
+        builder.pop()
+
         builder.comment("Mechanical Beehive Settings")
             .push("beehive")
 
@@ -50,20 +63,24 @@ object CBBeesConfig {
             .comment("Maximum number of active bees per hive")
             .defineInRange("maxBeesPerHive", 16, 1, 64)
 
+        minActiveRobotsAtRpm = builder
+            .comment("Minimum active bees when the hive has any RPM, so even slow shafts deploy at least this many bees")
+            .defineInRange("minActiveRobotsAtRpm", 1, 0, 64)
+
         hiveBaseRange = builder
             .comment("Base work range of a beehive before RPM scaling (at minimum RPM)")
             .defineInRange("hiveBaseRange", 1, 0, 128)
 
         hiveRangePerRpm = builder
-            .comment("Work range added per RPM: range = baseRange + RPM * this (16 RPM → 5, 256 RPM → 65)")
+            .comment("Work range added per RPM: range = baseRange + RPM * this (16 RPM -> 5, 256 RPM -> 65)")
             .defineInRange("hiveRangePerRpm", 0.25, 0.01, 10.0)
 
         hiveRpmSpeedDivisor = builder
-            .comment("RPM divisor for speed/spring efficiency scaling: multiplier = 1 + RPM / this value")
+            .comment("RPM divisor for bee speed and spring efficiency: multiplier = 1 + RPM / this value")
             .defineInRange("hiveRpmSpeedDivisor", 256.0, 1.0, 1024.0)
 
         hiveRpmRobotDivisor = builder
-            .comment("RPM divisor for extra active robots: extra bees = RPM / this value")
+            .comment("RPM divisor for workforce scaling: extra bees = RPM / this value")
             .defineInRange("hiveRpmRobotDivisor", 8.0, 1.0, 256.0)
 
         builder.pop()

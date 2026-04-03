@@ -279,7 +279,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             context.speedMultiplier *= (1.0 + (rpm / speedDiv))
             context.springEfficiency = 1.0 + (rpm / speedDiv)
             val extraRobots = (rpm / robotDiv).toInt()
-            context.maxActiveRobots += extraRobots
+            context.maxActiveRobots = maxOf(
+                context.maxActiveRobots + extraRobots,
+                CBBeesConfig.minActiveRobotsAtRpm.get()
+            )
             context.workRange = baseRange + rpm * rangePerRpm
             context.maxContributedBees += extraRobots
         } else {

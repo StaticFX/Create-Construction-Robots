@@ -111,6 +111,7 @@ def forgeOverrides = [
     'de/devin/cbbees/tabs/AllCreativeModeTabs.kt',
     // Config (ForgeConfigSpec inner types don't resolve through typealias)
     'de/devin/cbbees/config/CBBeesConfig.kt',
+    'de/devin/cbbees/config/CBBeesClientConfig.kt',
     // Entities & Items (GeckoLib packages, defineSynchedData, ItemStack API, TooltipContext)
     'de/devin/cbbees/content/bee/MechanicalBeeEntity.kt',
     'de/devin/cbbees/content/bee/MechanicalBumbleBeeEntity.kt',
