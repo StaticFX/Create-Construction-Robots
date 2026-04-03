@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:propeller"
+    },
+    "V": {
+      "item": "minecraft:honey_bottle"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " B ",
+    "VWV",
+    " V "
+  ],
+  "result": {
+    "item": "cbbees:honey_efficiency"
+  },
+  "show_notification": true
+}

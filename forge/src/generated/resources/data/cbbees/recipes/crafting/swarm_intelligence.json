@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:electron_tube"
+    },
+    "V": {
+      "item": "create:precision_mechanism"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " V ",
+    "BWB"
+  ],
+  "result": {
+    "item": "cbbees:swarm_intelligence"
+  },
+  "show_notification": true
+}

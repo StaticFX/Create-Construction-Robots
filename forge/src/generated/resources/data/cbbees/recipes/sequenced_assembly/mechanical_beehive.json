@@ -1,0 +1,62 @@
+{
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "minecraft:beehive"
+  },
+  "loops": 1,
+  "results": [
+    {
+      "item": "cbbees:mechanical_beehive"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        },
+        {
+          "item": "create:electron_tube"
+        }
+      ],
+      "results": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        },
+        {
+          "item": "create:cogwheel"
+        }
+      ],
+      "results": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        }
+      ],
+      "results": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        }
+      ]
+    }
+  ],
+  "transitionalItem": {
+    "item": "cbbees:incomplete_mechanical_beehive"
+  }
+}

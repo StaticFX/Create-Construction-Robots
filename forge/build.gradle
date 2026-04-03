@@ -34,6 +34,8 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             arg '-mixin.config=cbbees.mixins.json'
             args '--nogui'
             mods {
@@ -47,7 +49,9 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
-            args '--mod', mod_id, '--server', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('../src/main/resources/').getAbsolutePath()
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            args '--mod', mod_id, '--server', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath(), '--existing', file('../src/main/resources/').getAbsolutePath()
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -191,7 +195,7 @@ sourceSets {
         resources {
             srcDirs("src/main/resources")
             srcDirs("../src/main/resources")
-            srcDirs("../src/generated/resources")
+            srcDirs("src/generated/resources")
         }
     }
 }

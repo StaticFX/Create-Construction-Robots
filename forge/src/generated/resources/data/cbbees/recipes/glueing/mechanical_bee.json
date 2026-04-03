@@ -1,0 +1,13 @@
+{
+  "type": "cbbees:glueing",
+  "ingredients": [
+    {
+      "item": "cbbees:mechanical_bee_chassis"
+    }
+  ],
+  "results": [
+    {
+      "item": "cbbees:mechanical_bee"
+    }
+  ]
+}

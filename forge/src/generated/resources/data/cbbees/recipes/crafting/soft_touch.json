@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:sturdy_sheet"
+    },
+    "V": {
+      "item": "minecraft:feather"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " V ",
+    "VWV",
+    "BBB"
+  ],
+  "result": {
+    "item": "cbbees:soft_touch"
+  },
+  "show_notification": true
+}

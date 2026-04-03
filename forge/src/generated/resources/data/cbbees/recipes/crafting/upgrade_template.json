@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "V": {
+      "item": "minecraft:honeycomb"
+    },
+    "W": {
+      "item": "create:andesite_alloy"
+    }
+  },
+  "pattern": [
+    " W ",
+    "WVW",
+    " V "
+  ],
+  "result": {
+    "item": "cbbees:upgrade_template"
+  },
+  "show_notification": true
+}

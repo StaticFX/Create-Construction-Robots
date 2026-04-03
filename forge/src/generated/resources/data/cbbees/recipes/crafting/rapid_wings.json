@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:propeller"
+    },
+    "V": {
+      "item": "minecraft:sugar"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " B ",
+    "VWV",
+    " B "
+  ],
+  "result": {
+    "item": "cbbees:rapid_wings"
+  },
+  "show_notification": true
+}
