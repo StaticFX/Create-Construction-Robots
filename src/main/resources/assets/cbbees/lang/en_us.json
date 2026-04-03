@@ -17,6 +17,8 @@
   "item.cbbees.honey_efficiency": "Honey Efficiency",
   "item.cbbees.soft_touch": "Soft Touch",
   "item.cbbees.drop_items": "Drop Items",
+  "item.cbbees.honey_tank": "Honey Tank",
+  "item.cbbees.reinforced_plating": "Reinforced Plating",
   "item.cbbees.upgrade_template": "Upgrade Template",
   "container.cbbees.portable_beehive": "Portable Beehive",
   "item.cbbees.portable_beehive.tooltip": "Mobile Construction Backpack",
@@ -89,6 +91,8 @@
   "tooltip.cbbees.upgrade.honey_efficiency": "Bees have increased carry capacity, break speed and honey efficiency",
   "tooltip.cbbees.upgrade.soft_touch": "Deconstruction preserves blocks intact",
   "tooltip.cbbees.upgrade.drop_items": "Bees drop items on deconstruction instead of picking them up",
+  "tooltip.cbbees.upgrade.honey_tank": "+200 honey capacity per upgrade",
+  "tooltip.cbbees.upgrade.reinforced_plating": "+25% spring efficiency per upgrade",
   "tooltip.cbbees.upgrade.max_stack": "Max in hive: %d",
   "tooltip.cbbees.upgrade.unique": "Only one can be installed",
   "cbbees.construction.stopped": "Swarm recalled!",
@@ -298,5 +302,43 @@
 
   "gui.cbbees.job_detail.title": "Construction Job",
   "gui.cbbees.job_detail.cancel": "Cancel Job",
-  "gui.cbbees.job_detail.not_found": "Job not found"
+  "gui.cbbees.job_detail.not_found": "Job not found",
+
+  "item.cbbees.honey_tank.tooltip": "Capacity Upgrade",
+  "item.cbbees.honey_tank.tooltip.summary": "Increases the _honey storage capacity_ of the Portable Beehive by _200_ per upgrade. Install in the _Portable Beehive_.",
+  "item.cbbees.honey_tank.tooltip.condition1": "Max Stack",
+  "item.cbbees.honey_tank.tooltip.behaviour1": "Up to _2_ can be installed in a single beehive.",
+
+  "item.cbbees.reinforced_plating.tooltip": "Durability Upgrade",
+  "item.cbbees.reinforced_plating.tooltip.summary": "Increases _spring efficiency_ by _25%_ per upgrade, allowing bees to work longer before needing to recharge. Install in the _Portable Beehive_.",
+  "item.cbbees.reinforced_plating.tooltip.condition1": "Max Stack",
+  "item.cbbees.reinforced_plating.tooltip.behaviour1": "Up to _2_ can be installed in a single beehive.",
+
+  "gui.cbbees.grid.rotate_hint": "Right-click / scroll to rotate",
+  "gui.cbbees.grid.shape_preview": "Shape:",
+
+  "item.cbbees.drone_view": "Drone View",
+  "tooltip.cbbees.upgrade.drone_view": "Enables top-down drone camera (press V)",
+  "key.cbbees.drone_view": "Toggle Drone View",
+  "cbbees.drone_view.no_upgrade": "Drone View upgrade not installed!",
+  "cbbees.drone_view.no_bees": "No bees available for drone!",
+  "cbbees.drone_view.activated": "Drone View activated",
+  "cbbees.drone_view.deactivated": "Drone View deactivated",
+  "cbbees.drone_view.hud": "Drone View [V to exit]",
+  "cbbees.drone_view.no_backpack": "No backpack equipped!",
+
+  "item.cbbees.drone_view.tooltip": "Drone Camera Upgrade",
+  "item.cbbees.drone_view.tooltip.summary": "Enables a top-down _drone camera_ by consuming a bee from the backpack. Press _V_ to toggle the elevated view for planning schematics. Use _WASD_ to fly the drone within range.",
+  "item.cbbees.drone_view.tooltip.condition1": "Unique",
+  "item.cbbees.drone_view.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
+
+  "item.cbbees.drone_range": "Drone Range",
+  "tooltip.cbbees.upgrade.drone_range": "+16 blocks drone camera range",
+  "cbbees.drone_view.hud.range": "Range: %s / %s blocks",
+  "cbbees.drone_view.hud.controls": "WASD to fly | V to exit",
+
+  "item.cbbees.drone_range.tooltip": "Drone Range Upgrade",
+  "item.cbbees.drone_range.tooltip.summary": "Extends the maximum range of the _Drone View_ camera by _16 blocks_ per upgrade. Allows scouting further from the player.",
+  "item.cbbees.drone_range.tooltip.condition1": "Max Stack",
+  "item.cbbees.drone_range.tooltip.behaviour1": "Up to _3_ can be installed in a single beehive."
 }

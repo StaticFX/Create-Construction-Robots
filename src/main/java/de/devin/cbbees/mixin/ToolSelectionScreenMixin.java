@@ -7,6 +7,7 @@ import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.schematics.client.ToolSelectionScreen;
 import com.simibubi.create.content.schematics.client.tools.ToolType;
 import com.simibubi.create.foundation.gui.AllIcons;
+import de.devin.cbbees.content.drone.client.DroneViewClientState;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
 import net.minecraft.client.Minecraft;
@@ -66,8 +67,8 @@ public abstract class ToolSelectionScreenMixin {
     private boolean ccr$hasExtraTools() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return false;
-        ItemStack mainHand = mc.player.getMainHandItem();
-        if (!AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(mainHand)) return false;
+        ItemStack planner = DroneViewClientState.findActivePlanner(mc.player);
+        if (planner.isEmpty()) return false;
         return CreateClient.SCHEMATIC_HANDLER.isDeployed();
     }
 

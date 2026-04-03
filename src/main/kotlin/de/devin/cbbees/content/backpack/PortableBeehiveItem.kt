@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.content.upgrades.UpgradeGrid
 import de.devin.cbbees.content.upgrades.UpgradeType
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllDataComponents
@@ -93,11 +94,70 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     companion object {
         const val ROBOT_SLOTS = 2
-        const val UPGRADE_SLOTS = 4
-        const val TOTAL_SLOTS = ROBOT_SLOTS + UPGRADE_SLOTS
+        const val UPGRADE_SLOTS = 0
+        const val TOTAL_SLOTS = ROBOT_SLOTS
 
         // NBT keys for the container
         const val TAG_INVENTORY = "BackpackInventory"
+
+        /** Legacy slot count for migration from old flat upgrade layout */
+        const val LEGACY_TOTAL_SLOTS = 6
+        const val LEGACY_UPGRADE_SLOTS = 4
+
+        /**
+         * One-time migration: reads old upgrades from CONTAINER slots 2-5,
+         * auto-places them into a new UpgradeGrid, and trims the CONTAINER to robot-only slots.
+         */
+        fun migrateUpgradesToGrid(stack: ItemStack) {
+            // Skip if grid already exists
+            if (stack.has(AllDataComponents.UPGRADE_GRID.get())) return
+
+            val contents = stack.get(DataComponents.CONTAINER) ?: return
+            val items = NonNullList.withSize(LEGACY_TOTAL_SLOTS, ItemStack.EMPTY)
+            contents.copyInto(items)
+
+            // Check if there are any upgrades in legacy slots (indices 2-5)
+            val legacyUpgrades = mutableListOf<UpgradeType>()
+            for (i in ROBOT_SLOTS until LEGACY_TOTAL_SLOTS) {
+                val s = items[i]
+                val upgradeItem = s.item as? BeeUpgradeItem
+                if (upgradeItem != null && !s.isEmpty) {
+                    legacyUpgrades.add(upgradeItem.upgradeType)
+                }
+            }
+
+            if (legacyUpgrades.isEmpty()) return
+
+            // Auto-place into grid
+            val grid = UpgradeGrid()
+            for (type in legacyUpgrades) {
+                // Try all positions and rotations to find a valid placement
+                var placed = false
+                for (rotation in 0 until 4) {
+                    if (placed) break
+                    for (y in 0 until UpgradeGrid.ROWS) {
+                        if (placed) break
+                        for (x in 0 until UpgradeGrid.COLS) {
+                            if (grid.canPlace(type, x, y, rotation)) {
+                                grid.place(type, x, y, rotation)
+                                placed = true
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Save grid
+            stack.set(AllDataComponents.UPGRADE_GRID.get(), grid)
+
+            // Trim CONTAINER to robot-only slots
+            val robotItems = mutableListOf<ItemStack>()
+            for (i in 0 until ROBOT_SLOTS) {
+                robotItems.add(items[i])
+            }
+            stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(robotItems))
+        }
     }
 
     override fun use(level: Level, player: Player, usedHand: InteractionHand): InteractionResultHolder<ItemStack> {
@@ -112,7 +172,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
             if (fuelValue > 0) {
                 if (!level.isClientSide) {
                     val current = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-                    val max = CBBeesConfig.portableMaxHoney.get()
+                    val max = getMaxHoney(stack)
                     if (current >= max) {
                         player.displayClientMessage(Component.translatable("cbbees.beehive.honey_full"), true)
                     } else {
@@ -185,15 +245,14 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     override fun isBarVisible(stack: ItemStack): Boolean {
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-        val maxHoney = CBBeesConfig.portableMaxHoney.get()
-        return honey < maxHoney
+        return honey < getMaxHoney(stack)
     }
 
     override fun getBarWidth(stack: ItemStack): Int {
-        val maxHoney = CBBeesConfig.portableMaxHoney.get()
-        if (maxHoney <= 0) return 0
+        val max = getMaxHoney(stack)
+        if (max <= 0) return 0
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-        return (13.0f * honey / maxHoney).roundToInt()
+        return (13.0f * honey / max).roundToInt()
     }
 
     override fun getBarColor(stack: ItemStack): Int {
@@ -218,7 +277,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         )
 
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-        val maxHoney = CBBeesConfig.portableMaxHoney.get()
+        val maxHoney = getMaxHoney(stack)
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.beehive.honey", honey, maxHoney)
                 .withStyle(ChatFormatting.GOLD)
@@ -260,21 +319,11 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     /**
-     * Retrieves all upgrades and their counts from the backpack.
+     * Retrieves all upgrades and their counts from the backpack's upgrade grid.
      */
     fun getUpgrades(stack: ItemStack): Map<UpgradeType, Int> {
-        val contents = stack.get(DataComponents.CONTAINER) ?: return emptyMap()
-        val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
-        contents.copyInto(items)
-
-        val upgrades = mutableMapOf<UpgradeType, Int>()
-        items.subList(ROBOT_SLOTS, TOTAL_SLOTS).forEach { itemStack ->
-            val upgradeItem = itemStack.item as? BeeUpgradeItem
-            if (upgradeItem != null) {
-                upgrades[upgradeItem.upgradeType] = upgrades.getOrDefault(upgradeItem.upgradeType, 0) + 1
-            }
-        }
-        return upgrades
+        val grid = stack.get(AllDataComponents.UPGRADE_GRID.get()) ?: return emptyMap()
+        return grid.getUpgradeCounts()
     }
 
     /**
@@ -351,10 +400,11 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     /**
-     * Gets the count of a specific upgrade type.
+     * Gets the count of a specific upgrade type from the upgrade grid.
      */
     fun getUpgradeCount(stack: ItemStack, type: UpgradeType): Int {
-        return getUpgrades(stack).getOrDefault(type, 0)
+        val grid = stack.get(AllDataComponents.UPGRADE_GRID.get()) ?: return 0
+        return grid.getUpgradeCounts().getOrDefault(type, 0)
     }
 
     /**
@@ -362,6 +412,15 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
      */
     fun getBeeContext(stack: ItemStack): BeeContext {
         return UpgradeType.fromBackpack(stack)
+    }
+
+    /**
+     * Gets the maximum honey capacity, including bonuses from Honey Tank upgrades.
+     */
+    fun getMaxHoney(stack: ItemStack): Int {
+        val base = CBBeesConfig.portableMaxHoney.get()
+        val context = getBeeContext(stack)
+        return base + context.honeyCapacityBonus
     }
 
     // ICurioItem implementation

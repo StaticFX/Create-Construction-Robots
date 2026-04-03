@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.schematics.client
 
+import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllKeys
 import net.minecraft.client.Minecraft
@@ -30,7 +31,7 @@ object ConstructionPlannerClientEvents {
         // Clear custom tool state if player is no longer holding the planner
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
             val player = Minecraft.getInstance().player
-            if (player == null || !AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+            if (player == null || DroneViewClientState.findActivePlanner(player).isEmpty) {
                 ConstructionToolState.activeTool = ConstructionToolState.CustomTool.NONE
             }
         }
@@ -39,7 +40,7 @@ object ConstructionPlannerClientEvents {
         // when the player switches to holding the planner
         val player = Minecraft.getInstance().player
         if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
-            if (player != null && AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+            if (player != null && !DroneViewClientState.findActivePlanner(player).isEmpty) {
                 Minecraft.getInstance().setScreen(ConstructionPlannerScreen())
             }
         }

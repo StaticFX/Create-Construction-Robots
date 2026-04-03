@@ -18,5 +18,11 @@ data class BeeContext(
     var maxContributedBees: Int = CBBeesConfig.defaultMaxActiveRobots.get(),
     var fuelConsumptionMultiplier: Double = 1.0,
     /** Higher RPM → tighter wound spring → less drain per action */
-    var springEfficiency: Double = 1.0
+    var springEfficiency: Double = 1.0,
+    /** Bonus honey capacity from upgrades */
+    var honeyCapacityBonus: Int = 0,
+    /** Whether the drone view ability is available */
+    var droneViewAvailable: Boolean = false,
+    /** Maximum range the drone can fly from the player */
+    var droneRange: Double = CBBeesConfig.droneBaseRange.get()
 )

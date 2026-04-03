@@ -1,6 +1,7 @@
 package de.devin.cbbees.registry
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.upgrades.UpgradeGrid
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.codec.ByteBufCodecs
@@ -19,6 +20,12 @@ object AllDataComponents {
         REGISTER.registerComponentType("honey_fuel") { builder ->
             builder.persistent(ExtraCodecs.NON_NEGATIVE_INT)
                 .networkSynchronized(ByteBufCodecs.VAR_INT)
+        }
+
+    val UPGRADE_GRID: DeferredHolder<DataComponentType<*>, DataComponentType<UpgradeGrid>> =
+        REGISTER.registerComponentType("upgrade_grid") { builder ->
+            builder.persistent(UpgradeGrid.CODEC)
+                .networkSynchronized(UpgradeGrid.STREAM_CODEC)
         }
 
     fun register(bus: IEventBus) {

@@ -78,5 +78,34 @@ object AllPackets {
             RequestPlayerJobsPacket.STREAM_CODEC,
             RequestPlayerJobsPacket.Companion::handle
         )
+
+        // Grid upgrade packets
+        registrar.playToServer(
+            GridPlaceUpgradePacket.TYPE,
+            GridPlaceUpgradePacket.STREAM_CODEC,
+            GridPlaceUpgradePacket.Companion::handle
+        )
+        registrar.playToServer(
+            GridRemoveUpgradePacket.TYPE,
+            GridRemoveUpgradePacket.STREAM_CODEC,
+            GridRemoveUpgradePacket.Companion::handle
+        )
+
+        // Drone view packets
+        registrar.playToServer(
+            ToggleDroneViewPacket.TYPE,
+            ToggleDroneViewPacket.STREAM_CODEC,
+            ToggleDroneViewPacket.Companion::handle
+        )
+        registrar.playToClient(
+            DroneViewSyncPacket.TYPE,
+            DroneViewSyncPacket.STREAM_CODEC,
+            DroneViewSyncPacket.Companion::handle
+        )
+        registrar.playToServer(
+            MoveDronePacket.TYPE,
+            MoveDronePacket.STREAM_CODEC,
+            MoveDronePacket.Companion::handle
+        )
     }
 }

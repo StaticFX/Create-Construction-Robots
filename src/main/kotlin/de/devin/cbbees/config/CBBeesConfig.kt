@@ -28,6 +28,13 @@ object CBBeesConfig {
     val honeyEfficiencyBreakSpeedReduction: ModConfigSpec.DoubleValue
     val honeyEfficiencyCarryBonus: ModConfigSpec.IntValue
     val honeyEfficiencyFuelReduction: ModConfigSpec.DoubleValue
+    val honeyTankCapacityBonus: ModConfigSpec.IntValue
+    val reinforcedPlatingSpringBonus: ModConfigSpec.DoubleValue
+
+    // Drone view settings
+    val droneBaseRange: ModConfigSpec.DoubleValue
+    val droneRangeBonus: ModConfigSpec.DoubleValue
+    val droneMoveSpeed: ModConfigSpec.DoubleValue
 
     // Spring (clockwork) settings
     val springDrainPlace: ModConfigSpec.DoubleValue
@@ -124,6 +131,31 @@ object CBBeesConfig {
         honeyEfficiencyFuelReduction = builder
             .comment("Fuel consumption reduction per Honey Efficiency upgrade (0.15 = 15% less fuel)")
             .defineInRange("honeyEfficiencyFuelReduction", 0.15, 0.01, 1.0)
+
+        honeyTankCapacityBonus = builder
+            .comment("Extra honey capacity per Honey Tank upgrade")
+            .defineInRange("honeyTankCapacityBonus", 200, 50, 5000)
+
+        reinforcedPlatingSpringBonus = builder
+            .comment("Spring efficiency bonus per Reinforced Plating upgrade (0.25 = +25%)")
+            .defineInRange("reinforcedPlatingSpringBonus", 0.25, 0.01, 2.0)
+
+        builder.pop()
+
+        builder.comment("Drone View Settings — controls drone camera behavior")
+            .push("drone_view")
+
+        droneBaseRange = builder
+            .comment("Base range (blocks) the drone can move from the player without upgrades")
+            .defineInRange("droneBaseRange", 32.0, 8.0, 256.0)
+
+        droneRangeBonus = builder
+            .comment("Extra range (blocks) per Drone Range upgrade")
+            .defineInRange("droneRangeBonus", 16.0, 4.0, 128.0)
+
+        droneMoveSpeed = builder
+            .comment("Drone movement speed in blocks per tick when controlled by WASD")
+            .defineInRange("droneMoveSpeed", 1.5, 0.1, 5.0)
 
         builder.pop()
 

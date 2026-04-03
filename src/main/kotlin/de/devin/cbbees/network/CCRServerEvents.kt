@@ -4,7 +4,10 @@ import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.TransportDispatcher
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.content.drone.DroneViewManager
+import net.minecraft.server.level.ServerPlayer
 import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
@@ -37,6 +40,7 @@ object CCRServerEvents {
         GlobalJobPool.tick(gameTime)
         TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
+        DroneViewManager.validateDrones()
 
         // Sync packets every 40 ticks (2 seconds) to reduce network and serialization overhead
         syncCounter++
@@ -55,7 +59,18 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onPlayerLoggedOut(event: PlayerEvent.PlayerLoggedOutEvent) {
+        val player = event.entity as? ServerPlayer
+        if (player != null) {
+            DroneViewManager.despawnDrone(player)
+        }
         ServerBeeNetworkManager.unregisterWorker(event.entity.uuid)
+    }
+
+    @SubscribeEvent
+    @JvmStatic
+    fun onPlayerDeath(event: LivingDeathEvent) {
+        val player = event.entity as? ServerPlayer ?: return
+        DroneViewManager.despawnDrone(player)
     }
 
     /**
@@ -70,5 +85,6 @@ object CCRServerEvents {
         TransportDispatcher.clear()
         BeeDebug.clear()
         PlannerUploadPacket.shutdown()
+        DroneViewManager.clear()
     }
 }

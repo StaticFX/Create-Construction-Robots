@@ -67,6 +67,17 @@ object AllKeys {
     )
 
     /**
+     * Keybinding to toggle drone view.
+     * Default key: V
+     */
+    val DRONE_VIEW: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.drone_view",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_V,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
      * Registers all keybindings with the game.
      * Called from RegisterKeyMappingsEvent.
      */
@@ -76,6 +87,7 @@ object AllKeys {
         event.register(OPEN_SCHEMATIC_BROWSER)
         event.register(ROTATE_PREVIEW)
         event.register(MIRROR_PREVIEW)
+        event.register(DRONE_VIEW)
     }
 
 }

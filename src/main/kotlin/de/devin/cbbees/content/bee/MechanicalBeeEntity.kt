@@ -69,8 +69,12 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.OPTIONAL_BLOCK_POS)
         private val SPRING_TENSION: EntityDataAccessor<Float> =
             SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.FLOAT)
+        private val IS_DRONE: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(MechanicalBeeEntity::class.java, EntityDataSerializers.BOOLEAN)
 
         const val WORK_RANGE: Double = 2.5
+        const val DRONE_ALTITUDE: Double = 25.0
+        const val DRONE_MAX_SPEED: Double = 2.0
 
         fun createAttributes(): AttributeSupplier.Builder {
             return createMobAttributes()
@@ -99,6 +103,16 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     override var hiveEntryRetries = 0
 
     val workRange: Double = WORK_RANGE
+
+    var isDrone: Boolean
+        get() = entityData.get(IS_DRONE)
+        set(value) = entityData.set(IS_DRONE, value)
+
+    /** Drone offset from owner position (server-side only) */
+    var droneOffsetX: Double = 0.0
+    var droneOffsetZ: Double = 0.0
+    /** Max range the drone can fly from the owner */
+    var droneMaxRange: Double = 32.0
 
     override var springTension: Float
         get() = entityData.get(SPRING_TENSION)
@@ -169,6 +183,8 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     }
 
     override fun customServerAiStep() {
+        if (isDrone) return
+
         this.level().profiler.push("beeBrain")
         this.getBrain().tick(this.level() as ServerLevel, this)
         this.level().profiler.pop()
@@ -201,6 +217,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         builder.define(BEEHIVE_ID, Optional.empty())
         builder.define(TARGET_POS, Optional.empty())
         builder.define(SPRING_TENSION, 1.0f)
+        builder.define(IS_DRONE, false)
     }
 
     override fun createNavigation(level: Level): PathNavigation =
@@ -210,7 +227,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         MechanicalBeelike.travelFlying(this, travelVector)
 
     override fun remove(reason: RemovalReason) {
-        if (!level().isClientSide) {
+        if (!level().isClientSide && !isDrone) {
             network()?.releaseReservations(this.uuid)
             // Release current batch so it can be retried by another bee
             val batch = getBrain().getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
@@ -233,6 +250,11 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         super.tick()
         if (level().isClientSide) return
 
+        if (isDrone) {
+            tickDrone()
+            return
+        }
+
         syncTargetPos()
         if (rechargeFinishTick < 0) {
             BeeSeparation.applyFlightOffset(this)
@@ -240,6 +262,47 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
+        }
+    }
+
+    private fun tickDrone() {
+        val owner = getOwnerPlayer() ?: run {
+            discard()
+            return
+        }
+
+        val targetX = owner.x + droneOffsetX
+        val targetZ = owner.z + droneOffsetZ
+
+        // Follow terrain height below the drone rather than fixed offset from player
+        val groundY = level().getHeight(
+            net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+            net.minecraft.core.BlockPos.containing(targetX, 0.0, targetZ).x,
+            net.minecraft.core.BlockPos.containing(targetX, 0.0, targetZ).z
+        ).toDouble()
+        val targetY = (groundY + DRONE_ALTITUDE).coerceAtMost(level().maxBuildHeight.toDouble() - 1.0)
+
+        // Snap directly to target position for stiff, responsive movement
+        setPos(targetX, targetY, targetZ)
+        setDeltaMovement(0.0, 0.0, 0.0)
+        xRot = 90f
+        setNoGravity(true)
+    }
+
+    /**
+     * Applies a movement delta to the drone offset, clamped to the max range.
+     */
+    fun applyDroneMovement(dx: Double, dz: Double) {
+        if (!isDrone) return
+
+        droneOffsetX += dx
+        droneOffsetZ += dz
+
+        // Clamp to max range circle
+        val dist = kotlin.math.sqrt(droneOffsetX * droneOffsetX + droneOffsetZ * droneOffsetZ)
+        if (dist > droneMaxRange) {
+            droneOffsetX = droneOffsetX / dist * droneMaxRange
+            droneOffsetZ = droneOffsetZ / dist * droneMaxRange
         }
     }
 
@@ -283,6 +346,10 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         compound.putUUID("NetworkId", networkId)
         compound.putFloat("SpringTension", springTension)
         compound.putLong("RechargeFinishTick", rechargeFinishTick)
+        compound.putBoolean("IsDrone", isDrone)
+        compound.putDouble("DroneOffsetX", droneOffsetX)
+        compound.putDouble("DroneOffsetZ", droneOffsetZ)
+        compound.putDouble("DroneMaxRange", droneMaxRange)
 
         val itemsTag = ListTag()
         for (i in 0 until inventory.containerSize) {
@@ -312,6 +379,14 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         }
         if (compound.contains("RechargeFinishTick")) {
             rechargeFinishTick = compound.getLong("RechargeFinishTick")
+        }
+        if (compound.contains("IsDrone")) {
+            isDrone = compound.getBoolean("IsDrone")
+        }
+        if (compound.contains("DroneOffsetX")) {
+            droneOffsetX = compound.getDouble("DroneOffsetX")
+            droneOffsetZ = compound.getDouble("DroneOffsetZ")
+            droneMaxRange = compound.getDouble("DroneMaxRange")
         }
 
         if (compound.contains("BeeInventory")) {

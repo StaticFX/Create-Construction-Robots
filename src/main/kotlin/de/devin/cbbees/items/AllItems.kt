@@ -227,6 +227,86 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
+    // Honey Tank - increases honey capacity
+    val HONEY_TANK: ItemEntry<HoneyTankUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("honey_tank") { props ->
+            HoneyTankUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.HONEY_BLOCK)
+                .define('B', AllItems.COPPER_SHEET)
+                .pattern("BVB")
+                .pattern("VWV")
+                .pattern("BVB")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Reinforced Plating - increases spring efficiency
+    val REINFORCED_PLATING: ItemEntry<ReinforcedPlatingUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("reinforced_plating") { props ->
+            ReinforcedPlatingUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', AllItems.STURDY_SHEET)
+                .define('B', AllItems.BRASS_INGOT.get())
+                .pattern(" V ")
+                .pattern("BWB")
+                .pattern(" V ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Drone View - enables top-down drone camera
+    val DRONE_VIEW: ItemEntry<DroneViewUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("drone_view") { props ->
+            DroneViewUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.SPYGLASS)
+                .define('B', Items.ENDER_PEARL)
+                .pattern(" V ")
+                .pattern("BWB")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Drone Range - extends drone view radius
+    val DRONE_RANGE: ItemEntry<DroneRangeUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("drone_range") { props ->
+            DroneRangeUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.ENDER_EYE)
+                .define('B', AllItems.COPPER_SHEET)
+                .pattern(" V ")
+                .pattern("BWB")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
     val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee_chassis") { props -> Item(props) }
