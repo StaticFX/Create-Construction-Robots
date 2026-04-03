@@ -13,6 +13,7 @@ import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
@@ -26,6 +27,21 @@ class MechanicalBeehiveBlock(properties: Properties) : KineticBlock(properties),
 
     override fun getRotationAxis(state: BlockState): Axis {
         return Axis.Y
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, movedByPiston: Boolean) {
+        if (!state.`is`(newState.block)) {
+            withBlockEntityDo(level, pos) { be ->
+                for (i in 0 until be.beeInventory.slots) {
+                    val stack = be.beeInventory.getStackInSlot(i)
+                    if (!stack.isEmpty) {
+                        Block.popResource(level, pos, stack)
+                    }
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston)
     }
 
     override fun useWithoutItem(

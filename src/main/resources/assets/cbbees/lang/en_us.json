@@ -121,6 +121,8 @@
   "key.cbbees.mirror_preview": "Mirror Schematic Preview",
   "ponder.cbbees.buzzy_bees.title": "Buzzy Bees",
   "ponder.cbbees.buzzy_bees.description": "Automated construction and deconstruction with mechanical bees",
+  "cbbees.ponder.tag.buzzy_bees": "Buzzy Bees",
+  "cbbees.ponder.tag.buzzy_bees.description": "Automated construction and deconstruction with mechanical bees",
   "ponder.cbbees.mechanical_bee.title": "Introduction to Mechanical Bees",
   "ponder.cbbees.portable_beehive.title": "The Portable Beehive",
   "cbbees.ponder.mechanical_beehive.header": "The Mechanical Beehive",
