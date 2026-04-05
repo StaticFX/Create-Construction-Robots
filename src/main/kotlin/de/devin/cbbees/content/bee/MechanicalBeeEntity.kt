@@ -169,9 +169,14 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     }
 
     override fun customServerAiStep() {
-        this.level().profiler.push("beeBrain")
-        this.getBrain().tick(this.level() as ServerLevel, this)
-        this.level().profiler.pop()
+        // Stagger brain ticks: only tick brain every other tick to halve CPU cost.
+        // Movement continues independently via MoveToTargetSink. State transitions
+        // are delayed by at most 1 tick — invisible in practice.
+        if ((tickCount + id) % 2 == 0) {
+            this.level().profiler.push("beeBrain")
+            this.getBrain().tick(this.level() as ServerLevel, this)
+            this.level().profiler.pop()
+        }
 
         super.customServerAiStep()
     }

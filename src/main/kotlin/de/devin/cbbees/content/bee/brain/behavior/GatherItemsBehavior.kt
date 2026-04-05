@@ -37,6 +37,31 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
     1 // Re-evaluate every tick to prevent MoveToTaskBehavior from hijacking the walk target
 ) {
 
+    // Cache for computeMissingItems — avoids recomputation every tick
+    private var cachedMissing: List<ItemStack>? = null
+    private var cachedBatchIndex: Int = -1
+    private var cachedInventoryHash: Int = 0
+
+    private fun getCachedMissingItems(bee: MechanicalBeeEntity, batch: TaskBatch): List<ItemStack> {
+        val invHash = computeInventoryHash(bee)
+        if (cachedMissing != null && cachedBatchIndex == batch.currentIndex && cachedInventoryHash == invHash) {
+            return cachedMissing!!
+        }
+        val result = computeMissingItems(bee, batch)
+        cachedMissing = result
+        cachedBatchIndex = batch.currentIndex
+        cachedInventoryHash = invHash
+        return result
+    }
+
+    private fun computeInventoryHash(bee: MechanicalBeeEntity): Int {
+        var hash = 0
+        for (item in bee.getInventoryContents()) {
+            hash = hash * 31 + ItemStack.hashItemAndComponents(item) + item.count
+        }
+        return hash
+    }
+
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
         if (owner.springTension <= 0f) return false
 
@@ -62,7 +87,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             }
         }
 
-        val missing = computeMissingItems(owner, batch)
+        val missing = getCachedMissingItems(owner, batch)
         if (missing.isNotEmpty()) {
             BeeDebug.log(owner, "Gather: need ${missing.size} item type(s)")
         }
@@ -71,7 +96,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
         val batch = entity.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
-        val missing = computeMissingItems(entity, batch)
+        val missing = getCachedMissingItems(entity, batch)
         if (missing.isEmpty()) return
 
         val network = entity.network()

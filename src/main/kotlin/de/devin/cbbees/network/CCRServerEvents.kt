@@ -18,6 +18,7 @@ object CCRServerEvents {
 
     private var tickCounter = 0
     private var syncCounter = 0
+    private var purgeCounter = 0
 
     /**
      * Called every server tick.
@@ -38,13 +39,26 @@ object CCRServerEvents {
         TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
 
+        // Purge stale components every 200 ticks (10 seconds) — stale components are rare
+        purgeCounter++
+        if (purgeCounter >= 20) {
+            purgeCounter = 0
+            ServerBeeNetworkManager.getNetworks().forEach { it.purgeStaleComponents() }
+        }
+
         // Sync packets every 40 ticks (2 seconds) to reduce network and serialization overhead
         syncCounter++
         if (syncCounter >= 4) {
             syncCounter = 0
             for (player in server.playerList.players) {
                 HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-                NetworkSyncPacket.sendTo(player)
+                // Only send network topology when it actually changed
+                if (ServerBeeNetworkManager.dirty) {
+                    NetworkSyncPacket.sendTo(player)
+                }
+            }
+            if (ServerBeeNetworkManager.dirty) {
+                ServerBeeNetworkManager.clearDirty()
             }
         }
     }
